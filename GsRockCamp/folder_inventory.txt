@@ -1,0 +1,117 @@
+
+2026/01/30 22:23:42 エラー 1 (0x00000001) コピー先のファイル システムの種類を取得しています \\.\NUL\
+ファンクションが間違っています。
+
+2026/01/30 22:23:43 エラー 53 (0x00000035) コピー先ディレクトリにアクセスしています \\.\NUL\
+ネットワーク パスが見つかりません。
+
+	新しいディレクトリ       3	C:\Users\Goro\Music\ModeGame\
+	  新しいファイル		       0 2026/01/30 13:23:42	C:\Users\Goro\Music\ModeGame\folder_inventory.txt
+	  新しいファイル		    9040 2026/01/29 06:05:01	C:\Users\Goro\Music\ModeGame\index.html
+	  新しいファイル		       0 2026/01/29 05:05:38	C:\Users\Goro\Music\ModeGame\新規 テキスト ドキュメント.txt
+	新しいディレクトリ      10	C:\Users\Goro\Music\ModeGame\audio\
+	  新しいファイル		   96744 2026/01/29 05:00:12	C:\Users\Goro\Music\ModeGame\audio\c_aeolian.mp3
+	  新しいファイル		   96744 2026/01/29 04:57:48	C:\Users\Goro\Music\ModeGame\audio\c_dorian.mp3
+	  新しいファイル		   96744 2026/01/29 05:01:36	C:\Users\Goro\Music\ModeGame\audio\c_harmonic_minor.mp3
+	  新しいファイル		   96744 2026/01/29 04:57:21	C:\Users\Goro\Music\ModeGame\audio\c_ionian.mp3
+	  新しいファイル		   96744 2026/01/29 05:00:56	C:\Users\Goro\Music\ModeGame\audio\c_locrian.mp3
+	  新しいファイル		   96744 2026/01/29 04:58:42	C:\Users\Goro\Music\ModeGame\audio\c_lydian.mp3
+	  新しいファイル		   96744 2026/01/29 05:01:56	C:\Users\Goro\Music\ModeGame\audio\c_melodic_minor.mp3
+	  新しいファイル		   96744 2026/01/29 04:59:12	C:\Users\Goro\Music\ModeGame\audio\c_mixolydian.mp3
+	  新しいファイル		   96744 2026/01/29 05:01:16	C:\Users\Goro\Music\ModeGame\audio\c_natural_minor.mp3
+	  新しいファイル		   96744 2026/01/29 04:58:16	C:\Users\Goro\Music\ModeGame\audio\c_phrygian.mp3
+	新しいディレクトリ      26	C:\Users\Goro\Music\ModeGame\audio\diatonic\
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\A7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\Am.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\Am7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\A♭.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\Bm-5.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\Bm7-5.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\B♭.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\C.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\C7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\CM7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\D7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\Dm.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\Dm7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\D♭7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\E7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\Em.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\Em7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\E♭.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\F#dim.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\F.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\Fm.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\FM7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\G#dim7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\G.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\G7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\audio\diatonic\Gm.mp3
+	新しいディレクトリ       2	C:\Users\Goro\Music\ModeGame\diatonic\
+	  新しいファイル		   11472 2026/01/29 08:21:35	C:\Users\Goro\Music\ModeGame\diatonic\index.html
+	  新しいファイル		       0 2026/01/29 08:04:21	C:\Users\Goro\Music\ModeGame\diatonic\新規 テキスト ドキュメント.txt
+	新しいディレクトリ      26	C:\Users\Goro\Music\ModeGame\diatonic\audio\
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\A7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\Am.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\Am7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\A♭.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\Bm-5.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\Bm7-5.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\B♭.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\C.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\C7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\CM7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\D7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\Dm.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\Dm7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\D♭7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\E7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\Em.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\Em7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\E♭.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\F#dim.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\F.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\Fm.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\FM7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\G#dim7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\G.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\G7.mp3
+	  新しいファイル		   65052 2026/01/29 07:39:03	C:\Users\Goro\Music\ModeGame\diatonic\audio\Gm.mp3
+	新しいディレクトリ       2	C:\Users\Goro\Music\ModeGame\Kadenz\
+	  新しいファイル		   19607 2026/01/29 14:00:29	C:\Users\Goro\Music\ModeGame\Kadenz\index.html
+	  新しいファイル		       0 2026/01/29 13:10:51	C:\Users\Goro\Music\ModeGame\Kadenz\新規 テキスト ドキュメント.txt
+	新しいディレクトリ      13	C:\Users\Goro\Music\ModeGame\Kadenz\audio\
+	  新しいファイル		  345693 2026/01/29 11:32:42	C:\Users\Goro\Music\ModeGame\Kadenz\audio\A01_CFGCCFGC.mp3
+	  新しいファイル		  345693 2026/01/29 11:41:28	C:\Users\Goro\Music\ModeGame\Kadenz\audio\A02_Dm7G7Cmaj7Am7Dm7G7Cmaj7Cmaj7.mp3
+	  新しいファイル		  345693 2026/01/29 12:09:11	C:\Users\Goro\Music\ModeGame\Kadenz\audio\A03_CBbCBbCDm7FC.mp3
+	  新しいファイル		  345693 2026/01/29 11:46:48	C:\Users\Goro\Music\ModeGame\Kadenz\audio\A04_CE7AmD7Dm7G7CC.mp3
+	  新しいファイル		  345693 2026/01/29 11:55:28	C:\Users\Goro\Music\ModeGame\Kadenz\audio\A05_Dm7G7CDbCDm7G7C.mp3
+	  新しいファイル		  345693 2026/01/29 11:59:30	C:\Users\Goro\Music\ModeGame\Kadenz\audio\A06_CCFmCDm7G7CC.mp3
+	  新しいファイル		  345693 2026/01/29 12:12:52	C:\Users\Goro\Music\ModeGame\Kadenz\audio\A07_CA7Dm7G7CA7Dm7C.mp3
+	  新しいファイル		  345693 2026/01/29 12:19:04	C:\Users\Goro\Music\ModeGame\Kadenz\audio\A08_CD7G7CCD7G7C.mp3
+	  新しいファイル		  345693 2026/01/29 12:22:14	C:\Users\Goro\Music\ModeGame\Kadenz\audio\A09_CE7AmCCE7AmC.mp3
+	  新しいファイル		  345693 2026/01/29 12:35:23	C:\Users\Goro\Music\ModeGame\Kadenz\audio\A10_CCDDCDGC.mp3
+	  新しいファイル		  345693 2026/01/29 12:41:09	C:\Users\Goro\Music\ModeGame\Kadenz\audio\M01_CmCmBbBbAbAbGmCm.mp3
+	  新しいファイル		  345693 2026/01/29 12:45:50	C:\Users\Goro\Music\ModeGame\Kadenz\audio\M02_CmCmAbAbGGCmCm.mp3
+	  新しいファイル		  345693 2026/01/29 12:47:29	C:\Users\Goro\Music\ModeGame\Kadenz\audio\M03_CmCmFFGGCm6Cm.mp3
+	新しいディレクトリ       1	C:\Users\Goro\Music\ModeGame\qualities\
+	  新しいファイル		   11972 2026/01/29 10:37:27	C:\Users\Goro\Music\ModeGame\qualities\index.html
+	新しいディレクトリ      18	C:\Users\Goro\Music\ModeGame\qualities\audio\
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\C.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\C6.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\C7.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\C7sus2.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\C9.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Cadd9.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Caug.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Cdim.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Cdim7.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Cm.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Cm6.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Cm7.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Cm9.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Cmaj7.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Cmaj9.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\CmM7.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Csus2.mp3
+	  新しいファイル		   65052 2026/01/29 09:39:16	C:\Users\Goro\Music\ModeGame\qualities\audio\Csus4.mp3

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chord Quiz (C key)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 18px; line-height: 1.6; }
+    button, select { padding: 10px 14px; margin: 6px 6px 0 0; font-size: 16px; }
+    #status { margin-top: 12px; font-weight: 700; }
+    #hintArea { margin-top: 8px; padding: 10px; border: 1px dashed #aaa; border-radius: 10px; display: none; }
+    .box { padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin-top: 12px; }
+    .small { font-size: 13px; opacity: .75; }
+    .row { margin-top: 8px; }
+    .grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .choice { white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <h1>コード一発当てクイズ（Cキー）</h1>
+
+  <div class="box">
+    <div class="row">
+      <label for="difficulty"><b>難易度：</b></label>
+      <select id="difficulty">
+        <option value="d1">① 3和音ダイアトニックのみ</option>
+        <option value="d2">② 4和音ダイアトニックを①に加える</option>
+        <option value="d3">③ ノーマル群を①に加える</option>
+        <option value="d4">④ ノーマル群を②に加える</option>
+        <option value="d5">⑤ 全部（意地悪枠込み）</option>
+      </select>
+      <span class="small">※難易度で出題＆選択肢が変わります</span>
+    </div>
+
+    <div class="row">
+      <button id="btnStart">出題（ランダム再生）</button>
+      <button id="btnReplay" disabled>もう一回聴く</button>
+      <button id="btnReveal" disabled>答えを見る</button>
+      <button id="btnHint" disabled>ヒント（キャラ音）</button>
+      <button id="btnC" disabled>C（基準音）</button>
+    </div>
+
+    <div id="status">まだ出題していません</div>
+    <div id="hintArea"></div>
+    <div class="small">※初回クリックで音が鳴るのはブラウザ仕様です</div>
+  </div>
+
+  <div class="box row">
+    <div><b>答えを選んでください：</b></div>
+    <div class="grid" id="choices"></div>
+  </div>
+
+  <div class="box row">
+    <div>スコア：<span id="score">0</span> / <span id="total">0</span></div>
+  </div>
+
+  <audio id="player" preload="auto"></audio>
+
+  <script>
+    // ===== 出題データ（ファイル名はごろうさんの実ファイルに合わせてあります）=====
+    const ALL = [
+      // --- ① 3和音ダイアトニック（7つ）---
+      { key:"C",    label:"C",    src:"audio/C.mp3",    hint:"キャラ：Cメジャー三和音（C–E–G）" },
+      { key:"Dm",   label:"Dm",   src:"audio/Dm.mp3",   hint:"キャラ：マイナー三和音（D–F–A）" },
+      { key:"Em",   label:"Em",   src:"audio/Em.mp3",   hint:"キャラ：マイナー三和音（E–G–B）" },
+      { key:"F",    label:"F",    src:"audio/F.mp3",    hint:"キャラ：メジャー三和音（F–A–C）" },
+      { key:"G",    label:"G",    src:"audio/G.mp3",    hint:"キャラ：メジャー三和音（G–B–D）" },
+      { key:"Am",   label:"Am",   src:"audio/Am.mp3",   hint:"キャラ：マイナー三和音（A–C–E）" },
+      { key:"Bm-5", label:"Bm-5", src:"audio/Bm-5.mp3", hint:"キャラ：減三和音（B–D–F）※不安定" },
+
+      // --- ② 4和音ダイアトニック（7つ）---
+      { key:"CM7",   label:"CM7",   src:"audio/CM7.mp3",   hint:"キャラ：M7（B）※半音で上に寄る感じ" },
+      { key:"Dm7",   label:"Dm7",   src:"audio/Dm7.mp3",   hint:"キャラ：m7（C）※4音で少しジャズ化" },
+      { key:"Em7",   label:"Em7",   src:"audio/Em7.mp3",   hint:"キャラ：m7（D）" },
+      { key:"FM7",   label:"FM7",   src:"audio/FM7.mp3",   hint:"キャラ：M7（E）" },
+      { key:"G7",    label:"G7",    src:"audio/G7.mp3",    hint:"キャラ：7（F）※ドミナントの圧" },
+      { key:"Am7",   label:"Am7",   src:"audio/Am7.mp3",   hint:"キャラ：m7（G）" },
+      { key:"Bm7-5", label:"Bm7-5", src:"audio/Bm7-5.mp3", hint:"キャラ：m7♭5（A）※半減の匂い" },
+
+      // --- ③④ ノーマル群（機能が明確なノンダイア）---
+      { key:"E7",  label:"E7",  src:"audio/E7.mp3",  hint:"キャラ：G#（長3度）※急に外の音が立つ" },
+      { key:"A7",  label:"A7",  src:"audio/A7.mp3",  hint:"キャラ：C#（長3度）※外音で圧が出る" },
+      { key:"D7",  label:"D7",  src:"audio/D7.mp3",  hint:"キャラ：F#（長3度）※外音で圧が出る" },
+      { key:"C7",  label:"C7",  src:"audio/C7.mp3",  hint:"キャラ：Bb（♭7）※ブルース/ドミナント化" },
+      { key:"D♭7", label:"D♭7", src:"audio/D♭7.mp3", hint:"キャラ：トライトーン感（代理ドミナントっぽい圧）" },
+
+      // --- ⑤ 意地悪枠（借用＋経過/緊張）---
+      { key:"Fm",     label:"Fm",     src:"audio/Fm.mp3",     hint:"キャラ：Ab（♭3）※サブドミナントマイナー系の匂い" },
+      { key:"A♭",     label:"A♭",     src:"audio/A♭.mp3",     hint:"キャラ：Abメジャー（三和音）※借用の色" },
+      { key:"B♭",     label:"B♭",     src:"audio/B♭.mp3",     hint:"キャラ：Bbメジャー（三和音）※♭VIIのロック感" },
+      { key:"E♭",     label:"E♭",     src:"audio/E♭.mp3",     hint:"キャラ：Ebメジャー（三和音）※♭IIIの色" },
+      { key:"Gm",     label:"Gm",     src:"audio/Gm.mp3",     hint:"キャラ：Bb（短3度）※借用マイナーの匂い" },
+      { key:"F#dim",  label:"F#dim",  src:"audio/F#dim.mp3",  hint:"キャラ：F#–A–C（減）※緊張/経過" },
+      { key:"G#dim7", label:"G#dim7", src:"audio/G#dim7.mp3", hint:"キャラ：短3度積み（G#→B→D→F）※意地悪枠" },
+    ];
+
+    // ===== 難易度ごとの出題範囲 =====
+    const POOLS = {
+      d1: ["C","Dm","Em","F","G","Am","Bm-5"],
+
+      d2: [
+        "C","Dm","Em","F","G","Am","Bm-5",
+        "CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5"
+      ],
+
+      d3: [
+        "C","Dm","Em","F","G","Am","Bm-5",
+        "E7","A7","D7","C7","D♭7"
+      ],
+
+      d4: [
+        "C","Dm","Em","F","G","Am","Bm-5",
+        "CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5",
+        "E7","A7","D7","C7","D♭7"
+      ],
+
+      d5: ALL.map(x => x.key),
+    };
+
+    // ===== DOM =====
+    const player = document.getElementById("player");
+    const statusEl = document.getElementById("status");
+    const hintArea = document.getElementById("hintArea");
+
+    const scoreEl  = document.getElementById("score");
+    const totalEl  = document.getElementById("total");
+
+    const btnStart = document.getElementById("btnStart");
+    const btnReplay= document.getElementById("btnReplay");
+    const btnReveal= document.getElementById("btnReveal");
+    const btnHint  = document.getElementById("btnHint");
+    const btnC     = document.getElementById("btnC");
+
+    const difficultySel = document.getElementById("difficulty");
+    const choicesWrap = document.getElementById("choices");
+
+    // ===== 状態 =====
+    let current = null;
+    let locked = true;
+    let score = 0;
+    let total = 0;
+
+    function getPoolKeys() {
+      const diff = difficultySel.value;
+      return POOLS[diff] ?? POOLS.d1;
+    }
+
+    function getItemByKey(key) {
+      return ALL.find(m => m.key === key);
+    }
+
+    function pickRandomFromPool() {
+      const poolKeys = getPoolKeys();
+      const idx = Math.floor(Math.random() * poolKeys.length);
+      return getItemByKey(poolKeys[idx]);
+    }
+
+    function clearHint() {
+      hintArea.style.display = "none";
+      hintArea.textContent = "";
+    }
+
+    function setButtonsEnabled(enabled) {
+      btnReplay.disabled = !enabled;
+      btnReveal.disabled = !enabled;
+      btnHint.disabled = !enabled;
+      btnC.disabled = !enabled;
+    }
+
+    function setChoicesEnabled(enabled) {
+      const btns = Array.from(document.querySelectorAll(".choice"));
+      btns.forEach(b => b.disabled = !enabled);
+    }
+
+    function rebuildChoices() {
+      choicesWrap.innerHTML = "";
+      const pool = new Set(getPoolKeys());
+
+      const items = ALL.filter(x => pool.has(x.key));
+
+      items.forEach(item => {
+        const b = document.createElement("button");
+        b.className = "choice";
+        b.textContent = item.label;
+        b.dataset.key = item.key;
+        b.disabled = true;
+
+        b.addEventListener("click", () => {
+          if (locked || !current) return;
+
+          locked = true;
+          setButtonsEnabled(false);
+          setChoicesEnabled(false);
+
+          const guess = b.dataset.key;
+          const correct = (guess === current.key);
+
+          if (correct) {
+            score += 1;
+            scoreEl.textContent = String(score);
+            statusEl.textContent = `⭕ 正解！ ${current.label}`;
+          } else {
+            statusEl.textContent = `❌ 不正解… 正解は ${current.label}`;
+          }
+        });
+
+        choicesWrap.appendChild(b);
+      });
+    }
+
+    async function playSrc(src) {
+      player.pause();
+      player.currentTime = 0;
+      player.src = encodeURI(src);
+      await player.play();
+    }
+
+    // ===== イベント =====
+    difficultySel.addEventListener("change", () => {
+      clearHint();
+      statusEl.textContent = "難易度を変更しました。出題してください。";
+      setButtonsEnabled(false);
+      setChoicesEnabled(false);
+      current = null;
+      locked = true;
+      rebuildChoices();
+    });
+
+    btnStart.addEventListener("click", async () => {
+      current = pickRandomFromPool();
+      locked = false;
+
+      total += 1;
+      totalEl.textContent = String(total);
+
+      clearHint();
+      statusEl.textContent = "出題中：再生しました。どれでしょう？";
+      setButtonsEnabled(true);
+      setChoicesEnabled(true);
+
+      try {
+        await playSrc(current.src);
+      } catch (e) {
+        statusEl.textContent = "再生できませんでした。もう一度「出題」を押してください。";
+      }
+    });
+
+    btnReplay.addEventListener("click", async () => {
+      if (!current) return;
+      clearHint();
+      statusEl.textContent = "もう一回再生しました。";
+      try { await playSrc(current.src); } catch {}
+    });
+
+    btnReveal.addEventListener("click", () => {
+      if (!current) return;
+      statusEl.textContent = `答え：${current.label}`;
+    });
+
+    btnHint.addEventListener("click", () => {
+      if (!current) return;
+      hintArea.style.display = "block";
+      hintArea.innerHTML = `<b>ヒント</b><br><code>${current.hint}</code>`;
+    });
+
+    // ★追加：C（基準音）ボタン：audio/C.mp3 を鳴らすだけ
+    btnC.addEventListener("click", async () => {
+      try {
+        await playSrc("audio/C.mp3");
+        statusEl.textContent = "基準音：C を再生しました。";
+      } catch (e) {
+        statusEl.textContent = "Cの再生に失敗しました。";
+      }
+    });
+
+    // 初期状態
+    rebuildChoices();
+    setButtonsEnabled(false);
+    setChoicesEnabled(false);
+  </script>
+</body>
+</html>

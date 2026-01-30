@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mode Quiz (C tonic)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 18px; line-height: 1.6; }
+    button, select { padding: 10px 14px; margin: 6px 6px 0 0; font-size: 16px; }
+    #status { margin-top: 12px; font-weight: 700; }
+    #hintArea { margin-top: 8px; padding: 10px; border: 1px dashed #aaa; border-radius: 10px; display: none; }
+    .box { padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin-top: 12px; }
+    .small { font-size: 13px; opacity: .75; }
+    .row { margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>モード当てクイズ（Cトニック）</h1>
+
+  <div class="box">
+    <div class="row">
+      <label for="difficulty"><b>難易度：</b></label>
+      <select id="difficulty">
+        <option value="easy">EASY（4つ）</option>
+        <option value="normal">NORMAL（マイナー3つ）</option>
+        <option value="hard">HARD（全部）</option>
+      </select>
+      <span class="small">※難易度で「出題範囲」が変わります</span>
+    </div>
+
+    <div class="row">
+      <button id="btnStart">出題（ランダム再生）</button>
+      <button id="btnReplay" disabled>もう一回聴く</button>
+      <button id="btnReveal" disabled>答えを見る</button>
+      <button id="btnHint" disabled>ヒント（キャラ音）</button>
+    </div>
+
+    <div id="status">まだ出題していません</div>
+    <div id="hintArea"></div>
+    <div class="small">※初回クリックで音が鳴るのはブラウザ仕様です</div>
+  </div>
+
+  <div class="box row">
+    <div><b>答えを選んでください：</b></div>
+    <button class="choice" data-key="ionian" disabled>イオニアン</button>
+    <button class="choice" data-key="dorian" disabled>ドリアン</button>
+    <button class="choice" data-key="phrygian" disabled>フリジアン</button>
+    <button class="choice" data-key="lydian" disabled>リディアン</button>
+    <button class="choice" data-key="mixolydian" disabled>ミクソリディアン</button>
+    <button class="choice" data-key="aeolian" disabled>エオリアン</button>
+    <button class="choice" data-key="locrian" disabled>ロクリアン</button>
+    <button class="choice" data-key="natural_minor" disabled>ナチュラルマイナー</button>
+    <button class="choice" data-key="harmonic_minor" disabled>ハーモニックマイナー</button>
+    <button class="choice" data-key="melodic_minor" disabled>メロディックマイナー</button>
+  </div>
+
+  <div class="box row">
+    <div>スコア：<span id="score">0</span> / <span id="total">0</span></div>
+  </div>
+
+  <audio id="player" preload="auto"></audio>
+
+  <script>
+    // ===== 出題データ（ファイル名＋ヒント）=====
+    const ALL = [
+      { key: "ionian",         label: "イオニアン",           src: "audio/c_ionian.mp3",          hint: "特徴：7（B）※導音でCへ強く解決" },
+      { key: "dorian",         label: "ドリアン",             src: "audio/c_dorian.mp3",          hint: "特徴：♭3（Eb）＋6（A）※マイナーなのに6が明るい" },
+      { key: "phrygian",       label: "フリジアン",           src: "audio/c_phrygian.mp3",        hint: "特徴：♭2（Db）※異国感の核" },
+      { key: "lydian",         label: "リディアン",           src: "audio/c_lydian.mp3",          hint: "特徴：#4（F#）※浮遊感の核" },
+      { key: "mixolydian",     label: "ミクソリディアン",      src: "audio/c_mixolydian.mp3",      hint: "特徴：♭7（Bb）※導音が弱く“丸い”終止" },
+      { key: "aeolian",        label: "エオリアン",           src: "audio/c_aeolian.mp3",         hint: "特徴：♭3（Eb）＋♭6（Ab）＋♭7（Bb）※ナチュラルマイナー" },
+      { key: "locrian",        label: "ロクリアン",           src: "audio/c_locrian.mp3",         hint: "特徴：♭2（Db）＋♭5（Gb）※不安定さの核" },
+      { key: "natural_minor",  label: "ナチュラルマイナー",    src: "audio/c_natural_minor.mp3",   hint: "特徴：♭3（Eb）＋♭6（Ab）＋♭7（Bb）※エオリアンと同じ音階" },
+      { key: "harmonic_minor", label: "ハーモニックマイナー",  src: "audio/c_harmonic_minor.mp3",  hint: "特徴：7（B）※マイナーなのに導音で終止が強い" },
+      { key: "melodic_minor",  label: "メロディックマイナー",  src: "audio/c_melodic_minor.mp3",   hint: "特徴：6（A）＋7（B）※上行形（都会感）" },
+    ];
+
+    // ===== 難易度ごとの出題範囲 =====
+    const POOLS = {
+      easy:   ["ionian", "lydian", "mixolydian", "aeolian"],
+      normal: ["ionian", "lydian", "mixolydian", "aeolian", "natural_minor", "harmonic_minor", "melodic_minor"],
+      hard:   ALL.map(x => x.key),
+    };
+
+    // ===== DOM =====
+    const player = document.getElementById("player");
+    const statusEl = document.getElementById("status");
+    const hintArea = document.getElementById("hintArea");
+
+    const scoreEl  = document.getElementById("score");
+    const totalEl  = document.getElementById("total");
+
+    const btnStart = document.getElementById("btnStart");
+    const btnReplay= document.getElementById("btnReplay");
+    const btnReveal= document.getElementById("btnReveal");
+    const btnHint  = document.getElementById("btnHint");
+
+    const difficultySel = document.getElementById("difficulty");
+    const choiceBtns = Array.from(document.querySelectorAll(".choice"));
+
+    // ===== 状態 =====
+    let current = null;
+    let locked = true;
+    let score = 0;
+    let total = 0;
+
+    function getPoolKeys() {
+      const diff = difficultySel.value;
+      return POOLS[diff] ?? POOLS.easy;
+    }
+
+    function getModeByKey(key) {
+      return ALL.find(m => m.key === key);
+    }
+
+    function pickRandomModeFromPool() {
+      const poolKeys = getPoolKeys();
+      const idx = Math.floor(Math.random() * poolKeys.length);
+      return getModeByKey(poolKeys[idx]);
+    }
+
+    function setChoicesEnabled(enabled) {
+      const pool = new Set(getPoolKeys());
+      choiceBtns.forEach(b => {
+        const k = b.dataset.key;
+        b.disabled = !(enabled && pool.has(k));
+      });
+      btnReplay.disabled = !enabled;
+      btnReveal.disabled = !enabled;
+      btnHint.disabled = !enabled;
+    }
+
+    async function playMode(mode) {
+      player.pause();
+      player.currentTime = 0;
+      player.src = mode.src;
+      await player.play();
+    }
+
+    function clearHint() {
+      hintArea.style.display = "none";
+      hintArea.textContent = "";
+    }
+
+    // ===== イベント =====
+    difficultySel.addEventListener("change", () => {
+      clearHint();
+      statusEl.textContent = "難易度を変更しました。出題してください。";
+      setChoicesEnabled(false);
+      current = null;
+      locked = true;
+    });
+
+    btnStart.addEventListener("click", async () => {
+      current = pickRandomModeFromPool();
+      locked = false;
+      total += 1;
+      totalEl.textContent = String(total);
+
+      clearHint();
+      statusEl.textContent = "出題中：再生しました。どれでしょう？";
+      setChoicesEnabled(true);
+
+      try {
+        await playMode(current);
+      } catch (e) {
+        statusEl.textContent = "再生できませんでした。もう一度「出題」を押してください。";
+      }
+    });
+
+    btnReplay.addEventListener("click", async () => {
+      if (!current) return;
+      clearHint();
+      statusEl.textContent = "もう一回再生しました。";
+      try { await playMode(current); } catch {}
+    });
+
+    btnReveal.addEventListener("click", () => {
+      if (!current) return;
+      statusEl.textContent = `答え：${current.label}`;
+    });
+
+    btnHint.addEventListener("click", () => {
+      if (!current) return;
+      hintArea.style.display = "block";
+      hintArea.innerHTML = `<b>ヒント</b><br><code>${current.hint}</code>`;
+    });
+
+    choiceBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (locked || !current) return;
+
+        const pool = new Set(getPoolKeys());
+        if (!pool.has(btn.dataset.key)) return;
+
+        locked = true;
+        setChoicesEnabled(false);
+
+        const guess = btn.dataset.key;
+        const correct = (guess === current.key);
+
+        if (correct) {
+          score += 1;
+          scoreEl.textContent = String(score);
+          statusEl.textContent = `⭕ 正解！ ${current.label}`;
+        } else {
+          statusEl.textContent = `❌ 不正解… 正解は ${current.label}`;
+        }
+      });
+    });
+
+    // 初期状態
+    setChoicesEnabled(false);
+  </script>
+</body>
+</html>

@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chord Quiz (C key)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 18px; line-height: 1.6; }
+    button, select { padding: 10px 14px; margin: 6px 6px 0 0; font-size: 16px; }
+    #status { margin-top: 12px; font-weight: 700; }
+    #hintArea { margin-top: 8px; padding: 10px; border: 1px dashed #aaa; border-radius: 10px; display: none; }
+    .box { padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin-top: 12px; }
+    .small { font-size: 13px; opacity: .75; }
+    .row { margin-top: 8px; }
+    .grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .choice { white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <h1>繧ｳ繝ｼ繝我ｸ逋ｺ蠖薙※繧ｯ繧､繧ｺ・・繧ｭ繝ｼ・・/h1>
+
+  <div class="box">
+    <div class="row">
+      <label for="difficulty"><b>髮｣譏灘ｺｦ・・/b></label>
+      <select id="difficulty">
+        <option value="d1">竭 3蜥碁浹繝繧､繧｢繝医ル繝・け縺ｮ縺ｿ</option>
+        <option value="d2">竭｡ 4蜥碁浹繝繧､繧｢繝医ル繝・け繧停蔵縺ｫ蜉縺医ｋ</option>
+        <option value="d3">竭｢ 繝弱・繝槭Ν鄒､繧停蔵縺ｫ蜉縺医ｋ</option>
+        <option value="d4">竭｣ 繝弱・繝槭Ν鄒､繧停贈縺ｫ蜉縺医ｋ</option>
+        <option value="d5">竭､ 蜈ｨ驛ｨ・域э蝨ｰ謔ｪ譫霎ｼ縺ｿ・・/option>
+      </select>
+      <span class="small">窶ｻ髮｣譏灘ｺｦ縺ｧ蜃ｺ鬘鯉ｼ・∈謚櫁い縺悟､峨ｏ繧翫∪縺・/span>
+    </div>
+
+    <div class="row">
+      <button id="btnStart">蜃ｺ鬘鯉ｼ医Λ繝ｳ繝繝蜀咲函・・/button>
+      <button id="btnReplay" disabled>繧ゅ≧荳蝗櫁・縺・/button>
+      <button id="btnReveal" disabled>遲斐∴繧定ｦ九ｋ</button>
+      <button id="btnHint" disabled>繝偵Φ繝茨ｼ医く繝｣繝ｩ髻ｳ・・/button>
+      <button id="btnC" disabled>C・亥渕貅夜浹・・/button>
+    </div>
+
+    <div id="status">縺ｾ縺蜃ｺ鬘後＠縺ｦ縺・∪縺帙ｓ</div>
+    <div id="hintArea"></div>
+    <div class="small">窶ｻ蛻晏屓繧ｯ繝ｪ繝・け縺ｧ髻ｳ縺碁ｳｴ繧九・縺ｯ繝悶Λ繧ｦ繧ｶ莉墓ｧ倥〒縺・/div>
+  </div>
+
+  <div class="box row">
+    <div><b>遲斐∴繧帝∈繧薙〒縺上□縺輔＞・・/b></div>
+    <div class="grid" id="choices"></div>
+  </div>
+
+  <div class="box row">
+    <div>繧ｹ繧ｳ繧｢・・span id="score">0</span> / <span id="total">0</span></div>
+  </div>
+
+  <audio id="player" preload="auto"></audio>
+
+  <script>
+    // ===== 蜃ｺ鬘後ョ繝ｼ繧ｿ・医ヵ繧｡繧､繝ｫ蜷阪・縺斐ｍ縺・＆繧薙・螳溘ヵ繧｡繧､繝ｫ縺ｫ蜷医ｏ縺帙※縺ゅｊ縺ｾ縺呻ｼ・====
+    const ALL = [
+      // --- 竭 3蜥碁浹繝繧､繧｢繝医ル繝・け・・縺､・・--
+      { key:"C",    label:"C",    src:"audio/C.mp3",    hint:"繧ｭ繝｣繝ｩ・咾繝｡繧ｸ繝｣繝ｼ荳牙柱髻ｳ・・窶摘窶敵・・ },
+      { key:"Dm",   label:"Dm",   src:"audio/Dm.mp3",   hint:"繧ｭ繝｣繝ｩ・壹・繧､繝翫・荳牙柱髻ｳ・・窶擢窶鄭・・ },
+      { key:"Em",   label:"Em",   src:"audio/Em.mp3",   hint:"繧ｭ繝｣繝ｩ・壹・繧､繝翫・荳牙柱髻ｳ・・窶敵窶釘・・ },
+      { key:"F",    label:"F",    src:"audio/F.mp3",    hint:"繧ｭ繝｣繝ｩ・壹Γ繧ｸ繝｣繝ｼ荳牙柱髻ｳ・・窶鄭窶鼎・・ },
+      { key:"G",    label:"G",    src:"audio/G.mp3",    hint:"繧ｭ繝｣繝ｩ・壹Γ繧ｸ繝｣繝ｼ荳牙柱髻ｳ・・窶釘窶泥・・ },
+      { key:"Am",   label:"Am",   src:"audio/Am.mp3",   hint:"繧ｭ繝｣繝ｩ・壹・繧､繝翫・荳牙柱髻ｳ・・窶鼎窶摘・・ },
+      { key:"Bm-5", label:"Bm-5", src:"audio/Bm-5.mp3", hint:"繧ｭ繝｣繝ｩ・壽ｸ帑ｸ牙柱髻ｳ・・窶泥窶擢・俄ｻ荳榊ｮ牙ｮ・ },
+
+      // --- 竭｡ 4蜥碁浹繝繧､繧｢繝医ル繝・け・・縺､・・--
+      { key:"CM7",   label:"CM7",   src:"audio/CM7.mp3",   hint:"繧ｭ繝｣繝ｩ・哺7・・・俄ｻ蜊企浹縺ｧ荳翫↓蟇・ｋ諢溘§" },
+      { key:"Dm7",   label:"Dm7",   src:"audio/Dm7.mp3",   hint:"繧ｭ繝｣繝ｩ・嗄7・・・俄ｻ4髻ｳ縺ｧ蟆代＠繧ｸ繝｣繧ｺ蛹・ },
+      { key:"Em7",   label:"Em7",   src:"audio/Em7.mp3",   hint:"繧ｭ繝｣繝ｩ・嗄7・・・・ },
+      { key:"FM7",   label:"FM7",   src:"audio/FM7.mp3",   hint:"繧ｭ繝｣繝ｩ・哺7・・・・ },
+      { key:"G7",    label:"G7",    src:"audio/G7.mp3",    hint:"繧ｭ繝｣繝ｩ・・・・・俄ｻ繝峨Α繝翫Φ繝医・蝨ｧ" },
+      { key:"Am7",   label:"Am7",   src:"audio/Am7.mp3",   hint:"繧ｭ繝｣繝ｩ・嗄7・・・・ },
+      { key:"Bm7-5", label:"Bm7-5", src:"audio/Bm7-5.mp3", hint:"繧ｭ繝｣繝ｩ・嗄7笙ｭ5・・・俄ｻ蜊頑ｸ帙・蛹ゅ＞" },
+
+      // --- 竭｢竭｣ 繝弱・繝槭Ν鄒､・域ｩ溯・縺梧・遒ｺ縺ｪ繝弱Φ繝繧､繧｢・・--
+      { key:"E7",  label:"E7",  src:"audio/E7.mp3",  hint:"繧ｭ繝｣繝ｩ・哦#・磯聞3蠎ｦ・俄ｻ諤･縺ｫ螟悶・髻ｳ縺檎ｫ九▽" },
+      { key:"A7",  label:"A7",  src:"audio/A7.mp3",  hint:"繧ｭ繝｣繝ｩ・咾#・磯聞3蠎ｦ・俄ｻ螟夜浹縺ｧ蝨ｧ縺悟・繧・ },
+      { key:"D7",  label:"D7",  src:"audio/D7.mp3",  hint:"繧ｭ繝｣繝ｩ・哥#・磯聞3蠎ｦ・俄ｻ螟夜浹縺ｧ蝨ｧ縺悟・繧・ },
+      { key:"C7",  label:"C7",  src:"audio/C7.mp3",  hint:"繧ｭ繝｣繝ｩ・咤b・遺勵7・俄ｻ繝悶Ν繝ｼ繧ｹ/繝峨Α繝翫Φ繝亥喧" },
+      { key:"D笙ｭ7", label:"D笙ｭ7", src:"audio/D笙ｭ7.mp3", hint:"繧ｭ繝｣繝ｩ・壹ヨ繝ｩ繧､繝医・繝ｳ諢滂ｼ井ｻ｣逅・ラ繝溘リ繝ｳ繝医▲縺ｽ縺・悸・・ },
+
+      // --- 竭､ 諢丞慍謔ｪ譫・亥溽畑・狗ｵ碁℃/邱雁ｼｵ・・--
+      { key:"Fm",     label:"Fm",     src:"audio/Fm.mp3",     hint:"繧ｭ繝｣繝ｩ・哂b・遺勵3・俄ｻ繧ｵ繝悶ラ繝溘リ繝ｳ繝医・繧､繝翫・邉ｻ縺ｮ蛹ゅ＞" },
+      { key:"A笙ｭ",     label:"A笙ｭ",     src:"audio/A笙ｭ.mp3",     hint:"繧ｭ繝｣繝ｩ・哂b繝｡繧ｸ繝｣繝ｼ・井ｸ牙柱髻ｳ・俄ｻ蛟溽畑縺ｮ濶ｲ" },
+      { key:"B笙ｭ",     label:"B笙ｭ",     src:"audio/B笙ｭ.mp3",     hint:"繧ｭ繝｣繝ｩ・咤b繝｡繧ｸ繝｣繝ｼ・井ｸ牙柱髻ｳ・俄ｻ笙ｭVII縺ｮ繝ｭ繝・け諢・ },
+      { key:"E笙ｭ",     label:"E笙ｭ",     src:"audio/E笙ｭ.mp3",     hint:"繧ｭ繝｣繝ｩ・哘b繝｡繧ｸ繝｣繝ｼ・井ｸ牙柱髻ｳ・俄ｻ笙ｭIII縺ｮ濶ｲ" },
+      { key:"Gm",     label:"Gm",     src:"audio/Gm.mp3",     hint:"繧ｭ繝｣繝ｩ・咤b・育洒3蠎ｦ・俄ｻ蛟溽畑繝槭う繝翫・縺ｮ蛹ゅ＞" },
+      { key:"F#dim",  label:"F#dim",  src:"audio/F#dim.mp3",  hint:"繧ｭ繝｣繝ｩ・哥#窶鄭窶鼎・域ｸ幢ｼ俄ｻ邱雁ｼｵ/邨碁℃" },
+      { key:"G#dim7", label:"G#dim7", src:"audio/G#dim7.mp3", hint:"繧ｭ繝｣繝ｩ・夂洒3蠎ｦ遨阪∩・・#竊達竊奪竊巽・俄ｻ諢丞慍謔ｪ譫" },
+    ];
+
+    // ===== 髮｣譏灘ｺｦ縺斐→縺ｮ蜃ｺ鬘檎ｯ・峇 =====
+    const POOLS = {
+      d1: ["C","Dm","Em","F","G","Am","Bm-5"],
+
+      d2: [
+        "C","Dm","Em","F","G","Am","Bm-5",
+        "CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5"
+      ],
+
+      d3: [
+        "C","Dm","Em","F","G","Am","Bm-5",
+        "E7","A7","D7","C7","D笙ｭ7"
+      ],
+
+      d4: [
+        "C","Dm","Em","F","G","Am","Bm-5",
+        "CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5",
+        "E7","A7","D7","C7","D笙ｭ7"
+      ],
+
+      d5: ALL.map(x => x.key),
+    };
+
+    // ===== DOM =====
+    const player = document.getElementById("player");
+    const statusEl = document.getElementById("status");
+    const hintArea = document.getElementById("hintArea");
+
+    const scoreEl  = document.getElementById("score");
+    const totalEl  = document.getElementById("total");
+
+    const btnStart = document.getElementById("btnStart");
+    const btnReplay= document.getElementById("btnReplay");
+    const btnReveal= document.getElementById("btnReveal");
+    const btnHint  = document.getElementById("btnHint");
+    const btnC     = document.getElementById("btnC");
+
+    const difficultySel = document.getElementById("difficulty");
+    const choicesWrap = document.getElementById("choices");
+
+    // ===== 迥ｶ諷・=====
+    let current = null;
+    let locked = true;
+    let score = 0;
+    let total = 0;
+
+    function getPoolKeys() {
+      const diff = difficultySel.value;
+      return POOLS[diff] ?? POOLS.d1;
+    }
+
+    function getItemByKey(key) {
+      return ALL.find(m => m.key === key);
+    }
+
+    function pickRandomFromPool() {
+      const poolKeys = getPoolKeys();
+      const idx = Math.floor(Math.random() * poolKeys.length);
+      return getItemByKey(poolKeys[idx]);
+    }
+
+    function clearHint() {
+      hintArea.style.display = "none";
+      hintArea.textContent = "";
+    }
+
+    function setButtonsEnabled(enabled) {
+      btnReplay.disabled = !enabled;
+      btnReveal.disabled = !enabled;
+      btnHint.disabled = !enabled;
+      btnC.disabled = !enabled;
+    }
+
+    function setChoicesEnabled(enabled) {
+      const btns = Array.from(document.querySelectorAll(".choice"));
+      btns.forEach(b => b.disabled = !enabled);
+    }
+
+    function rebuildChoices() {
+      choicesWrap.innerHTML = "";
+      const pool = new Set(getPoolKeys());
+
+      const items = ALL.filter(x => pool.has(x.key));
+
+      items.forEach(item => {
+        const b = document.createElement("button");
+        b.className = "choice";
+        b.textContent = item.label;
+        b.dataset.key = item.key;
+        b.disabled = true;
+
+        b.addEventListener("click", () => {
+          if (locked || !current) return;
+
+          locked = true;
+          setButtonsEnabled(false);
+          setChoicesEnabled(false);
+
+          const guess = b.dataset.key;
+          const correct = (guess === current.key);
+
+          if (correct) {
+            score += 1;
+            scoreEl.textContent = String(score);
+            statusEl.textContent = `箝・豁｣隗｣・・${current.label}`;
+          } else {
+            statusEl.textContent = `笶・荳肴ｭ｣隗｣窶ｦ 豁｣隗｣縺ｯ ${current.label}`;
+          }
+        });
+
+        choicesWrap.appendChild(b);
+      });
+    }
+
+    async function playSrc(src) {
+      player.pause();
+      player.currentTime = 0;
+      player.src = encodeURI(src);
+      await player.play();
+    }
+
+    // ===== 繧､繝吶Φ繝・=====
+    difficultySel.addEventListener("change", () => {
+      clearHint();
+      statusEl.textContent = "髮｣譏灘ｺｦ繧貞､画峩縺励∪縺励◆縲ょ・鬘後＠縺ｦ縺上□縺輔＞縲・;
+      setButtonsEnabled(false);
+      setChoicesEnabled(false);
+      current = null;
+      locked = true;
+      rebuildChoices();
+    });
+
+    btnStart.addEventListener("click", async () => {
+      current = pickRandomFromPool();
+      locked = false;
+
+      total += 1;
+      totalEl.textContent = String(total);
+
+      clearHint();
+      statusEl.textContent = "蜃ｺ鬘御ｸｭ・壼・逕溘＠縺ｾ縺励◆縲ゅ←繧後〒縺励ｇ縺・ｼ・;
+      setButtonsEnabled(true);
+      setChoicesEnabled(true);
+
+      try {
+        await playSrc(current.src);
+      } catch (e) {
+        statusEl.textContent = "蜀咲函縺ｧ縺阪∪縺帙ｓ縺ｧ縺励◆縲ゅｂ縺・ｸ蠎ｦ縲悟・鬘後阪ｒ謚ｼ縺励※縺上□縺輔＞縲・;
+      }
+    });
+
+    btnReplay.addEventListener("click", async () => {
+      if (!current) return;
+      clearHint();
+      statusEl.textContent = "繧ゅ≧荳蝗槫・逕溘＠縺ｾ縺励◆縲・;
+      try { await playSrc(current.src); } catch {}
+    });
+
+    btnReveal.addEventListener("click", () => {
+      if (!current) return;
+      statusEl.textContent = `遲斐∴・・{current.label}`;
+    });
+
+    btnHint.addEventListener("click", () => {
+      if (!current) return;
+      hintArea.style.display = "block";
+      hintArea.innerHTML = `<b>繝偵Φ繝・/b><br><code>${current.hint}</code>`;
+    });
+
+    // 笘・ｿｽ蜉・咾・亥渕貅夜浹・峨・繧ｿ繝ｳ・啾udio/C.mp3 繧帝ｳｴ繧峨☆縺縺・
+    btnC.addEventListener("click", async () => {
+      try {
+        await playSrc("audio/C.mp3");
+        statusEl.textContent = "蝓ｺ貅夜浹・咾 繧貞・逕溘＠縺ｾ縺励◆縲・;
+      } catch (e) {
+        statusEl.textContent = "C縺ｮ蜀咲函縺ｫ螟ｱ謨励＠縺ｾ縺励◆縲・;
+      }
+    });
+
+    // 蛻晄悄迥ｶ諷・
+    rebuildChoices();
+    setButtonsEnabled(false);
+    setChoicesEnabled(false);
+  </script>
+</body>
+</html>
+

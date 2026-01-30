@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ModeGame – qualities（C品質当て）</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;margin:18px;line-height:1.35}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0}
+    button,select{font-size:16px;padding:10px 12px}
+    .card{border:1px solid #ddd;border-radius:10px;padding:14px;margin:12px 0}
+    .muted{color:#666}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:10px}
+    .opt{padding:12px;border:1px solid #ccc;border-radius:10px;background:#fff;cursor:pointer}
+    .opt:disabled{opacity:.45;cursor:not-allowed}
+    .ok{border-color:#2b8a3e}
+    .ng{border-color:#c92a2a}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+  </style>
+</head>
+<body>
+  <h1>qualities（C品質当て）</h1>
+  <div class="muted">C基準で、コードの「品質（キャラ）」を単発で当てます。ヒントは答え直出ししません。</div>
+
+  <div class="card">
+    <div class="row">
+      <label>セット：
+        <select id="setSel">
+          <option value="basic">BASIC（6種）</option>
+          <option value="plus">PLUS（10種：オールスター）</option>
+          <option value="hard">HARD（18種：追加込み）</option>
+        </select>
+      </label>
+
+      <button id="btnNext">出題（ランダム）</button>
+      <button id="btnReplay" disabled>もう一回聴く</button>
+      <button id="btnHint" disabled>ヒント（キャラ音）</button>
+      <button id="btnReveal" disabled>答えを見る</button>
+      <button id="btnC" title="主音感を戻す">C（基準）</button>
+    </div>
+
+    <div class="row">
+      <div>スコア：<span id="score">0</span> / <span id="total">0</span></div>
+      <div class="muted">状態：<span id="status">待機中</span></div>
+    </div>
+
+    <div class="grid" id="opts"></div>
+
+    <div class="card" style="margin-top:12px">
+      <div><b>ヒント</b></div>
+      <div id="hintText" class="muted">まだ出題していません。</div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div><b>答え</b></div>
+      <div id="answerText" class="muted">未表示</div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div><b>音源エラー</b>（出たらここに表示）</div>
+      <div id="errText" class="muted">なし</div>
+      <div class="muted">※Windowsは大文字小文字を区別しません（CM7とCm7は衝突するので file名で回避）。</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const VER = Date.now();
+
+  // 命名仕様：
+  //   CM7 → file: Cmaj7.mp3
+  //   Cm7 → file: Cm7.mp3（そのまま）
+  // さらに Windows 衝突回避：
+  //   CM9 → file: Cmaj9.mp3（Cm9 と衝突するため）
+  const SETS = {
+    basic: [
+      {id:"C",     label:"C",     file:"C.mp3",      hint:"明るい安定。基準の“まっすぐ”。（長3度）"},
+      {id:"Cm",    label:"Cm",    file:"Cm.mp3",     hint:"少し影。メジャーより“内向き”。（短3度）"},
+      {id:"C7",    label:"C7",    file:"C7.mp3",     hint:"行きたがる。緊張→解決の匂い。ブルージー。"},
+      {id:"CM7",   label:"CM7",   file:"Cmaj7.mp3",  hint:"上品・都会。透明な切なさ（Maj7が甘い）。"},
+      {id:"Csus4", label:"Csus4", file:"Csus4.mp3",  hint:"“3度を外して保留”。解決を焦らす。"},
+      {id:"Caug",  label:"Caug",  file:"Caug.mp3",   hint:"浮遊・ねじれ。増5度の“不思議”。"},
+    ],
+    plus: [
+      {id:"C",     label:"C",     file:"C.mp3",      hint:"明るい安定。基準の“まっすぐ”。（長3度）"},
+      {id:"Cm",    label:"Cm",    file:"Cm.mp3",     hint:"少し影。メジャーより“内向き”。（短3度）"},
+      {id:"C7",    label:"C7",    file:"C7.mp3",     hint:"行きたがる。緊張→解決の匂い。ブルージー。"},
+      {id:"CM7",   label:"CM7",   file:"Cmaj7.mp3",  hint:"上品・都会。透明な切なさ（Maj7が甘い）。"},
+      {id:"Cm7",   label:"Cm7",   file:"Cm7.mp3",    hint:"渋い影。マイナーに“だるい余韻”（♭7）。"},
+      {id:"Csus4", label:"Csus4", file:"Csus4.mp3",  hint:"“3度を外して保留”。解決を焦らす。"},
+      {id:"Caug",  label:"Caug",  file:"Caug.mp3",   hint:"浮遊・ねじれ。増5度の“不思議”。"},
+      {id:"Cdim",  label:"Cdim",  file:"Cdim.mp3",   hint:"詰まる不安。減5度の“縮み”。"},
+      {id:"C6",    label:"C6",    file:"C6.mp3",     hint:"あたたかい。メジャーに“素直な余韻”（6th）。"},
+      {id:"Cadd9", label:"Cadd9", file:"Cadd9.mp3",  hint:"開放感。テンションの“風”（add9）。"},
+    ],
+    hard: [
+      {id:"C",       label:"C",       file:"C.mp3",       hint:"明るい安定。基準の“まっすぐ”。（長3度）"},
+      {id:"Cm",      label:"Cm",      file:"Cm.mp3",      hint:"少し影。メジャーより“内向き”。（短3度）"},
+      {id:"C7",      label:"C7",      file:"C7.mp3",      hint:"行きたがる。緊張→解決の匂い。ブルージー。"},
+      {id:"CM7",     label:"CM7",     file:"Cmaj7.mp3",   hint:"上品・都会。透明な切なさ（Maj7が甘い）。"},
+      {id:"Cm7",     label:"Cm7",     file:"Cm7.mp3",     hint:"渋い影。マイナーに“だるい余韻”（♭7）。"},
+      {id:"Csus4",   label:"Csus4",   file:"Csus4.mp3",   hint:"“3度を外して保留”。解決を焦らす。"},
+      {id:"Csus2",   label:"Csus2",   file:"Csus2.mp3",   hint:"sus4より軽い保留。2度が“スッ”と入る。"},
+      {id:"C7sus2",  label:"C7sus2",  file:"C7sus2.mp3",  hint:"ドミナントの匂い＋sus2の保留。行きたいのに言い切らない。"},
+      {id:"Caug",    label:"Caug",    file:"Caug.mp3",    hint:"浮遊・ねじれ。増5度の“不思議”。"},
+      {id:"Cdim",    label:"Cdim",    file:"Cdim.mp3",    hint:"詰まる不安。減5度の“縮み”。"},
+      {id:"Cdim7",   label:"Cdim7",   file:"Cdim7.mp3",   hint:"dimより“回る/怪しい”。不安が濃くなる（dim7）。"},
+      {id:"C6",      label:"C6",      file:"C6.mp3",      hint:"あたたかい。メジャーに“素直な余韻”（6th）。"},
+      {id:"Cm6",     label:"Cm6",     file:"Cm6.mp3",     hint:"マイナーなのに温かい。影に“灯り”（6th）。"},
+      {id:"Cadd9",   label:"Cadd9",   file:"Cadd9.mp3",   hint:"開放感。テンションの“風”（add9）。"},
+      {id:"C9",      label:"C9",      file:"C9.mp3",      hint:"C7より“柔らかい濁り”。9thが空気を足す。"},
+      {id:"CM9",     label:"CM9",     file:"Cmaj9.mp3",   hint:"CM7より透明で広い。都会＋空気（Maj9）。"},
+      {id:"Cm9",     label:"Cm9",     file:"Cm9.mp3",     hint:"Cm7より広い渋さ。影のまま“空間が増える”（9th）。"},
+      {id:"CmM7",    label:"CmM7",    file:"CmM7.mp3",    hint:"マイナーなのにMaj7。妖しい切なさ（刺さる系）。"},
+    ]
+  };
+
+  let current = null;
+  let pool = SETS.basic;
+
+  const audio = new Audio();
+  audio.preload = "auto";
+  audio.volume = 1.0;
+  audio.muted = false;
+
+  let score = 0;
+  let total = 0;
+
+  let locked = false;
+  let needsReplayToRetry = false;
+  let playReqId = 0;
+
+  const $ = (id) => document.getElementById(id);
+  const setSel = $("setSel");
+  const btnNext = $("btnNext");
+  const btnReplay = $("btnReplay");
+  const btnHint = $("btnHint");
+  const btnReveal = $("btnReveal");
+  const btnC = $("btnC");
+  const opts = $("opts");
+  const hintText = $("hintText");
+  const answerText = $("answerText");
+  const status = $("status");
+  const scoreEl = $("score");
+  const totalEl = $("total");
+  const errText = $("errText");
+
+  function setStatus(t){ status.textContent = t; }
+  function setErr(t){ errText.textContent = t || "なし"; }
+
+  function pickOne(){
+    const i = Math.floor(Math.random()*pool.length);
+    return pool[i];
+  }
+
+  function setOptionsEnabled(enabled){
+    [...opts.querySelectorAll("button")].forEach(b => b.disabled = !enabled);
+  }
+  function clearOptionMarks(){
+    [...opts.querySelectorAll("button")].forEach(b => {
+      b.classList.remove("ok");
+      b.classList.remove("ng");
+    });
+  }
+
+  // ★固定並び：pool（セット定義順）どおりに選択肢表示
+  function buildOptions(){
+    opts.innerHTML = "";
+    pool.forEach(q => {
+      const b = document.createElement("button");
+      b.className = "opt";
+      b.textContent = q.label;
+      b.disabled = !current || locked;
+      b.onclick = () => onAnswer(q, b);
+      opts.appendChild(b);
+    });
+  }
+
+  async function playFile(filename){
+    setErr("");
+    const req = ++playReqId;
+    const src = "audio/" + encodeURIComponent(filename) + "?v=" + VER;
+
+    audio.pause();
+    audio.src = src;
+    audio.currentTime = 0;
+    audio.volume = 1.0;
+    audio.muted = false;
+
+    try{
+      if(req !== playReqId) return;
+      await audio.play();
+    }catch(e){
+      if(e && (e.name === "AbortError" || String(e).includes("AbortError"))){
+        return;
+      }
+      setErr("再生できません: " + e);
+    }
+  }
+
+  function startQuestion(){
+    locked = false;
+    needsReplayToRetry = false;
+
+    current = pickOne();
+    answerText.textContent = "未表示";
+    hintText.textContent = "まだヒントは出していません。";
+    setStatus("出題中（まず聴いてください）");
+
+    btnReplay.disabled = false;
+    btnHint.disabled = false;
+    btnReveal.disabled = false;
+
+    buildOptions();
+    clearOptionMarks();
+    playFile(current.file);
+  }
+
+  function finishQuestion(){
+    locked = true;
+    setOptionsEnabled(false);
+    setStatus("正解 ✅（次は「出題」を押してください）");
+  }
+
+  function onAnswer(choice, btn){
+    if(!current || locked) return;
+
+    total++;
+    totalEl.textContent = total;
+
+    if(choice.id === current.id){
+      score++;
+      scoreEl.textContent = score;
+      btn.classList.add("ok");
+      needsReplayToRetry = false;
+      finishQuestion();
+    }else{
+      btn.classList.add("ng");
+      needsReplayToRetry = true;
+      setStatus("不正解 ❌（「もう一回聴く」で再度聴いて、もう一回答えてください）");
+      locked = true;
+      setOptionsEnabled(false);
+    }
+  }
+
+  setSel.onchange = () => {
+    pool = SETS[setSel.value] || SETS.basic;
+    current = null;
+    locked = false;
+    needsReplayToRetry = false;
+
+    btnReplay.disabled = true;
+    btnHint.disabled = true;
+    btnReveal.disabled = true;
+
+    hintText.textContent = "セット変更しました。出題してください。";
+    answerText.textContent = "未表示";
+    setStatus("待機中");
+    buildOptions();
+    clearOptionMarks();
+  };
+
+  btnNext.onclick = startQuestion;
+
+  btnReplay.onclick = () => {
+    if(!current) return;
+    playFile(current.file);
+
+    if(needsReplayToRetry){
+      locked = false;
+      needsReplayToRetry = false;
+      clearOptionMarks();      // まっさらにして再挑戦
+      setOptionsEnabled(true);
+      setStatus("再挑戦どうぞ（同じ問題）");
+    }
+  };
+
+  btnHint.onclick = () => { if(current) hintText.textContent = current.hint; };
+  btnReveal.onclick = () => { if(current) answerText.textContent = "答え： " + current.label; };
+  btnC.onclick = () => { playFile("C.mp3"); };
+
+  buildOptions();
+})();
+</script>
+</body>
+</html>

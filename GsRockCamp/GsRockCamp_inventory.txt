@@ -1,0 +1,8 @@
+
+	                   4	C:\Users\Goro\Music\GsRockCamp\
+	                  10	C:\Users\Goro\Music\GsRockCamp\audio\
+	                  26	C:\Users\Goro\Music\GsRockCamp\audio\diatonic\
+	                   2	C:\Users\Goro\Music\GsRockCamp\diatonic\
+	                  26	C:\Users\Goro\Music\GsRockCamp\diatonic\audio\
+	                   1	C:\Users\Goro\Music\GsRockCamp\qualities\
+	                  18	C:\Users\Goro\Music\GsRockCamp\qualities\audio\
