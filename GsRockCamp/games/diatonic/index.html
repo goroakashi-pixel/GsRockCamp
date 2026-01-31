@@ -14,6 +14,7 @@
       --card:#fff;
       --blue:#1d4ed8;
       --warn:#b91c1c;
+      --pill:#f6f7fb;
     }
 
     body{
@@ -21,10 +22,10 @@
       margin:16px;
       color:var(--text);
       background:var(--bg);
-      padding-bottom:120px;
+      padding-bottom:140px;
+      line-height:1.35;
     }
-
-    .wrap{ max-width:820px; margin:0 auto; }
+    .wrap{ max-width:860px; margin:0 auto; }
 
     h1{
       font-size:22px;
@@ -49,19 +50,66 @@
       margin-top:12px;
     }
 
-    label{
-      font-weight:800;
-      display:inline-block;
-      margin-right:8px;
+    .muted{ color: var(--muted); }
+
+    .grid2{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+      margin-top:10px;
     }
 
-    select{
-      width:100%;
-      padding:12px 12px;
-      font-size:16px;
+    .groupTitle{
+      font-weight:900;
+      margin-bottom:8px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .radioStack{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    /* “ラベル全体をタップ”用 */
+    .radioTile{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:14px 14px;
       border:1px solid var(--line);
-      border-radius:12px;
-      background:#fff;
+      border-radius:14px;
+      background:var(--pill);
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+    }
+    .radioTile:active{ transform: translateY(1px); }
+    .radioTile input{
+      transform:scale(1.25);
+      accent-color: var(--blue);
+    }
+    .radioMain{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      min-width:0;
+    }
+    .radioMain b{ font-weight:900; }
+    .radioSub{
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.25;
+    }
+    .radioTile.disabled{
+      opacity:.55;
+      background:#fafafa;
+    }
+    .radioTile.disabled input{
+      accent-color:#999;
     }
 
     .btn-row{
@@ -77,7 +125,7 @@
       border:1px solid var(--line);
       border-radius:14px;
       background:#fff;
-      font-weight:800;
+      font-weight:900;
       -webkit-tap-highlight-color: transparent;
     }
     button:disabled{ opacity:.45; }
@@ -110,17 +158,19 @@
     }
     .accuracy.good{ color: var(--blue); }
 
-    .grid{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
+    .choicesGrid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));
+      gap:10px;
       margin-top:10px;
     }
     .choice{
       white-space:nowrap;
-      padding:12px 12px;
+      padding:14px 12px;
       border-radius:14px;
-      font-weight:800;
+      font-weight:900;
+      border:1px solid var(--line);
+      background:#fff;
     }
 
     /* back bottom */
@@ -133,7 +183,7 @@
       text-decoration:none;
       color:var(--text);
       background:var(--card);
-      font-weight:800;
+      font-weight:900;
       -webkit-tap-highlight-color: transparent;
     }
     a.grc-backbtn:active{ transform: translateY(1px); }
@@ -144,18 +194,65 @@
   <div class="wrap">
     <h1>
       Diatonic Chord Quiz
-      <span class="ver">ver1.0</span>
+      <span class="ver">ver1.2</span>
     </h1>
 
+    <!-- 設定（2軸ラジオ） -->
     <div class="box">
-      <label for="difficulty">難易度選択</label>
-      <select id="difficulty">
-        <option value="d1">① 3和音ダイアトニックのみ</option>
-        <option value="d2">② 4和音ダイアトニックを①に加える</option>
-        <option value="d3">③ ノーマル群を①に加える</option>
-        <option value="d4">④ ノーマル群を②に加える</option>
-        <option value="d5">⑤ 全部（意地悪枠込み）</option>
-      </select>
+      <div class="muted">選択肢は増やさず、揺らぎだけを増やす。</div>
+
+      <div class="grid2">
+        <div>
+          <div class="groupTitle">出題セット <span class="muted" style="font-size:12px;">（単一選択）</span></div>
+          <div class="radioStack" id="setRadios">
+            <label class="radioTile">
+              <input type="radio" name="qset" value="basic" checked>
+              <div class="radioMain">
+                <b>① 基本ダイアトニック</b>
+                <div class="radioSub">まずはここ。C / Dm / Em / F / G / Am / Bm-5</div>
+              </div>
+            </label>
+
+            <!-- ②③は将来拡張：UIだけ置く（現時点では無効） -->
+            <label class="radioTile disabled" title="準備中">
+              <input type="radio" name="qset" value="plus" disabled>
+              <div class="radioMain">
+                <b>② A7などプラス（セカンダリー／借用系）</b>
+                <div class="radioSub">準備中（音源拡張後にON）</div>
+              </div>
+            </label>
+
+            <label class="radioTile disabled" title="準備中">
+              <input type="radio" name="qset" value="evil" disabled>
+              <div class="radioMain">
+                <b>③ 意地悪モード（紛らわしい・近似系）</b>
+                <div class="radioSub">準備中（音源拡張後にON）</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <div class="groupTitle">転回形 <span class="muted" style="font-size:12px;">（単一選択）</span></div>
+          <div class="radioStack" id="invRadios">
+            <label class="radioTile">
+              <input type="radio" name="inv" value="root" checked>
+              <div class="radioMain">
+                <b>無（ルートのみ）</b>
+                <div class="radioSub">常に root を再生</div>
+              </div>
+            </label>
+
+            <label class="radioTile">
+              <input type="radio" name="inv" value="mix">
+              <div class="radioMain">
+                <b>有（ルート＋転回形を混在）</b>
+                <div class="radioSub">root / 1st / 2nd をランダム（未整備はrootへ自動フォールバック）</div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
 
       <div class="btn-row">
         <button id="btnStart">出題</button>
@@ -169,11 +266,13 @@
       <div id="hintArea" class="hintArea"></div>
     </div>
 
+    <!-- 選択肢 -->
     <div class="box">
       <div style="font-weight:900;">答えを選んでください</div>
-      <div class="grid" id="choices"></div>
+      <div class="choicesGrid" id="choices"></div>
     </div>
 
+    <!-- スコア -->
     <div class="box">
       <div class="scorebar">
         <div>スコア： <span id="score">0</span>/<span id="total">0</span></div>
@@ -182,55 +281,70 @@
     </div>
 
     <div class="grc-backwrap">
-      <a class="grc-backbtn" href="../../index.html">← ポータルに戻る</a>
+      <a class="grc-backbtn" href="./index.html">← ポータルに戻る</a>
     </div>
 
     <audio id="player" preload="auto"></audio>
   </div>
 
   <script>
-    // ===== 出題データ（※既存のファイル名をそのまま使用）=====
-    const ALL = [
-      { key:"C",    label:"C",    src:"audio/C.mp3",    hint:"Cメジャー三和音（C–E–G）" },
-      { key:"Dm",   label:"Dm",   src:"audio/Dm.mp3",   hint:"マイナー三和音（D–F–A）" },
-      { key:"Em",   label:"Em",   src:"audio/Em.mp3",   hint:"マイナー三和音（E–G–B）" },
-      { key:"F",    label:"F",    src:"audio/F.mp3",    hint:"メジャー三和音（F–A–C）" },
-      { key:"G",    label:"G",    src:"audio/G.mp3",    hint:"メジャー三和音（G–B–D）" },
-      { key:"Am",   label:"Am",   src:"audio/Am.mp3",   hint:"マイナー三和音（A–C–E）" },
-      { key:"Bm-5", label:"Bm-5", src:"audio/Bm-5.mp3", hint:"減三和音（B–D–F）" },
+  (() => {
+    // =========================
+    // ここだけ最初に調整OK
+    // =========================
+    const AUDIO_VER  = "v2";                 // キャッシュ対策（更新したら文字列変える）
+    const AUDIO_BASE = "diatonic/audio/"; // 例）ルートから：audio/diatonic/v2/
+                                              // 例）1階層下なら：../audio/diatonic/v2/
 
-      { key:"CM7",   label:"CM7",   src:"audio/CM7.mp3",   hint:"M7（B）半音で寄る感じ" },
-      { key:"Dm7",   label:"Dm7",   src:"audio/Dm7.mp3",   hint:"m7（C）" },
-      { key:"Em7",   label:"Em7",   src:"audio/Em7.mp3",   hint:"m7（D）" },
-      { key:"FM7",   label:"FM7",   src:"audio/FM7.mp3",   hint:"M7（E）" },
-      { key:"G7",    label:"G7",    src:"audio/G7.mp3",    hint:"7（F）ドミナントの圧" },
-      { key:"Am7",   label:"Am7",   src:"audio/Am7.mp3",   hint:"m7（G）" },
-      { key:"Bm7-5", label:"Bm7-5", src:"audio/Bm7-5.mp3", hint:"m7♭5（A）" },
+    // =========================
+    // データ：id（判定）と file（再生）を分離
+    // =========================
+    const CHORDS = [
+      // --- ① 基本ダイアトニック（7つ）---
+      { id:"C",    label:"C",    files_root:["C.mp3"],    files_inv:["C.mp3","C_inv1.mp3","C_inv2.mp3"],    hint:"キャラ：Cメジャー三和音（C–E–G）" },
+      { id:"Dm",   label:"Dm",   files_root:["Dm.mp3"],   files_inv:["Dm.mp3","Dm_inv1.mp3","Dm_inv2.mp3"], hint:"キャラ：マイナー三和音（D–F–A）" },
+      { id:"Em",   label:"Em",   files_root:["Em.mp3"],   files_inv:["Em.mp3","Em_inv1.mp3","Em_inv2.mp3"], hint:"キャラ：マイナー三和音（E–G–B）" },
+      { id:"F",    label:"F",    files_root:["F.mp3"],    files_inv:["F.mp3","F_inv1.mp3","F_inv2.mp3"],    hint:"キャラ：メジャー三和音（F–A–C）" },
+      { id:"G",    label:"G",    files_root:["G.mp3"],    files_inv:["G.mp3","G_inv1.mp3","G_inv2.mp3"],    hint:"キャラ：メジャー三和音（G–B–D）" },
+      { id:"Am",   label:"Am",   files_root:["Am.mp3"],   files_inv:["Am.mp3","Am_inv1.mp3","Am_inv2.mp3"], hint:"キャラ：マイナー三和音（A–C–E）" },
+      { id:"Bm-5", label:"Bm-5", files_root:["Bm-5.mp3"], files_inv:["Bm-5.mp3","Bm-5_inv1.mp3","Bm-5_inv2.mp3"], hint:"キャラ：減三和音（B–D–F）※不安定" },
 
-      { key:"E7",  label:"E7",  src:"audio/E7.mp3",  hint:"G#（長3度）外音が立つ" },
-      { key:"A7",  label:"A7",  src:"audio/A7.mp3",  hint:"C#（長3度）外音で圧" },
-      { key:"D7",  label:"D7",  src:"audio/D7.mp3",  hint:"F#（長3度）外音で圧" },
-      { key:"C7",  label:"C7",  src:"audio/C7.mp3",  hint:"Bb（♭7）ブルース/ドミナント化" },
-      { key:"D♭7", label:"D♭7", src:"audio/D♭7.mp3", hint:"代理ドミナントっぽい圧" },
+      // --- ②③（将来拡張）※現時点ではrootのみ想定（files_inv未整備でも安全フォールバックする）---
+      { id:"CM7",   label:"CM7",   files_root:["CM7.mp3"],   hint:"キャラ：M7（B）※半音で上に寄る感じ" },
+      { id:"Dm7",   label:"Dm7",   files_root:["Dm7.mp3"],   hint:"キャラ：m7（C）※4音で少しジャズ化" },
+      { id:"Em7",   label:"Em7",   files_root:["Em7.mp3"],   hint:"キャラ：m7（D）" },
+      { id:"FM7",   label:"FM7",   files_root:["FM7.mp3"],   hint:"キャラ：M7（E）" },
+      { id:"G7",    label:"G7",    files_root:["G7.mp3"],    hint:"キャラ：7（F）※ドミナントの圧" },
+      { id:"Am7",   label:"Am7",   files_root:["Am7.mp3"],   hint:"キャラ：m7（G）" },
+      { id:"Bm7-5", label:"Bm7-5", files_root:["Bm7-5.mp3"], hint:"キャラ：m7♭5（A）※半減の匂い" },
 
-      { key:"Fm",     label:"Fm",     src:"audio/Fm.mp3",     hint:"Ab（♭3）サブドミマイナー" },
-      { key:"A♭",     label:"A♭",     src:"audio/A♭.mp3",     hint:"Abメジャー（借用の色）" },
-      { key:"B♭",     label:"B♭",     src:"audio/B♭.mp3",     hint:"♭VIIのロック感" },
-      { key:"E♭",     label:"E♭",     src:"audio/E♭.mp3",     hint:"♭IIIの色" },
-      { key:"Gm",     label:"Gm",     src:"audio/Gm.mp3",     hint:"借用マイナーの匂い" },
-      { key:"F#dim",  label:"F#dim",  src:"audio/F#dim.mp3",  hint:"減（緊張/経過）" },
-      { key:"G#dim7", label:"G#dim7", src:"audio/G#dim7.mp3", hint:"短3度積み（意地悪枠）" },
+      { id:"E7",  label:"E7",  files_root:["E7.mp3"],  hint:"キャラ：G#（長3度）※急に外の音が立つ" },
+      { id:"A7",  label:"A7",  files_root:["A7.mp3"],  hint:"キャラ：C#（長3度）※外音で圧が出る" },
+      { id:"D7",  label:"D7",  files_root:["D7.mp3"],  hint:"キャラ：F#（長3度）※外音で圧が出る" },
+      { id:"C7",  label:"C7",  files_root:["C7.mp3"],  hint:"キャラ：Bb（♭7）※ブルース/ドミナント化" },
+      { id:"Db7", label:"Db7", files_root:["Db7.mp3"], hint:"キャラ：トライトーン感（代理ドミナントっぽい圧）" },
+
+      { id:"Fm",     label:"Fm",     files_root:["Fm.mp3"],     hint:"キャラ：Ab（♭3）※サブドミナントマイナー系の匂い" },
+      { id:"Ab",     label:"Ab",     files_root:["Ab.mp3"],     hint:"キャラ：Abメジャー（三和音）※借用の色" },
+      { id:"Bb",     label:"Bb",     files_root:["Bb.mp3"],     hint:"キャラ：Bbメジャー（三和音）※♭VIIのロック感" },
+      { id:"Eb",     label:"Eb",     files_root:["Eb.mp3"],     hint:"キャラ：Ebメジャー（三和音）※♭IIIの色" },
+      { id:"Gm",     label:"Gm",     files_root:["Gm.mp3"],     hint:"キャラ：Bb（短3度）※借用マイナーの匂い" },
+      { id:"F#dim",  label:"F#dim",  files_root:["F#dim.mp3"],  hint:"キャラ：F#–A–C（減）※緊張/経過" },
+      { id:"G#dim7", label:"G#dim7", files_root:["G#dim7.mp3"], hint:"キャラ：短3度積み（G#→B→D→F）※意地悪枠" },
     ];
 
+    // 出題セット（将来：plus/evilを拡張）
     const POOLS = {
-      d1: ["C","Dm","Em","F","G","Am","Bm-5"],
-      d2: ["C","Dm","Em","F","G","Am","Bm-5","CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5"],
-      d3: ["C","Dm","Em","F","G","Am","Bm-5","E7","A7","D7","C7","D♭7"],
-      d4: ["C","Dm","Em","F","G","Am","Bm-5","CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5","E7","A7","D7","C7","D♭7"],
-      d5: ALL.map(x => x.key),
+      basic: ["C","Dm","Em","F","G","Am","Bm-5"],
+      plus:  ["E7","A7","D7","C7","Db7"],                 // 例（準備中）
+      evil:  ["Fm","Ab","Bb","Eb","Gm","F#dim","G#dim7"],  // 例（準備中）
     };
 
-    // ===== DOM =====
+    const byId = new Map(CHORDS.map(x => [x.id, x]));
+
+    // =========================
+    // DOM
+    // =========================
     const player = document.getElementById("player");
     const statusEl = document.getElementById("status");
     const hintArea = document.getElementById("hintArea");
@@ -245,38 +359,42 @@
     const btnHint  = document.getElementById("btnHint");
     const btnC     = document.getElementById("btnC");
 
-    const difficultySel = document.getElementById("difficulty");
     const choicesWrap = document.getElementById("choices");
 
-    // ===== state =====
-    let current = null;
-    let phase = "idle"; 
-    // idle | answering | retryPrompt
-    // idle: 未出題
-    // answering: 出題して回答待ち
-    // retryPrompt: 不正解後「再挑戦しますか？」状態
-
-    let wrongAttemptsThisQuestion = 0;
-
+    // =========================
+    // 状態（ver1.0の思想を維持）
+    // phase:
+    //  - idle：待機（出題可能）
+    //  - answering：回答受付中
+    //  - retryPrompt：不正解後の3択（もう一回 / 答え / 出題=スキップ）
+    // =========================
+    let phase = "idle";
+    let current = null; // { id, label, hint, file }
     let score = 0;
     let total = 0;
 
-    function getPoolKeys() {
-      const diff = difficultySel.value;
-      return POOLS[diff] ?? POOLS.d1;
+    function getSelectedSet(){
+      const el = document.querySelector('input[name="qset"]:checked');
+      return el ? el.value : "basic";
     }
-    function getItemByKey(key) {
-      return ALL.find(m => m.key === key);
-    }
-    function pickRandomFromPool() {
-      const poolKeys = getPoolKeys();
-      const idx = Math.floor(Math.random() * poolKeys.length);
-      return getItemByKey(poolKeys[idx]);
+    function getSelectedInv(){
+      const el = document.querySelector('input[name="inv"]:checked');
+      return el ? el.value : "root";
     }
 
-    function clearHint() {
+    function getPoolIds(){
+      const setKey = getSelectedSet();
+      return POOLS[setKey] ?? POOLS.basic;
+    }
+
+    function clearHint(){
       hintArea.style.display = "none";
       hintArea.textContent = "";
+    }
+
+    function setStatus(text, warn=false){
+      statusEl.textContent = text;
+      statusEl.classList.toggle("warn", !!warn);
     }
 
     function setReplayBlock(enabled){
@@ -286,59 +404,102 @@
       btnC.disabled      = !enabled;
     }
 
-    function setChoicesEnabled(enabled) {
-      const btns = Array.from(document.querySelectorAll(".choice"));
-      btns.forEach(b => b.disabled = !enabled);
+    function updateAccuracy(){
+      const acc = total === 0 ? 0 : Math.round((score / total) * 100);
+      const accText = String(acc).padStart(2, "0") + "%";
+      accuracyEl.textContent = `正答率 ${accText}`;
+      accuracyEl.classList.toggle("good", acc >= 80);
     }
 
-    function rebuildChoices() {
-      choicesWrap.innerHTML = "";
-      const pool = new Set(getPoolKeys());
-      const items = ALL.filter(x => pool.has(x.key));
+    function buildSrc(file){
+      // encodeURIで # や日本語など万一入っても安全側に倒す
+      const url = encodeURI(AUDIO_BASE + file);
+      return url + "?v=" + encodeURIComponent(AUDIO_VER);
+    }
 
-      items.forEach(item => {
+    async function playFile(file){
+      player.pause();
+      player.currentTime = 0;
+      player.src = buildSrc(file);
+      await player.play();
+    }
+
+    function safeFiles(ch, wantInv){
+      const root = Array.isArray(ch.files_root) && ch.files_root.length ? ch.files_root : [];
+      const inv  = Array.isArray(ch.files_inv)  && ch.files_inv.length  ? ch.files_inv  : [];
+      if (wantInv && inv.length) return inv;
+      // inv未整備でも必ずrootへフォールバック
+      return root.length ? root : inv;
+    }
+
+    function pickRandomFromPool(){
+      const ids = getPoolIds();
+      if (!ids.length) return null;
+
+      const id = ids[Math.floor(Math.random() * ids.length)];
+      const ch = byId.get(id);
+      if (!ch) return null;
+
+      const wantInv = (getSelectedInv() === "mix");
+      const files = safeFiles(ch, wantInv);
+      if (!files || !files.length) return null;
+
+      const file = files[Math.floor(Math.random() * files.length)];
+
+      return {
+        id: ch.id,
+        label: ch.label,
+        hint: ch.hint ?? "",
+        file,
+      };
+    }
+
+    function rebuildChoices(){
+      // 「選択肢は増やさず」＝ 現在セットのプールだけ表示
+      const poolIds = getPoolIds();
+      choicesWrap.innerHTML = "";
+
+      poolIds.forEach(id => {
+        const ch = byId.get(id);
+        if (!ch) return;
+
         const b = document.createElement("button");
         b.className = "choice";
-        b.textContent = item.label;
-        b.dataset.key = item.key;
+        b.textContent = ch.label;
+        b.dataset.id = ch.id;
         b.disabled = true;
 
         b.addEventListener("click", () => {
           if (phase !== "answering" || !current) return;
 
-          const guess = b.dataset.key;
-          const correct = (guess === current.key);
-
-          if (correct) {
-            // 正解確定：この時点で母数を増やす（出題瞬間に下がらない）
+          const guess = b.dataset.id;
+          if (guess === current.id){
+            // 正解確定：ここで母数を増やす
             total += 1;
             score += 1;
-            scoreEl.textContent = String(score);
             totalEl.textContent = String(total);
+            scoreEl.textContent = String(score);
             updateAccuracy();
 
-            statusEl.classList.remove("warn");
-            statusEl.textContent = `⭕ 正解！ ${current.label}（次の出題OK）`;
-
+            setStatus(`⭕ 正解！ ${current.label}（次の出題OK）`);
             phase = "idle";
-            btnStart.disabled = false;
+            current = null;
+
             setChoicesEnabled(false);
             setReplayBlock(false);
-          } else {
+            btnStart.disabled = false;
+          }else{
             // 不正解：まだ母数に加えない／すぐ答えも出さない
-            wrongAttemptsThisQuestion += 1;
-
             phase = "retryPrompt";
-            statusEl.classList.add("warn");
-            statusEl.textContent = "❌ 不正解… 再挑戦しますか？（もう一回 / 答え / 出題＝スキップ）";
+            setStatus("❌ 不正解… 再挑戦しますか？（もう一回 / 答え / 出題＝スキップ）", true);
 
             // 選択肢は一旦止める（再挑戦は「もう一回」から）
             setChoicesEnabled(false);
 
-            // もう一回/答え/出題は押せるようにする
+            // もう一回/答え/出題/基準音は押せる
             setReplayBlock(true);
 
-            // 出題＝スキップも許可（ただし処理はbtnStartで判定）
+            // 出題＝スキップも許可
             btnStart.disabled = false;
           }
         });
@@ -347,73 +508,68 @@
       });
     }
 
-    async function playSrc(src) {
-      player.pause();
-      player.currentTime = 0;
-      player.src = encodeURI(src);
-      await player.play();
+    function setChoicesEnabled(enabled){
+      const btns = Array.from(document.querySelectorAll(".choice"));
+      btns.forEach(b => b.disabled = !enabled);
     }
 
-    function updateAccuracy(){
-      const acc = total === 0 ? 0 : Math.round((score / total) * 100);
-      const accText = String(acc).padStart(2, "0") + "%";
-      accuracyEl.textContent = `正答率 ${accText}`;
-      if (acc >= 80) accuracyEl.classList.add("good");
-      else accuracyEl.classList.remove("good");
-    }
-
-    // ===== events =====
-    difficultySel.addEventListener("change", () => {
+    function resetToIdle(message){
       clearHint();
-      statusEl.classList.remove("warn");
-      statusEl.textContent = "難易度を変更しました。出題してください。";
-
       current = null;
       phase = "idle";
-      wrongAttemptsThisQuestion = 0;
 
       setReplayBlock(false);
       setChoicesEnabled(false);
       btnStart.disabled = false;
 
+      setStatus(message ?? "設定を変更しました。出題してください。", false);
+    }
+
+    // =========================
+    // events：ラジオ変更 → 状態リセットして待機へ
+    // =========================
+    document.getElementById("setRadios").addEventListener("change", () => {
       rebuildChoices();
+      resetToIdle("出題セットを変更しました。出題してください。");
     });
 
+    document.getElementById("invRadios").addEventListener("change", () => {
+      resetToIdle("転回形設定を変更しました。出題してください。");
+    });
+
+    // =========================
     // 出題ボタン：
     // - idle：新規出題
     // - retryPrompt：スキップ扱い（＝不正解確定として母数に加える）→ 次の問題へ
+    // =========================
     btnStart.addEventListener("click", async () => {
-      // まず「再挑戦しますか？」中に押されたら＝スキップ
+      // retryPrompt中に押されたら＝スキップ
       if (phase === "retryPrompt" && current) {
-        // 不正解確定として母数に加える（試行があったので）
         total += 1;
         totalEl.textContent = String(total);
         updateAccuracy();
 
-        statusEl.classList.remove("warn");
-        statusEl.textContent = `スキップ：正解は ${current.label}（次の出題OK）`;
-
-        // 次へ
+        setStatus(`スキップ：正解は ${current.label}（次の出題OK）`);
         phase = "idle";
         current = null;
-        wrongAttemptsThisQuestion = 0;
+
         setReplayBlock(false);
         setChoicesEnabled(false);
-        // すぐ次を出せる
-        // （ここで return しない：押し直しで次の出題ができるように）
+        // ここでreturnしない：押し直しで次の出題ができるように
         return;
       }
 
-      // idle の時だけ新規出題
       if (phase !== "idle") return;
 
       current = pickRandomFromPool();
-      wrongAttemptsThisQuestion = 0;
-      phase = "answering";
+      if (!current){
+        setStatus("出題データが見つかりません（ID/音源の対応を確認してください）", true);
+        return;
+      }
 
       clearHint();
-      statusEl.classList.remove("warn");
-      statusEl.textContent = "出題中：聴いて選んでください。";
+      setStatus("出題中：聴いて選んでください。");
+      phase = "answering";
 
       // 出題中は出題ボタン無効（連打防止）
       btnStart.disabled = true;
@@ -422,21 +578,21 @@
       setChoicesEnabled(true);
 
       try {
-        await playSrc(current.src);
+        await playFile(current.file);
       } catch (e) {
-        statusEl.classList.add("warn");
-        statusEl.textContent = "再生できませんでした。もう一度「出題」を押してください。";
+        setStatus("再生できませんでした。もう一度「出題」を押してください。", true);
         phase = "idle";
         btnStart.disabled = false;
+        setChoicesEnabled(false);
+        setReplayBlock(false);
       }
     });
 
     // もう一回：
-    // - answering：再生だけ
-    // - retryPrompt：再挑戦開始（不正解カウントを母数に反映）
+    // - answering：再生だけ（同一ファイル）
+    // - retryPrompt：不正解確定として母数++ → 再挑戦へ（同一ファイル）
     btnReplay.addEventListener("click", async () => {
       if (!current) return;
-
       clearHint();
 
       if (phase === "retryPrompt") {
@@ -445,18 +601,17 @@
         totalEl.textContent = String(total);
         updateAccuracy();
 
-        statusEl.classList.remove("warn");
-        statusEl.textContent = "再挑戦：もう一回聴いて、答えを選んでください。";
+        setStatus("再挑戦：もう一回聴いて、答えを選んでください。", false);
         phase = "answering";
 
-        // 再挑戦中は出題ボタンを無効（スキップ防止）
+        // 再挑戦中は出題ボタンを無効（スキップ誤爆防止）
         btnStart.disabled = true;
         setChoicesEnabled(true);
       } else {
-        statusEl.textContent = "もう一回再生しました。";
+        setStatus("もう一回再生しました。");
       }
 
-      try { await playSrc(current.src); } catch {}
+      try { await playFile(current.file); } catch {}
     });
 
     // 答え：
@@ -470,46 +625,44 @@
         totalEl.textContent = String(total);
         updateAccuracy();
 
-        statusEl.classList.remove("warn");
-        statusEl.textContent = `答え：${current.label}（次の出題OK）`;
+        setStatus(`答え：${current.label}（次の出題OK）`, false);
 
         phase = "idle";
         current = null;
-        wrongAttemptsThisQuestion = 0;
 
         setReplayBlock(false);
         setChoicesEnabled(false);
         btnStart.disabled = false;
       } else {
-        statusEl.textContent = `答え：${current.label}`;
+        setStatus(`答え：${current.label}`);
       }
     });
 
     btnHint.addEventListener("click", () => {
       if (!current) return;
       hintArea.style.display = "block";
-      hintArea.innerHTML = `<b>ヒント</b><br><code>${current.hint}</code>`;
+      hintArea.innerHTML = `<b>ヒント</b><br><code>${current.hint || "（未設定）"}</code>`;
     });
 
     btnC.addEventListener("click", async () => {
       try {
-        await playSrc("audio/C.mp3");
-        statusEl.textContent = "基準音：C を再生しました。";
+        await playFile("C.mp3");
+        setStatus("基準音：C を再生しました。");
       } catch (e) {
-        statusEl.classList.add("warn");
-        statusEl.textContent = "Cの再生に失敗しました。";
+        setStatus("Cの再生に失敗しました。", true);
       }
     });
 
     // init
+    scoreEl.textContent = "0";
+    totalEl.textContent = "0";
+    updateAccuracy();
+
     rebuildChoices();
     setReplayBlock(false);
     setChoicesEnabled(false);
     btnStart.disabled = false;
-
-    scoreEl.textContent = "0";
-    totalEl.textContent = "0";
-    updateAccuracy();
+  })();
   </script>
 </body>
 </html>
