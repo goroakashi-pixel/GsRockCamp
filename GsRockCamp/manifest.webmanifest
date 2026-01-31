@@ -1,0 +1,20 @@
+{
+  "name": "GoRockCamp",
+  "short_name": "GoRockCamp",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a0c18",
+  "icons": [
+    {
+      "src": "assets/icons/GoRockCamp_iOS_256.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/icons/GoRockCamp_iOS_512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
