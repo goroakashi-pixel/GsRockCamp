@@ -28,21 +28,6 @@
       margin:0 auto;
     }
 
-    /* back */
-    .grc-backwrap{ margin: 6px 0 12px; }
-    a.grc-backbtn{
-      display:inline-block;
-      padding:10px 12px;
-      border:1px solid var(--line);
-      border-radius:12px;
-      text-decoration:none;
-      color:var(--text);
-      background:var(--card);
-      font-weight:700;
-      -webkit-tap-highlight-color: transparent;
-    }
-    a.grc-backbtn:active{ transform: translateY(1px); }
-
     h1{
       font-size:22px;
       margin: 6px 0 12px;
@@ -124,9 +109,7 @@
       font-weight:900;
     }
     .scoreleft{ font-size:16px; }
-    .accuracy{
-      font-size:16px;
-    }
+    .accuracy{ font-size:16px; }
     .accuracy.good{ color: var(--blue); }
 
     /* choices */
@@ -142,15 +125,26 @@
       border-radius:14px;
       font-weight:800;
     }
+
+    /* back (bottom) */
+    .grc-backwrap{ margin-top: 12px; }
+    a.grc-backbtn{
+      display:inline-block;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      text-decoration:none;
+      color:var(--text);
+      background:var(--card);
+      font-weight:800;
+      -webkit-tap-highlight-color: transparent;
+    }
+    a.grc-backbtn:active{ transform: translateY(1px); }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <div class="grc-backwrap">
-      <a class="grc-backbtn" href="../../index.html">← ポータルに戻る</a>
-    </div>
-
     <h1>Diatonic Chord Quiz</h1>
 
     <div class="box">
@@ -190,6 +184,11 @@
         </div>
         <div id="accuracy" class="accuracy">正答率 00%</div>
       </div>
+    </div>
+
+    <!-- back to portal (bottom) -->
+    <div class="grc-backwrap">
+      <a class="grc-backbtn" href="../../index.html">← ポータルに戻る</a>
     </div>
 
     <audio id="player" preload="auto"></audio>
@@ -271,7 +270,7 @@
 
     // ===== state =====
     let current = null;
-    let locked = true;
+    let inQuestion = false;   // 出題中（未回答）
     let score = 0;
     let total = 0;
 
@@ -295,11 +294,11 @@
       hintArea.textContent = "";
     }
 
-    function setButtonsEnabled(enabled) {
+    function setReplayBlockEnabled(enabled){
       btnReplay.disabled = !enabled;
       btnReveal.disabled = !enabled;
-      btnHint.disabled = !enabled;
-      btnC.disabled = !enabled;
+      btnHint.disabled   = !enabled;
+      btnC.disabled      = !enabled;
     }
 
     function setChoicesEnabled(enabled) {
@@ -320,10 +319,10 @@
         b.disabled = true;
 
         b.addEventListener("click", () => {
-          if (locked || !current) return;
+          if (!inQuestion || !current) return;
 
-          locked = true;
-          setButtonsEnabled(false);
+          // 回答確定
+          inQuestion = false;
           setChoicesEnabled(false);
 
           const guess = b.dataset.key;
@@ -332,10 +331,17 @@
           if (correct) {
             score += 1;
             scoreEl.textContent = String(score);
-            statusEl.textContent = `⭕ 正解！ ${current.label}`;
+            statusEl.textContent = `⭕ 正解！ ${current.label}（次の出題OK）`;
           } else {
-            statusEl.textContent = `❌ 不正解… 正解は ${current.label}`;
+            statusEl.textContent = `❌ 不正解… 正解は ${current.label}（もう一回聴けます）`;
           }
+
+          // 回答後も「もう一回」などは使える
+          setReplayBlockEnabled(true);
+
+          // 次の問題を出せるようにする（連打で勝手にカウントされるのを防ぐ）
+          btnStart.disabled = false;
+
           updateAccuracy();
         });
 
@@ -354,7 +360,6 @@
       const acc = total === 0 ? 0 : Math.round((score / total) * 100);
       const accText = String(acc).padStart(2, "0") + "%";
       accuracyEl.textContent = `正答率 ${accText}`;
-
       if (acc >= 80) accuracyEl.classList.add("good");
       else accuracyEl.classList.remove("good");
     }
@@ -363,30 +368,45 @@
     difficultySel.addEventListener("change", () => {
       clearHint();
       statusEl.textContent = "難易度を変更しました。出題してください。";
-      setButtonsEnabled(false);
-      setChoicesEnabled(false);
+
       current = null;
-      locked = true;
+      inQuestion = false;
+
+      setReplayBlockEnabled(false);
+      setChoicesEnabled(false);
+      btnStart.disabled = false;
+
       rebuildChoices();
     });
 
     btnStart.addEventListener("click", async () => {
-      current = pickRandomFromPool();
-      locked = false;
+      // 出題中は押せない（連打でスコア/正答率が変になるのを防ぐ）
+      if (inQuestion) return;
 
+      current = pickRandomFromPool();
+      inQuestion = true;
+
+      // 出題を確定した時だけ total を増やす
       total += 1;
       totalEl.textContent = String(total);
       updateAccuracy();
 
       clearHint();
       statusEl.textContent = "出題中：聴いて選んでください。";
-      setButtonsEnabled(true);
+
+      // 出題中は出題ボタンを無効化
+      btnStart.disabled = true;
+
+      // 出題中は選択＆再生系ボタンは使える
+      setReplayBlockEnabled(true);
       setChoicesEnabled(true);
 
       try {
         await playSrc(current.src);
       } catch (e) {
         statusEl.textContent = "再生できませんでした。もう一度「出題」を押してください。";
+        inQuestion = false;
+        btnStart.disabled = false;
       }
     });
 
@@ -419,8 +439,9 @@
 
     // init
     rebuildChoices();
-    setButtonsEnabled(false);
+    setReplayBlockEnabled(false);
     setChoicesEnabled(false);
+    btnStart.disabled = false;
     scoreEl.textContent = "0";
     totalEl.textContent = "0";
     updateAccuracy();
