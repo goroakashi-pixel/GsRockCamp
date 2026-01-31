@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Diatonic</title>
+  <title>Diatonic Chord Quiz</title>
 
   <style>
     :root{
@@ -12,19 +12,20 @@
       --line:#ddd;
       --bg:#fff;
       --card:#fff;
-      --blue:#1d4ed8;
-      --warn:#b91c1c;
       --pill:#f6f7fb;
+      --on:#1d4ed8;
+      --warn:#b91c1c;
     }
+
     body{
       font-family:-apple-system, system-ui, "Segoe UI", sans-serif;
       margin:16px;
       color:var(--text);
       background:var(--bg);
-      padding-bottom:140px;
+      padding-bottom:160px;
       line-height:1.35;
     }
-    .wrap{ max-width:860px; margin:0 auto; }
+    .wrap{ max-width:900px; margin:0 auto; }
 
     h1{
       font-size:22px;
@@ -44,76 +45,68 @@
       margin-top:12px;
     }
 
-    .rowStack{
+    /* ===== 4 blocks ===== */
+    .blocks{
       display:flex;
       flex-direction:column;
       gap:10px;
     }
 
-    .setRow{
+    .blk{
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:var(--pill);
+      padding:12px;
+    }
+    .blkTop{
+      font-weight:900;
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:10px;
-      padding:12px;
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:var(--pill);
-      -webkit-tap-highlight-color: transparent;
-      user-select:none;
+      flex-wrap:wrap;
     }
-
-    .left{
-      display:flex;
-      align-items:center;
-      gap:12px;
+    .blkName{
       min-width:0;
-      flex:1 1 auto;
-    }
-
-    .title{
-      font-weight:900;
-      white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
-    }
-
-    .right{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      flex:0 0 auto;
-    }
-    .lbl{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
       white-space:nowrap;
     }
 
-    .seg{
+    .blkBtns{
       display:flex;
-      border:1px solid var(--line);
-      border-radius:12px;
-      overflow:hidden;
-      background:#fff;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px;
     }
-    .seg label{
-      display:flex;
+
+    .tbtn{
+      display:inline-flex;
       align-items:center;
+      justify-content:center;
       gap:8px;
-      padding:10px 12px;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
       font-weight:900;
       -webkit-tap-highlight-color: transparent;
       user-select:none;
-      white-space:nowrap;
+      min-width:120px;
     }
-    .seg input{
-      transform:scale(1.1);
-      accent-color: var(--blue);
+    .tbtn:active{ transform: translateY(1px); }
+    .tbtn.on{
+      border-color: var(--on);
+      box-shadow: 0 0 0 2px rgba(29,78,216,.12) inset;
+    }
+    .tbtn small{
+      font-weight:900;
+      color:var(--muted);
+      font-size:12px;
     }
 
-    .btn-row{
+    /* ===== action buttons ===== */
+    .btnRow{
       display:flex;
       flex-wrap:wrap;
       gap:10px;
@@ -156,7 +149,7 @@
       flex-wrap:wrap;
       font-weight:900;
     }
-    .accuracy.good{ color: var(--blue); }
+    .accuracy.good{ color: var(--on); }
 
     .choicesGrid{
       display:grid;
@@ -183,98 +176,81 @@
       color:var(--text);
       background:var(--card);
       font-weight:900;
+      -webkit-tap-highlight-color: transparent;
     }
     a.backbtn:active{ transform: translateY(1px); }
+
+    /* ===== mobile vertical tuning ===== */
+    @media (max-width: 520px){
+      body{ margin:12px; }
+      .tbtn{ min-width: 46%; flex:1 1 46%; }
+      .blkName{ white-space:normal; overflow:visible; text-overflow:clip; }
+    }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <h1>Diatonic <span class="ver">ver1.2</span></h1>
+    <h1>Diatonic Chord Quiz <span class="ver">ver1.2</span></h1>
 
     <div class="box">
-      <div class="rowStack">
+      <div class="blocks">
 
-        <!-- ① BASIC -->
-        <div class="setRow" data-set="basic">
-          <div class="left">
-            <div class="title">① 基本ダイアトニック</div>
+        <div class="blk" data-block="easy">
+          <div class="blkTop">
+            <div class="blkName">① Easy：基本ダイアトニック（3和音）</div>
           </div>
-
-          <div class="right">
-            <span class="lbl">出題</span>
-            <div class="seg">
-              <label><input type="radio" name="en_basic" value="off">off</label>
-              <label><input type="radio" name="en_basic" value="on" checked>on</label>
-            </div>
-
-            <span class="lbl">転回形</span>
-            <div class="seg">
-              <label><input type="radio" name="inv_basic" value="off" checked>off</label>
-              <label><input type="radio" name="inv_basic" value="on">on</label>
-            </div>
+          <div class="blkBtns">
+            <div class="tbtn on" data-role="active" data-block="easy">アクティブ <small>ON</small></div>
+            <div class="tbtn" data-role="inv" data-block="easy">転回形 <small>OFF</small></div>
           </div>
         </div>
 
-        <!-- ② PLUS -->
-        <div class="setRow" data-set="plus">
-          <div class="left">
-            <div class="title">② PLUS（セカンダリーなど）</div>
+        <div class="blk" data-block="normal">
+          <div class="blkTop">
+            <div class="blkName">② Normal：ダイアトニック4和音（7th系）</div>
           </div>
-
-          <div class="right">
-            <span class="lbl">出題</span>
-            <div class="seg">
-              <label><input type="radio" name="en_plus" value="off" checked>off</label>
-              <label><input type="radio" name="en_plus" value="on">on</label>
-            </div>
-
-            <span class="lbl">転回形</span>
-            <div class="seg">
-              <label><input type="radio" name="inv_plus" value="off" checked>off</label>
-              <label><input type="radio" name="inv_plus" value="on">on</label>
-            </div>
+          <div class="blkBtns">
+            <div class="tbtn" data-role="active" data-block="normal">アクティブ <small>OFF</small></div>
+            <div class="tbtn" data-role="inv" data-block="normal">転回形 <small>OFF</small></div>
           </div>
         </div>
 
-        <!-- ③ HARD -->
-        <div class="setRow" data-set="hard">
-          <div class="left">
-            <div class="title">③ HARD（高度な代用など）</div>
+        <div class="blk" data-block="plus">
+          <div class="blkTop">
+            <div class="blkName">③ Plus：セカンダリー系</div>
           </div>
+          <div class="blkBtns">
+            <div class="tbtn" data-role="active" data-block="plus">アクティブ <small>OFF</small></div>
+            <div class="tbtn" data-role="inv" data-block="plus">転回形 <small>OFF</small></div>
+          </div>
+        </div>
 
-          <div class="right">
-            <span class="lbl">出題</span>
-            <div class="seg">
-              <label><input type="radio" name="en_hard" value="off" checked>off</label>
-              <label><input type="radio" name="en_hard" value="on">on</label>
-            </div>
-
-            <span class="lbl">転回形</span>
-            <div class="seg">
-              <label><input type="radio" name="inv_hard" value="off" checked>off</label>
-              <label><input type="radio" name="inv_hard" value="on">on</label>
-            </div>
+        <div class="blk" data-block="hard">
+          <div class="blkTop">
+            <div class="blkName">④ Hard：その他高度な代理</div>
+          </div>
+          <div class="blkBtns">
+            <div class="tbtn" data-role="active" data-block="hard">アクティブ <small>OFF</small></div>
+            <div class="tbtn" data-role="inv" data-block="hard">転回形 <small>OFF</small></div>
           </div>
         </div>
 
       </div>
 
-      <div class="btn-row">
-        <button id="btnStart">出題</button>
-        <button id="btnReplay" disabled>もう一回</button>
+      <div class="btnRow">
         <button id="btnReveal" disabled>答え</button>
         <button id="btnHint" disabled>ヒント</button>
         <button id="btnC" disabled>C（基準音）</button>
       </div>
 
+      <div class="btnRow">
+        <button id="btnStart">出題</button>
+        <button id="btnReplay" disabled>もう一回</button>
+      </div>
+
       <div id="status" class="status">待機中</div>
       <div id="hintArea" class="hintArea"></div>
-    </div>
-
-    <div class="box">
-      <div style="font-weight:900;">答え</div>
-      <div class="choicesGrid" id="choices"></div>
     </div>
 
     <div class="box">
@@ -284,8 +260,13 @@
       </div>
     </div>
 
+    <div class="box">
+      <div style="font-weight:900;">答え</div>
+      <div class="choicesGrid" id="choices"></div>
+    </div>
+
     <div class="backwrap">
-      <a class="backbtn" href="../../index.html">← 戻る</a>
+      <a class="backbtn" href="../../index.html">← ポータルに戻る</a>
     </div>
 
     <audio id="player" preload="auto"></audio>
@@ -293,51 +274,94 @@
 
   <script>
   (() => {
-    // 音源: GsRockCamp/games/diatonic/audio
+    // audio path: GsRockCamp/games/diatonic/audio
     const AUDIO_BASE = "audio/";
-    const AUDIO_VER  = "1.2.0"; // 音源差し替え時にここだけ変える
+    const AUDIO_VER  = "1.2.0";
 
-    // ===== データ（ファイル名はAb/Bb/Eb/Db7）=====
-    const ITEMS = [
-      // BASIC triads (inv対応)
-      { id:"C",    label:"C",    files_root:["C.mp3"],    files_inv:["C.mp3","C_inv1.mp3","C_inv2.mp3"],    hint:"" },
-      { id:"Dm",   label:"Dm",   files_root:["Dm.mp3"],   files_inv:["Dm.mp3","Dm_inv1.mp3","Dm_inv2.mp3"], hint:"" },
-      { id:"Em",   label:"Em",   files_root:["Em.mp3"],   files_inv:["Em.mp3","Em_inv1.mp3","Em_inv2.mp3"], hint:"" },
-      { id:"F",    label:"F",    files_root:["F.mp3"],    files_inv:["F.mp3","F_inv1.mp3","F_inv2.mp3"],    hint:"" },
-      { id:"G",    label:"G",    files_root:["G.mp3"],    files_inv:["G.mp3","G_inv1.mp3","G_inv2.mp3"],    hint:"" },
-      { id:"Am",   label:"Am",   files_root:["Am.mp3"],   files_inv:["Am.mp3","Am_inv1.mp3","Am_inv2.mp3"], hint:"" },
-      { id:"Bm-5", label:"Bm-5", files_root:["Bm-5.mp3"], files_inv:["Bm-5.mp3","Bm-5_inv1.mp3","Bm-5_inv2.mp3"], hint:"" },
-
-      // PLUS / HARD（現時点ではinv未整備でも安全）
-      { id:"C7",   label:"C7",   files_root:["C7.mp3"],   files_inv:[], hint:"" },
-      { id:"CM7",  label:"CM7",  files_root:["CM7.mp3"],  files_inv:[], hint:"" },
-      { id:"Dm7",  label:"Dm7",  files_root:["Dm7.mp3"],  files_inv:[], hint:"" },
-      { id:"Em7",  label:"Em7",  files_root:["Em7.mp3"],  files_inv:[], hint:"" },
-      { id:"FM7",  label:"FM7",  files_root:["FM7.mp3"],  files_inv:[], hint:"" },
-      { id:"G7",   label:"G7",   files_root:["G7.mp3"],   files_inv:[], hint:"" },
-      { id:"Am7",  label:"Am7",  files_root:["Am7.mp3"],  files_inv:[], hint:"" },
-      { id:"Bm7-5",label:"Bm7-5",files_root:["Bm7-5.mp3"],files_inv:[], hint:"" },
-
-      { id:"E7",   label:"E7",   files_root:["E7.mp3"],   files_inv:[], hint:"" },
-      { id:"A7",   label:"A7",   files_root:["A7.mp3"],   files_inv:[], hint:"" },
-      { id:"D7",   label:"D7",   files_root:["D7.mp3"],   files_inv:[], hint:"" },
-      { id:"Db7",  label:"D♭7",  files_root:["Db7.mp3"],  files_inv:[], hint:"" },
-
-      { id:"Fm",     label:"Fm",     files_root:["Fm.mp3"],     files_inv:[], hint:"" },
-      { id:"Ab",     label:"A♭",     files_root:["Ab.mp3"],     files_inv:[], hint:"" },
-      { id:"Bb",     label:"B♭",     files_root:["Bb.mp3"],     files_inv:[], hint:"" },
-      { id:"Eb",     label:"E♭",     files_root:["Eb.mp3"],     files_inv:[], hint:"" },
-      { id:"Gm",     label:"Gm",     files_root:["Gm.mp3"],     files_inv:[], hint:"" },
-      { id:"F#dim",  label:"F#dim",  files_root:["F#dim.mp3"],  files_inv:[], hint:"" },
-      { id:"G#dim7", label:"G#dim7", files_root:["G#dim7.mp3"], files_inv:[], hint:"" },
-    ];
-    const byId = new Map(ITEMS.map(x => [x.id, x]));
-
-    const POOLS = {
-      basic: ["C","Dm","Em","F","G","Am","Bm-5"],
-      plus:  ["E7","A7","D7","C7","Db7"],
-      hard:  ["Fm","Ab","Bb","Eb","Gm","F#dim","G#dim7"],
+    // ===== blocks =====
+    const blocks = {
+      easy:   { active:true,  inv:false },
+      normal: { active:false, inv:false },
+      plus:   { active:false, inv:false },
+      hard:   { active:false, inv:false },
     };
+
+    // ===== voicing tables =====
+    // triads: 4-note voicing
+    const TRIAD_V = {
+      C:    { root:"C-E-G-C",    inv1:"E-G-C-E",    inv2:"G-C-E-G" },
+      Dm:   { root:"D-F-A-D",    inv1:"F-A-D-F",    inv2:"A-D-F-A" },
+      Em:   { root:"E-G-B-E",    inv1:"G-B-E-G",    inv2:"B-E-G-B" },
+      F:    { root:"F-A-C-F",    inv1:"A-C-F-A",    inv2:"C-F-A-C" },
+      G:    { root:"G-B-D-G",    inv1:"B-D-G-B",    inv2:"D-G-B-D" },
+      Am:   { root:"A-C-E-A",    inv1:"C-E-A-C",    inv2:"E-A-C-E" },
+      "Bm-5":{ root:"B-D-F-B",   inv1:"D-F-B-D",    inv2:"F-B-D-F" },
+
+      Fm:   { root:"F-A♭-C-F",   inv1:"A♭-C-F-A♭",  inv2:"C-F-A♭-C" },
+      Ab:   { root:"A♭-C-E♭-A♭", inv1:"C-E♭-A♭-C",  inv2:"E♭-A♭-C-E♭" },
+      Bb:   { root:"B♭-D-F-B♭",  inv1:"D-F-B♭-D",   inv2:"F-B♭-D-F" },
+      Eb:   { root:"E♭-G-B♭-E♭", inv1:"G-B♭-E♭-G",  inv2:"B♭-E♭-G-B♭" },
+      Gm:   { root:"G-B♭-D-G",   inv1:"B♭-D-G-B♭",  inv2:"D-G-B♭-D" },
+      "F#dim":{ root:"F#-A-C-F#",inv1:"A-C-F#-A",   inv2:"C-F#-A-C" },
+    };
+
+    // 7ths: 1-3-5-7
+    const SEVENTH_V = {
+      CM7:   { root:"C-E-G-B",   inv1:"E-G-B-C",   inv2:"G-B-C-E",   inv3:"B-C-E-G" },
+      Dm7:   { root:"D-F-A-C",   inv1:"F-A-C-D",   inv2:"A-C-D-F",   inv3:"C-D-F-A" },
+      Em7:   { root:"E-G-B-D",   inv1:"G-B-D-E",   inv2:"B-D-E-G",   inv3:"D-E-G-B" },
+      FM7:   { root:"F-A-C-E",   inv1:"A-C-E-F",   inv2:"C-E-F-A",   inv3:"E-F-A-C" },
+      G7:    { root:"G-B-D-F",   inv1:"B-D-F-G",   inv2:"D-F-G-B",   inv3:"F-G-B-D" },
+      Am7:   { root:"A-C-E-G",   inv1:"C-E-G-A",   inv2:"E-G-A-C",   inv3:"G-A-C-E" },
+      "Bm7-5":{root:"B-D-F-A",   inv1:"D-F-A-B",   inv2:"F-A-B-D",   inv3:"A-B-D-F" },
+
+      E7:    { root:"E-G#-B-D",  inv1:"G#-B-D-E",  inv2:"B-D-E-G#",  inv3:"D-E-G#-B" },
+      A7:    { root:"A-C#-E-G",  inv1:"C#-E-G-A",  inv2:"E-G-A-C#",  inv3:"G-A-C#-E" },
+      D7:    { root:"D-F#-A-C",  inv1:"F#-A-C-D",  inv2:"A-C-D-F#",  inv3:"C-D-F#-A" },
+      C7:    { root:"C-E-G-B♭",  inv1:"E-G-B♭-C",  inv2:"G-B♭-C-E",  inv3:"B♭-C-E-G" },
+      Db7:   { root:"D♭-F-A♭-C♭",inv1:"F-A♭-C♭-D♭",inv2:"A♭-C♭-D♭-F",inv3:"C♭-D♭-F-A♭" },
+
+      "G#dim7":{ root:"G#-B-D-F", inv1:"B-D-F-G#", inv2:"D-F-G#-B", inv3:"F-G#-B-D" },
+    };
+
+    // ===== items =====
+    const ITEMS = [
+      // easy (triads with inv mp3)
+      { id:"C",    label:"C",    group:"easy",   files_root:["C.mp3"],    files_inv:["C.mp3","C_inv1.mp3","C_inv2.mp3"] },
+      { id:"Dm",   label:"Dm",   group:"easy",   files_root:["Dm.mp3"],   files_inv:["Dm.mp3","Dm_inv1.mp3","Dm_inv2.mp3"] },
+      { id:"Em",   label:"Em",   group:"easy",   files_root:["Em.mp3"],   files_inv:["Em.mp3","Em_inv1.mp3","Em_inv2.mp3"] },
+      { id:"F",    label:"F",    group:"easy",   files_root:["F.mp3"],    files_inv:["F.mp3","F_inv1.mp3","F_inv2.mp3"] },
+      { id:"G",    label:"G",    group:"easy",   files_root:["G.mp3"],    files_inv:["G.mp3","G_inv1.mp3","G_inv2.mp3"] },
+      { id:"Am",   label:"Am",   group:"easy",   files_root:["Am.mp3"],   files_inv:["Am.mp3","Am_inv1.mp3","Am_inv2.mp3"] },
+      { id:"Bm-5", label:"Bm-5", group:"easy",   files_root:["Bm-5.mp3"], files_inv:["Bm-5.mp3","Bm-5_inv1.mp3","Bm-5_inv2.mp3"] },
+
+      // normal (diatonic 7ths)
+      { id:"CM7",   label:"CM7",   group:"normal", files_root:["CM7.mp3"],   files_inv:[] },
+      { id:"Dm7",   label:"Dm7",   group:"normal", files_root:["Dm7.mp3"],   files_inv:[] },
+      { id:"Em7",   label:"Em7",   group:"normal", files_root:["Em7.mp3"],   files_inv:[] },
+      { id:"FM7",   label:"FM7",   group:"normal", files_root:["FM7.mp3"],   files_inv:[] },
+      { id:"G7",    label:"G7",    group:"normal", files_root:["G7.mp3"],    files_inv:[] },
+      { id:"Am7",   label:"Am7",   group:"normal", files_root:["Am7.mp3"],   files_inv:[] },
+      { id:"Bm7-5", label:"Bm7-5", group:"normal", files_root:["Bm7-5.mp3"], files_inv:[] },
+
+      // plus (secondary)
+      { id:"E7",   label:"E7",   group:"plus", files_root:["E7.mp3"],  files_inv:[] },
+      { id:"A7",   label:"A7",   group:"plus", files_root:["A7.mp3"],  files_inv:[] },
+      { id:"D7",   label:"D7",   group:"plus", files_root:["D7.mp3"],  files_inv:[] },
+      { id:"C7",   label:"C7",   group:"plus", files_root:["C7.mp3"],  files_inv:[] },
+      { id:"Db7",  label:"D♭7",  group:"plus", files_root:["Db7.mp3"], files_inv:[] },
+
+      // hard (others)
+      { id:"Fm",     label:"Fm",     group:"hard", files_root:["Fm.mp3"],     files_inv:[] },
+      { id:"Ab",     label:"A♭",     group:"hard", files_root:["Ab.mp3"],     files_inv:[] },
+      { id:"Bb",     label:"B♭",     group:"hard", files_root:["Bb.mp3"],     files_inv:[] },
+      { id:"Eb",     label:"E♭",     group:"hard", files_root:["Eb.mp3"],     files_inv:[] },
+      { id:"Gm",     label:"Gm",     group:"hard", files_root:["Gm.mp3"],     files_inv:[] },
+      { id:"F#dim",  label:"F#dim",  group:"hard", files_root:["F#dim.mp3"],  files_inv:[] },
+      { id:"G#dim7", label:"G#dim7", group:"hard", files_root:["G#dim7.mp3"], files_inv:[] },
+    ];
+
+    const byId = new Map(ITEMS.map(x => [x.id, x]));
 
     // ===== DOM =====
     const player = document.getElementById("player");
@@ -353,40 +377,39 @@
     const btnReveal= document.getElementById("btnReveal");
     const btnHint  = document.getElementById("btnHint");
     const btnC     = document.getElementById("btnC");
-
     const choicesWrap = document.getElementById("choices");
 
     // ===== state =====
-    let phase = "idle";      // idle | answering | retryPrompt
-    let current = null;      // { id, label, file, hint }
+    // idle | answering | retryPrompt
+    let phase = "idle";
+    let current = null; // { id,label,file,group,voicingText,invName }
     let score = 0;
     let total = 0;
 
-    // ===== helpers =====
     function setStatus(text, warn=false){
       statusEl.textContent = text;
       statusEl.classList.toggle("warn", !!warn);
     }
-
     function clearHint(){
       hintArea.style.display = "none";
       hintArea.textContent = "";
     }
-
+    function setHint(text){
+      hintArea.style.display = "block";
+      hintArea.textContent = text;
+    }
     function updateAccuracy(){
       const acc = total === 0 ? 0 : Math.round((score / total) * 100);
       const accText = String(acc).padStart(2, "0") + "%";
       accuracyEl.textContent = `正答率 ${accText}`;
       accuracyEl.classList.toggle("good", acc >= 80);
     }
-
-    function setReplayBlock(enabled){
+    function setAnswerControls(enabled){
       btnReplay.disabled = !enabled;
       btnReveal.disabled = !enabled;
       btnHint.disabled   = !enabled;
       btnC.disabled      = !enabled;
     }
-
     function setChoicesEnabled(enabled){
       Array.from(document.querySelectorAll(".choice")).forEach(b => b.disabled = !enabled);
     }
@@ -395,7 +418,6 @@
       const url = encodeURI(AUDIO_BASE + file);
       return url + "?v=" + encodeURIComponent(AUDIO_VER);
     }
-
     async function playFile(file){
       player.pause();
       player.currentTime = 0;
@@ -403,67 +425,42 @@
       await player.play();
     }
 
-    function getEn(setKey){
-      const el = document.querySelector(`input[name="en_${setKey}"]:checked`);
-      return el ? el.value : "off";
+    function activeGroups(){
+      return Object.keys(blocks).filter(k => blocks[k].active);
     }
 
-    function getInv(setKey){
-      const el = document.querySelector(`input[name="inv_${setKey}"]:checked`);
-      return el ? el.value : "off";
-    }
-
-    function getEnabledSets(){
-      const sets = [];
-      if (getEn("basic") === "on") sets.push("basic");
-      if (getEn("plus")  === "on") sets.push("plus");
-      if (getEn("hard")  === "on") sets.push("hard");
-      return sets;
-    }
-
-    function unionPoolIds(){
-      const enabled = getEnabledSets();
+    function idsForActiveGroups(){
+      const gs = new Set(activeGroups());
       const ids = [];
-      const seen = new Set();
-      enabled.forEach(k => {
-        (POOLS[k] || []).forEach(id => {
-          if (!seen.has(id)) { seen.add(id); ids.push(id); }
-        });
-      });
+      for (const it of ITEMS){
+        if (gs.has(it.group)) ids.push(it.id);
+      }
       return ids;
     }
 
-    function safeFiles(item, wantInv){
-      const root = Array.isArray(item.files_root) && item.files_root.length ? item.files_root : [];
-      const inv  = Array.isArray(item.files_inv)  && item.files_inv.length  ? item.files_inv  : [];
-      if (wantInv && inv.length) return inv;
-      return root.length ? root : inv;
+    function renderBlockButtons(){
+      document.querySelectorAll(".tbtn").forEach(el => {
+        const role = el.dataset.role;
+        const blk = el.dataset.block;
+        const on = (role === "active") ? blocks[blk].active : blocks[blk].inv;
+        el.classList.toggle("on", !!on);
+        const sm = el.querySelector("small");
+        if (sm) sm.textContent = on ? "ON" : "OFF";
+      });
     }
 
-    function pickQuestion(){
-      const enabled = getEnabledSets();
-      if (enabled.length === 0) return null;
-
-      // どのセットから出すか（有効セットからランダム）
-      const setKey = enabled[Math.floor(Math.random() * enabled.length)];
-      const pool = POOLS[setKey] || [];
-      if (!pool.length) return null;
-
-      const id = pool[Math.floor(Math.random() * pool.length)];
-      const item = byId.get(id);
-      if (!item) return null;
-
-      // 転回形：basicのみ有効。plus/hardは常にoff扱い。
-      const invWanted = (setKey === "basic") && (getInv("basic") === "on");
-      const files = safeFiles(item, invWanted);
-      if (!files || !files.length) return null;
-
-      const file = files[Math.floor(Math.random() * files.length)];
-      return { id: item.id, label: item.label, hint: item.hint || "", file, setKey };
+    function resetToIdle(msg){
+      phase = "idle";
+      current = null;
+      clearHint();
+      setAnswerControls(false);
+      setChoicesEnabled(false);
+      btnStart.disabled = false;
+      setStatus(msg ?? "待機中");
     }
 
     function rebuildChoices(){
-      const ids = unionPoolIds();
+      const ids = idsForActiveGroups();
       choicesWrap.innerHTML = "";
 
       ids.forEach(id => {
@@ -487,96 +484,136 @@
             scoreEl.textContent = String(score);
             updateAccuracy();
 
-            setStatus(`⭕ 正解！ ${current.label}`);
+            setStatus(`${current.label} 正解!（${current.voicingText} ${current.invName}）`);
             phase = "idle";
             current = null;
 
             setChoicesEnabled(false);
-            setReplayBlock(false);
+            setAnswerControls(false);
             btnStart.disabled = false;
-          } else {
+          }else{
             phase = "retryPrompt";
-            setStatus("❌ 不正解…（もう一回 / 答え / 出題＝スキップ）", true);
+            setStatus("不正解…（もう一回 / 答え / 出題＝スキップ）", true);
 
             setChoicesEnabled(false);
-            setReplayBlock(true);
-            btnStart.disabled = false; // スキップを許可
+            setAnswerControls(true);
+            btnStart.disabled = false; // スキップ用
           }
         });
 
         choicesWrap.appendChild(b);
       });
 
-      // 有効セットがなくて選択肢ゼロのときはボタンも無効に寄せる
       if (ids.length === 0){
-        setChoicesEnabled(false);
+        setStatus("出題が全部OFFです。", true);
       }
     }
 
-    function resetToIdle(msg){
-      phase = "idle";
-      current = null;
-      clearHint();
-      setReplayBlock(false);
-      setChoicesEnabled(false);
-      btnStart.disabled = false;
-      setStatus(msg || "待機中");
+    function invWanted(group){
+      return !!blocks[group].inv;
     }
 
-    // ===== UI挙動：plus/hardの転回形onは押せるが即offへ戻す =====
-    function attachInvTrap(setKey){
-      const onEl  = document.querySelector(`input[name="inv_${setKey}"][value="on"]`);
-      const offEl = document.querySelector(`input[name="inv_${setKey}"][value="off"]`);
+    function safeFiles(item, wantInv){
+      const root = Array.isArray(item.files_root) && item.files_root.length ? item.files_root : [];
+      const inv  = Array.isArray(item.files_inv)  && item.files_inv.length  ? item.files_inv  : [];
+      if (wantInv && inv.length) return inv;
+      return root.length ? root : inv;
+    }
 
-      if (!onEl || !offEl) return;
+    function voicingForFile(itemId, file){
+      // triads
+      const tv = TRIAD_V[itemId];
+      if (tv){
+        if (file.includes("_inv1")) return { v: tv.inv1, invName: "第一転回形" };
+        if (file.includes("_inv2")) return { v: tv.inv2, invName: "第二転回形" };
+        return { v: tv.root, invName: "ルート" };
+      }
 
-      onEl.addEventListener("change", () => {
-        if (onEl.checked){
-          // 即オフに戻す
-          offEl.checked = true;
-          setStatus(`③②の転回形は未実装です。`, true);
-          resetForSettingChange();
+      // 7ths / dim7
+      const sv = SEVENTH_V[itemId];
+      if (sv){
+        // 今は rootファイル想定。invファイル名が将来来ても対応できるようにしておく
+        if (file.includes("_inv1")) return { v: sv.inv1 ?? sv.root, invName: "第一転回形" };
+        if (file.includes("_inv2")) return { v: sv.inv2 ?? sv.root, invName: "第二転回形" };
+        if (file.includes("_inv3")) return { v: sv.inv3 ?? sv.root, invName: "第三転回形" };
+        return { v: sv.root, invName: "ルート" };
+      }
+
+      // fallback
+      return { v: "", invName: "" };
+    }
+
+    function pickQuestion(){
+      const gs = activeGroups();
+      if (gs.length === 0) return null;
+
+      // group random
+      const group = gs[Math.floor(Math.random() * gs.length)];
+      const candidates = ITEMS.filter(x => x.group === group);
+      if (!candidates.length) return null;
+
+      const item = candidates[Math.floor(Math.random() * candidates.length)];
+      const wantInv = invWanted(group);
+      const files = safeFiles(item, wantInv);
+      if (!files || !files.length) return null;
+
+      const file = files[Math.floor(Math.random() * files.length)];
+      const vx = voicingForFile(item.id, file);
+
+      return {
+        id: item.id,
+        label: item.label,
+        file,
+        group,
+        voicingText: vx.v,
+        invName: vx.invName
+      };
+    }
+
+    // ===== block button handlers =====
+    document.querySelectorAll(".tbtn").forEach(el => {
+      el.addEventListener("click", () => {
+        const role = el.dataset.role;
+        const blk = el.dataset.block;
+
+        if (role === "active"){
+          blocks[blk].active = !blocks[blk].active;
+          renderBlockButtons();
+          // 出題中だったら待機に戻す
+          if (phase !== "idle") resetToIdle("設定を変更しました。");
+          rebuildChoices();
+          return;
         }
-      });
-    }
 
-    function resetForSettingChange(){
-      // 出題中に変更されたら待機へ戻す
-      if (phase !== "idle"){
-        resetToIdle("設定を変更しました。出題してください。");
-      } else {
-        setStatus("設定を変更しました。");
-      }
-      rebuildChoices();
-    }
+        if (role === "inv"){
+          blocks[blk].inv = !blocks[blk].inv;
+          renderBlockButtons();
 
-    // ===== 変更イベント（出題セット on/off、basicの転回形、plus/hardの転回形も含めて）=====
-    ["basic","plus","hard"].forEach(setKey => {
-      document.querySelectorAll(`input[name="en_${setKey}"]`).forEach(el => {
-        el.addEventListener("change", resetForSettingChange);
-      });
-      document.querySelectorAll(`input[name="inv_${setKey}"]`).forEach(el => {
-        el.addEventListener("change", resetForSettingChange);
+          if (blk !== "easy"){
+            setStatus(`${blk === "normal" ? "② Normal" : blk === "plus" ? "③ Plus" : "④ Hard"} の転回形は音源未整備のため、効果が出ない場合があります。`, true);
+          } else {
+            setStatus("設定を変更しました。");
+          }
+
+          if (phase !== "idle") resetToIdle("設定を変更しました。");
+          return;
+        }
       });
     });
 
-    // plus/hardの転回形onトラップ
-    attachInvTrap("plus");
-    attachInvTrap("hard");
-
     // ===== buttons =====
     btnStart.addEventListener("click", async () => {
-      // retryPrompt中に押されたら＝スキップ確定（total++）
+      // retryPrompt中：スキップ確定
       if (phase === "retryPrompt" && current){
         total += 1;
         totalEl.textContent = String(total);
         updateAccuracy();
 
-        setStatus(`スキップ：正解は ${current.label}`);
+        setStatus(`${current.label} スキップ（${current.voicingText} ${current.invName}）`);
         phase = "idle";
         current = null;
 
-        setReplayBlock(false);
+        setAnswerControls(false);
         setChoicesEnabled(false);
         btnStart.disabled = false;
         return;
@@ -584,15 +621,15 @@
 
       if (phase !== "idle") return;
 
-      const ids = unionPoolIds();
+      const ids = idsForActiveGroups();
       if (ids.length === 0){
-        setStatus("出題がすべてoffです。", true);
+        setStatus("出題が全部OFFです。", true);
         return;
       }
 
       current = pickQuestion();
       if (!current){
-        setStatus("出題データが見つかりません（音源名を確認してください）。", true);
+        setStatus("出題できません（音源名/配置を確認）", true);
         current = null;
         return;
       }
@@ -602,13 +639,13 @@
       phase = "answering";
 
       btnStart.disabled = true;
-      setReplayBlock(true);
+      setAnswerControls(true);
       setChoicesEnabled(true);
 
       try{
         await playFile(current.file);
       }catch(e){
-        setStatus("再生できません。音源パス/ファイル名を確認してください。", true);
+        setStatus("再生できません（audio/ のファイル名を確認）", true);
         resetToIdle("待機中");
       }
     });
@@ -618,7 +655,6 @@
       clearHint();
 
       if (phase === "retryPrompt"){
-        // 不正解確定として total++
         total += 1;
         totalEl.textContent = String(total);
         updateAccuracy();
@@ -642,22 +678,23 @@
         totalEl.textContent = String(total);
         updateAccuracy();
 
-        setStatus(`答え：${current.label}`);
+        setStatus(`${current.label}（${current.voicingText} ${current.invName}）`);
         phase = "idle";
         current = null;
 
-        setReplayBlock(false);
+        setAnswerControls(false);
         setChoicesEnabled(false);
         btnStart.disabled = false;
       } else {
-        setStatus(`答え：${current.label}`);
+        setStatus(`${current.label}（${current.voicingText} ${current.invName}）`);
       }
     });
 
     btnHint.addEventListener("click", () => {
       if (!current) return;
-      hintArea.style.display = "block";
-      hintArea.textContent = current.hint ? current.hint : "（なし）";
+
+      // いまはヒント文字列を持ってないので、必要ならここに実装追加
+      setHint("（なし）");
     });
 
     btnC.addEventListener("click", async () => {
@@ -665,7 +702,7 @@
         await playFile("C.mp3");
         setStatus("C（基準音）");
       }catch(e){
-        setStatus("Cを再生できません。", true);
+        setStatus("Cを再生できません（audio/C.mp3 を確認）", true);
       }
     });
 
@@ -673,6 +710,7 @@
     scoreEl.textContent = "0";
     totalEl.textContent = "0";
     updateAccuracy();
+    renderBlockButtons();
     rebuildChoices();
     resetToIdle("待機中");
   })();
