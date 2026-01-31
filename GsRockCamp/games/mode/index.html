@@ -3,19 +3,132 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mode Quiz (C tonic)</title>
+  <title>Mode Scale Quiz</title>
+
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 18px; line-height: 1.6; }
-    button, select { padding: 10px 14px; margin: 6px 6px 0 0; font-size: 16px; }
-    #status { margin-top: 12px; font-weight: 700; }
-    #hintArea { margin-top: 8px; padding: 10px; border: 1px dashed #aaa; border-radius: 10px; display: none; }
-    .box { padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin-top: 12px; }
-    .small { font-size: 13px; opacity: .75; }
-    .row { margin-top: 8px; }
+    :root{
+      --text:#111;
+      --muted:#666;
+      --line:#ddd;
+      --card:#fff;
+      --blue:#1d4ed8;
+      --warn:#b91c1c;
+    }
+
+    body{
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      padding:18px;
+      line-height:1.6;
+      padding-bottom:120px;
+      color:var(--text);
+      background:#fff;
+    }
+
+    .wrap{ max-width:820px; margin:0 auto; }
+
+    h1{
+      font-size:22px;
+      margin:6px 0 10px;
+      display:flex;
+      align-items:baseline;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .ver{ font-size:12px; color:var(--muted); font-weight:800; }
+
+    .box{
+      padding:14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:var(--card);
+      margin-top:12px;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:10px;
+    }
+
+    select,button{
+      padding:10px 14px;
+      font-size:16px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-weight:800;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:disabled{ opacity:.45; }
+
+    /* Big start button */
+    #btnStart{
+      font-size:20px;
+      padding:16px 18px;
+      flex:1 1 220px;
+    }
+
+    #status{
+      margin-top:12px;
+      font-weight:900;
+    }
+    #status.warn{ color: var(--warn); }
+
+    #hintArea{
+      margin-top:10px;
+      padding:12px;
+      border:1px dashed #aaa;
+      border-radius:12px;
+      display:none;
+      background:#fafafa;
+    }
+
+    .choices{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    .choice{
+      padding:14px;
+      font-weight:900;
+      border-radius:14px;
+    }
+
+    .scorebar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      font-weight:900;
+      margin-top:8px;
+    }
+    .accuracy.good{ color: var(--blue); }
+
+    .backwrap{
+      margin-top:18px;
+      text-align:center;
+    }
+    .backwrap a{
+      display:inline-block;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      text-decoration:none;
+      color:var(--text);
+      font-weight:900;
+      background:#fff;
+    }
   </style>
 </head>
+
 <body>
-  <h1>モード当てクイズ（Cトニック）</h1>
+<div class="wrap">
+
+  <h1>Mode Scale Quiz <span class="ver">ver1.0</span></h1>
 
   <div class="box">
     <div class="row">
@@ -25,192 +138,305 @@
         <option value="normal">NORMAL（マイナー3つ）</option>
         <option value="hard">HARD（全部）</option>
       </select>
-      <span class="small">※難易度で「出題範囲」が変わります</span>
     </div>
 
     <div class="row">
-      <button id="btnStart">出題（ランダム再生）</button>
-      <button id="btnReplay" disabled>もう一回聴く</button>
-      <button id="btnReveal" disabled>答えを見る</button>
-      <button id="btnHint" disabled>ヒント（キャラ音）</button>
+      <button id="btnStart">出題</button>
+      <button id="btnReplay" disabled>もう一回</button>
+      <button id="btnReveal" disabled>答え</button>
+      <button id="btnHint" disabled>ヒント</button>
     </div>
 
     <div id="status">まだ出題していません</div>
     <div id="hintArea"></div>
-    <div class="small">※初回クリックで音が鳴るのはブラウザ仕様です</div>
+
+    <div class="scorebar">
+      <div>スコア：<span id="score">0</span>/<span id="total">0</span></div>
+      <div id="accuracy" class="accuracy">正答率 00%</div>
+    </div>
   </div>
 
-  <div class="box row">
+  <div class="box">
     <div><b>答えを選んでください：</b></div>
-    <button class="choice" data-key="ionian" disabled>イオニアン</button>
-    <button class="choice" data-key="dorian" disabled>ドリアン</button>
-    <button class="choice" data-key="phrygian" disabled>フリジアン</button>
-    <button class="choice" data-key="lydian" disabled>リディアン</button>
-    <button class="choice" data-key="mixolydian" disabled>ミクソリディアン</button>
-    <button class="choice" data-key="aeolian" disabled>エオリアン</button>
-    <button class="choice" data-key="locrian" disabled>ロクリアン</button>
-    <button class="choice" data-key="natural_minor" disabled>ナチュラルマイナー</button>
-    <button class="choice" data-key="harmonic_minor" disabled>ハーモニックマイナー</button>
-    <button class="choice" data-key="melodic_minor" disabled>メロディックマイナー</button>
+    <div class="choices" id="choices"></div>
   </div>
 
-  <div class="box row">
-    <div>スコア：<span id="score">0</span> / <span id="total">0</span></div>
+  <div class="backwrap">
+    <a href="../../index.html">← ポータルに戻る</a>
   </div>
 
   <audio id="player" preload="auto"></audio>
 
-  <script>
-    // ===== 出題データ（ファイル名＋ヒント）=====
-    const ALL = [
-      { key: "ionian",         label: "イオニアン",           src: "audio/c_ionian.mp3",          hint: "特徴：7（B）※導音でCへ強く解決" },
-      { key: "dorian",         label: "ドリアン",             src: "audio/c_dorian.mp3",          hint: "特徴：♭3（Eb）＋6（A）※マイナーなのに6が明るい" },
-      { key: "phrygian",       label: "フリジアン",           src: "audio/c_phrygian.mp3",        hint: "特徴：♭2（Db）※異国感の核" },
-      { key: "lydian",         label: "リディアン",           src: "audio/c_lydian.mp3",          hint: "特徴：#4（F#）※浮遊感の核" },
-      { key: "mixolydian",     label: "ミクソリディアン",      src: "audio/c_mixolydian.mp3",      hint: "特徴：♭7（Bb）※導音が弱く“丸い”終止" },
-      { key: "aeolian",        label: "エオリアン",           src: "audio/c_aeolian.mp3",         hint: "特徴：♭3（Eb）＋♭6（Ab）＋♭7（Bb）※ナチュラルマイナー" },
-      { key: "locrian",        label: "ロクリアン",           src: "audio/c_locrian.mp3",         hint: "特徴：♭2（Db）＋♭5（Gb）※不安定さの核" },
-      { key: "natural_minor",  label: "ナチュラルマイナー",    src: "audio/c_natural_minor.mp3",   hint: "特徴：♭3（Eb）＋♭6（Ab）＋♭7（Bb）※エオリアンと同じ音階" },
-      { key: "harmonic_minor", label: "ハーモニックマイナー",  src: "audio/c_harmonic_minor.mp3",  hint: "特徴：7（B）※マイナーなのに導音で終止が強い" },
-      { key: "melodic_minor",  label: "メロディックマイナー",  src: "audio/c_melodic_minor.mp3",   hint: "特徴：6（A）＋7（B）※上行形（都会感）" },
-    ];
+</div>
 
-    // ===== 難易度ごとの出題範囲 =====
-    const POOLS = {
-      easy:   ["ionian", "lydian", "mixolydian", "aeolian"],
-      normal: ["ionian", "lydian", "mixolydian", "aeolian", "natural_minor", "harmonic_minor", "melodic_minor"],
-      hard:   ALL.map(x => x.key),
-    };
+<script>
+(() => {
+  // ===== 出題データ（ファイル名＋ヒント）=====
+  const ALL = [
+    { key:"ionian",         label:"イオニアン",            src:"audio/c_ionian.mp3",         hint:"特徴：7（B）※導音でCへ強く解決" },
+    { key:"dorian",         label:"ドリアン",              src:"audio/c_dorian.mp3",         hint:"特徴：♭3（Eb）＋6（A）※マイナーなのに6が明るい" },
+    { key:"phrygian",       label:"フリジアン",            src:"audio/c_phrygian.mp3",       hint:"特徴：♭2（Db）※異国感の核" },
+    { key:"lydian",         label:"リディアン",            src:"audio/c_lydian.mp3",         hint:"特徴：#4（F#）※浮遊感の核" },
+    { key:"mixolydian",     label:"ミクソリディアン",      src:"audio/c_mixolydian.mp3",     hint:"特徴：♭7（Bb）※導音が弱く“丸い”終止" },
+    { key:"aeolian",        label:"エオリアン",            src:"audio/c_aeolian.mp3",        hint:"特徴：♭3（Eb）＋♭6（Ab）＋♭7（Bb）※ナチュラルマイナー" },
+    { key:"locrian",        label:"ロクリアン",            src:"audio/c_locrian.mp3",        hint:"特徴：♭2（Db）＋♭5（Gb）※不安定さの核" },
+    { key:"natural_minor",  label:"ナチュラルマイナー",    src:"audio/c_natural_minor.mp3",  hint:"特徴：♭3（Eb）＋♭6（Ab）＋♭7（Bb）※エオリアンと同じ音階" },
+    { key:"harmonic_minor", label:"ハーモニックマイナー",  src:"audio/c_harmonic_minor.mp3", hint:"特徴：7（B）※マイナーなのに導音で終止が強い" },
+    { key:"melodic_minor",  label:"メロディックマイナー",  src:"audio/c_melodic_minor.mp3",  hint:"特徴：6（A）＋7（B）※上行形（都会感）" },
+  ];
 
-    // ===== DOM =====
-    const player = document.getElementById("player");
-    const statusEl = document.getElementById("status");
-    const hintArea = document.getElementById("hintArea");
+  // ===== 難易度ごとの出題範囲 =====
+  const POOLS = {
+    easy:   ["ionian","lydian","mixolydian","aeolian"],
+    normal: ["ionian","lydian","mixolydian","aeolian","natural_minor","harmonic_minor","melodic_minor"],
+    hard:   ALL.map(x => x.key),
+  };
 
-    const scoreEl  = document.getElementById("score");
-    const totalEl  = document.getElementById("total");
+  // ===== DOM =====
+  const player = document.getElementById("player");
+  const statusEl = document.getElementById("status");
+  const hintArea = document.getElementById("hintArea");
 
-    const btnStart = document.getElementById("btnStart");
-    const btnReplay= document.getElementById("btnReplay");
-    const btnReveal= document.getElementById("btnReveal");
-    const btnHint  = document.getElementById("btnHint");
+  const scoreEl = document.getElementById("score");
+  const totalEl = document.getElementById("total");
+  const accuracyEl = document.getElementById("accuracy");
 
-    const difficultySel = document.getElementById("difficulty");
-    const choiceBtns = Array.from(document.querySelectorAll(".choice"));
+  const btnStart  = document.getElementById("btnStart");
+  const btnReplay = document.getElementById("btnReplay");
+  const btnReveal = document.getElementById("btnReveal");
+  const btnHint   = document.getElementById("btnHint");
 
-    // ===== 状態 =====
-    let current = null;
-    let locked = true;
-    let score = 0;
-    let total = 0;
+  const difficultySel = document.getElementById("difficulty");
+  const choicesWrap = document.getElementById("choices");
 
-    function getPoolKeys() {
-      const diff = difficultySel.value;
-      return POOLS[diff] ?? POOLS.easy;
-    }
+  // ===== state =====
+  let current = null;
+  let phase = "idle";
+  // idle | answering | retryPrompt
+  let score = 0;
+  let total = 0;
 
-    function getModeByKey(key) {
-      return ALL.find(m => m.key === key);
-    }
+  function getPoolKeys(){
+    const diff = difficultySel.value;
+    return POOLS[diff] ?? POOLS.easy;
+  }
+  function getModeByKey(key){
+    return ALL.find(m => m.key === key);
+  }
+  function pickRandom(){
+    const keys = getPoolKeys();
+    const idx = Math.floor(Math.random() * keys.length);
+    return getModeByKey(keys[idx]);
+  }
 
-    function pickRandomModeFromPool() {
-      const poolKeys = getPoolKeys();
-      const idx = Math.floor(Math.random() * poolKeys.length);
-      return getModeByKey(poolKeys[idx]);
-    }
+  function clearHint(){
+    hintArea.style.display = "none";
+    hintArea.textContent = "";
+  }
 
-    function setChoicesEnabled(enabled) {
-      const pool = new Set(getPoolKeys());
-      choiceBtns.forEach(b => {
-        const k = b.dataset.key;
-        b.disabled = !(enabled && pool.has(k));
-      });
-      btnReplay.disabled = !enabled;
-      btnReveal.disabled = !enabled;
-      btnHint.disabled = !enabled;
-    }
+  function setStatus(text, warn=false){
+    statusEl.textContent = text;
+    statusEl.classList.toggle("warn", !!warn);
+  }
 
-    async function playMode(mode) {
-      player.pause();
-      player.currentTime = 0;
-      player.src = mode.src;
-      await player.play();
-    }
+  function setReplayBlockEnabled(enabled){
+    btnReplay.disabled = !enabled;
+    btnReveal.disabled = !enabled;
+    btnHint.disabled   = !enabled;
+  }
 
-    function clearHint() {
-      hintArea.style.display = "none";
-      hintArea.textContent = "";
-    }
+  function updateAccuracy(){
+    const acc = total === 0 ? 0 : Math.round((score / total) * 100);
+    const accText = String(acc).padStart(2,"0") + "%";
+    accuracyEl.textContent = `正答率 ${accText}`;
+    accuracyEl.classList.toggle("good", acc >= 80);
+  }
 
-    // ===== イベント =====
-    difficultySel.addEventListener("change", () => {
-      clearHint();
-      statusEl.textContent = "難易度を変更しました。出題してください。";
-      setChoicesEnabled(false);
-      current = null;
-      locked = true;
+  function setChoicesEnabled(enabled){
+    const pool = new Set(getPoolKeys());
+    const btns = Array.from(document.querySelectorAll(".choice"));
+    btns.forEach(b => {
+      const k = b.dataset.key;
+      b.disabled = !(enabled && pool.has(k));
     });
+  }
 
-    btnStart.addEventListener("click", async () => {
-      current = pickRandomModeFromPool();
-      locked = false;
-      total += 1;
-      totalEl.textContent = String(total);
+  function rebuildChoices(){
+    choicesWrap.innerHTML = "";
+    // 表示は ALL順で固定（難易度外は出題時に無効化）
+    ALL.forEach(m => {
+      const b = document.createElement("button");
+      b.className = "choice";
+      b.textContent = m.label;
+      b.dataset.key = m.key;
+      b.disabled = true;
 
-      clearHint();
-      statusEl.textContent = "出題中：再生しました。どれでしょう？";
-      setChoicesEnabled(true);
-
-      try {
-        await playMode(current);
-      } catch (e) {
-        statusEl.textContent = "再生できませんでした。もう一度「出題」を押してください。";
-      }
-    });
-
-    btnReplay.addEventListener("click", async () => {
-      if (!current) return;
-      clearHint();
-      statusEl.textContent = "もう一回再生しました。";
-      try { await playMode(current); } catch {}
-    });
-
-    btnReveal.addEventListener("click", () => {
-      if (!current) return;
-      statusEl.textContent = `答え：${current.label}`;
-    });
-
-    btnHint.addEventListener("click", () => {
-      if (!current) return;
-      hintArea.style.display = "block";
-      hintArea.innerHTML = `<b>ヒント</b><br><code>${current.hint}</code>`;
-    });
-
-    choiceBtns.forEach(btn => {
-      btn.addEventListener("click", () => {
-        if (locked || !current) return;
+      b.addEventListener("click", () => {
+        if (phase !== "answering" || !current) return;
 
         const pool = new Set(getPoolKeys());
-        if (!pool.has(btn.dataset.key)) return;
+        if (!pool.has(b.dataset.key)) return;
 
-        locked = true;
-        setChoicesEnabled(false);
-
-        const guess = btn.dataset.key;
-        const correct = (guess === current.key);
-
-        if (correct) {
+        const guess = b.dataset.key;
+        if (guess === current.key){
+          // 正解確定：ここで母数を増やす
+          total += 1;
           score += 1;
+          totalEl.textContent = String(total);
           scoreEl.textContent = String(score);
-          statusEl.textContent = `⭕ 正解！ ${current.label}`;
-        } else {
-          statusEl.textContent = `❌ 不正解… 正解は ${current.label}`;
+          updateAccuracy();
+
+          setStatus(`⭕ 正解！ ${current.label}（次の出題OK）`);
+          phase = "idle";
+          current = null;
+
+          setChoicesEnabled(false);
+          setReplayBlockEnabled(false);
+          btnStart.disabled = false;
+        }else{
+          // 不正解：即答えは出さず retryPrompt へ
+          setStatus("❌ 不正解… 再挑戦しますか？（もう一回 / 答え / 出題＝スキップ）", true);
+          phase = "retryPrompt";
+
+          setChoicesEnabled(false);
+          setReplayBlockEnabled(true);
+          btnStart.disabled = false; // 出題＝スキップを許可
         }
       });
-    });
 
-    // 初期状態
+      choicesWrap.appendChild(b);
+    });
+  }
+
+  async function playSrc(src){
+    player.pause();
+    player.currentTime = 0;
+    player.src = src;
+    await player.play();
+  }
+
+  // ===== events =====
+  difficultySel.addEventListener("change", () => {
+    clearHint();
+    setStatus("難易度を変更しました。出題してください。");
+    phase = "idle";
+    current = null;
+
     setChoicesEnabled(false);
-  </script>
+    setReplayBlockEnabled(false);
+    btnStart.disabled = false;
+  });
+
+  // 出題：
+  // - idle：新規出題
+  // - retryPrompt：スキップ（不正解確定）として母数++ → 次の出題待ち
+  btnStart.addEventListener("click", async () => {
+    if (phase === "retryPrompt" && current){
+      // スキップ＝不正解確定
+      total += 1;
+      totalEl.textContent = String(total);
+      updateAccuracy();
+
+      setStatus(`スキップ：正解は ${current.label}（次の出題OK）`);
+      phase = "idle";
+      current = null;
+
+      setChoicesEnabled(false);
+      setReplayBlockEnabled(false);
+      btnStart.disabled = false;
+      return;
+    }
+
+    if (phase !== "idle") return;
+
+    current = pickRandom();
+    if (!current){
+      setStatus("出題データが見つかりません。", true);
+      return;
+    }
+
+    clearHint();
+    setStatus("出題中：聴いて選んでください。");
+    phase = "answering";
+
+    // 出題中は連打防止で無効化
+    btnStart.disabled = true;
+
+    setReplayBlockEnabled(true);
+    setChoicesEnabled(true);
+
+    try{
+      await playSrc(current.src);
+    }catch(e){
+      setStatus("再生できませんでした。もう一度「出題」を押してください。", true);
+      phase = "idle";
+      btnStart.disabled = false;
+      setChoicesEnabled(false);
+    }
+  });
+
+  // もう一回：
+  // - answering：再生のみ
+  // - retryPrompt：不正解確定として母数++ → 再挑戦へ
+  btnReplay.addEventListener("click", async () => {
+    if (!current) return;
+    clearHint();
+
+    if (phase === "retryPrompt"){
+      total += 1;
+      totalEl.textContent = String(total);
+      updateAccuracy();
+
+      phase = "answering";
+      btnStart.disabled = true; // 再挑戦中はスキップ誤爆防止
+      setChoicesEnabled(true);
+      setStatus("再挑戦：もう一回聴いて、答えを選んでください。");
+    }else{
+      setStatus("もう一回再生しました。");
+    }
+
+    try{ await playSrc(current.src); }catch{}
+  });
+
+  // 答え：
+  // - retryPrompt：不正解確定として母数++ → 答え表示 → 終了
+  // - answering：答え表示のみ（採点なし）
+  btnReveal.addEventListener("click", () => {
+    if (!current) return;
+
+    if (phase === "retryPrompt"){
+      total += 1;
+      totalEl.textContent = String(total);
+      updateAccuracy();
+
+      setStatus(`答え：${current.label}（次の出題OK）`);
+      phase = "idle";
+      current = null;
+
+      setChoicesEnabled(false);
+      setReplayBlockEnabled(false);
+      btnStart.disabled = false;
+      return;
+    }
+
+    setStatus(`答え：${current.label}`);
+  });
+
+  btnHint.addEventListener("click", () => {
+    if (!current) return;
+    hintArea.style.display = "block";
+    hintArea.innerHTML = `<b>ヒント</b><br><code>${current.hint}</code>`;
+  });
+
+  // init
+  scoreEl.textContent = "0";
+  totalEl.textContent = "0";
+  updateAccuracy();
+  rebuildChoices();
+  setChoicesEnabled(false);
+  setReplayBlockEnabled(false);
+})();
+</script>
+
 </body>
 </html>
