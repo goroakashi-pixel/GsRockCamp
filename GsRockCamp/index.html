@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>GsRockCamp</title>
+  <title>GoRockCamp</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">
@@ -24,6 +24,19 @@
       margin:18px;
       color:var(--text);
       background:var(--bg);
+    }
+
+    /* ===== Banner (top) ===== */
+    .banner{
+      max-width: 820px;
+      margin: 0 auto 12px;
+    }
+    .banner img{
+      width:100%;
+      height:auto;
+      display:block;
+      border-radius:16px;
+      border:1px solid var(--line);
     }
 
     header{
@@ -74,20 +87,6 @@
       margin:0;
     }
 
-    /* ===== Hero image (below cards) ===== */
-    .hero{
-      width:100%;
-      max-width: 820px;
-      margin: 14px auto 10px;
-    }
-    .hero img{
-      width:100%;
-      height:auto;
-      display:block;
-      border-radius:16px;
-      border:1px solid var(--line);
-    }
-
     .footer{
       max-width: 820px;
       margin: 10px auto 0;
@@ -98,37 +97,30 @@
 </head>
 
 <body>
+  <!-- ★ ここにバナーを出す（ファイル名が違うなら src を差し替え） -->
+  <div class="banner">
+    <img src="assets/img/banner.png" alt="GoRockCamp">
+  </div>
+
   <header>
-    <h1>GsRockCamp</h1>
-    <p class="sub">通勤用：サクッと耳トレ／和声トレ</p>
+    <h1>GoRockCamp</h1>
+    <!-- サブタイトル不要なら、この1行は削除OK -->
+    <!-- <p class="sub">通勤用：サクッと耳トレ／和声トレ</p> -->
   </header>
 
   <div class="grid">
-    <a class="card" href="games/mode/index.html">
-      <div class="title">Mode Quiz</div>
-      <p class="desc">Cの各モードを聴いて当てる（Ionian〜Locrian）</p>
+    <!-- 順番：ダイアトニック（上） -->
+    <a class="card" href="games/diatonic/index.html">
+      <div class="title">Diatonic Quiz</div>
+      <p class="desc">ダイアトニック／セカンダリードミナントなどを聴き分け</p>
     </a>
 
+    <!-- 順番：クオリティ（中） -->
     <a class="card" href="games/qualities/index.html">
       <div class="title">Chord Qualities</div>
       <p class="desc">コードのクオリティ当て（C, Cm, C7, CM7…）</p>
     </a>
 
-    <a class="card" href="games/diatonic/index.html">
-      <div class="title">Diatonic Quiz</div>
-      <p class="desc">ダイアトニック／セカンダリードミナントなどを聴き分け</p>
-    </a>
-  </div>
-
-  <div class="hero">
-    <img src="assets/img/nene.png" alt="寧音（通勤中）">
-  </div>
-
-  <div class="footer">
-    ※Kadenzは自宅専用プロジェクト
-  </div>
-
-  <!-- Service Worker 登録（外部ファイル） -->
-  <script src="assets/sw-register.js"></script>
-</body>
-</html>
+    <!-- 順番：モード（下） -->
+    <a class="card" href="games/mode/index.html">
+      <div class="title"
