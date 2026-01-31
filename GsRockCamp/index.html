@@ -24,14 +24,15 @@
       margin:18px;
       color:var(--text);
       background:var(--bg);
+      padding-bottom:120px; /* iPhoneで最下部が沈むのを防ぐ */
     }
 
-    /* ===== Banner (top) ===== */
-    .banner{
-      max-width: 820px;
-      margin: 0 auto 12px;
+    /* ===== Banner ===== */
+    .grc-banner{
+      max-width:820px;
+      margin:0 auto 12px;
     }
-    .banner img{
+    .grc-banner img{
       width:100%;
       height:auto;
       display:block;
@@ -39,33 +40,27 @@
       border:1px solid var(--line);
     }
 
-    header{
-      max-width: 820px;
-      margin: 0 auto 14px;
+    /* ===== Header ===== */
+    .grc-header{
+      max-width:820px;
+      margin:0 auto 14px;
     }
-
-    h1{
+    .grc-header h1{
       font-size:22px;
-      margin:0 0 6px;
+      margin:0;
       letter-spacing:.2px;
     }
 
-    .sub{
-      margin:0 0 12px;
-      color:var(--muted);
-      font-size:13px;
-    }
-
     /* ===== Cards ===== */
-    .grid{
-      max-width: 820px;
-      margin: 0 auto;
+    .grc-grid{
+      max-width:820px;
+      margin:0 auto;
       display:grid;
       grid-template-columns: 1fr;
       gap:12px;
     }
 
-    a.card{
+    a.grc-card{
       display:block;
       padding:14px;
       border:1px solid var(--line);
@@ -73,23 +68,25 @@
       text-decoration:none;
       color:var(--text);
       background:var(--card);
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .title{
+    .grc-card-title{
       font-weight:800;
-      margin-bottom:6px;
+      margin:0 0 6px;
+      color:var(--text);
     }
 
-    .desc{
+    .grc-card-desc{
+      margin:0;
       color:#555;
       font-size:14px;
       line-height:1.45;
-      margin:0;
     }
 
-    .footer{
-      max-width: 820px;
-      margin: 10px auto 0;
+    .grc-footer{
+      max-width:820px;
+      margin:10px auto 0;
       font-size:12px;
       color:#777;
     }
@@ -97,30 +94,38 @@
 </head>
 
 <body>
-  <!-- ★ ここにバナーを出す（ファイル名が違うなら src を差し替え） -->
-  <div class="banner">
+  <!-- Top Banner -->
+  <div class="grc-banner">
     <img src="assets/img/banner.png" alt="GoRockCamp">
   </div>
 
-  <header>
+  <header class="grc-header">
     <h1>GoRockCamp</h1>
-    <!-- サブタイトル不要なら、この1行は削除OK -->
-    <!-- <p class="sub">通勤用：サクッと耳トレ／和声トレ</p> -->
   </header>
 
-  <div class="grid">
-    <!-- 順番：ダイアトニック（上） -->
-    <a class="card" href="games/diatonic/index.html">
-      <div class="title">Diatonic Quiz</div>
-      <p class="desc">ダイアトニック／セカンダリードミナントなどを聴き分け</p>
+  <!-- Cards: 指定順（上→下） -->
+  <div class="grc-grid">
+    <a class="grc-card" href="games/diatonic/index.html">
+      <div class="grc-card-title">Diatonic Quiz</div>
+      <p class="grc-card-desc">ダイアトニック／セカンダリードミナントなどを聴き分け</p>
     </a>
 
-    <!-- 順番：クオリティ（中） -->
-    <a class="card" href="games/qualities/index.html">
-      <div class="title">Chord Qualities</div>
-      <p class="desc">コードのクオリティ当て（C, Cm, C7, CM7…）</p>
+    <a class="grc-card" href="games/qualities/index.html">
+      <div class="grc-card-title">Chord Qualities</div>
+      <p class="grc-card-desc">コードのクオリティ当て（C, Cm, C7, CM7…）</p>
     </a>
 
-    <!-- 順番：モード（下） -->
-    <a class="card" href="games/mode/index.html">
-      <div class="title"
+    <a class="grc-card" href="games/mode/index.html">
+      <div class="grc-card-title">Mode Quiz</div>
+      <p class="grc-card-desc">Cの各モードを聴いて当てる（Ionian〜Locrian）</p>
+    </a>
+  </div>
+
+  <div class="grc-footer">
+    ※Kadenzは自宅専用プロジェクト
+  </div>
+
+  <!-- Service Worker register -->
+  <script src="assets/sw-register.js"></script>
+</body>
+</html>
