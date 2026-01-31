@@ -13,6 +13,7 @@
       --bg:#fff;
       --card:#fff;
       --blue:#1d4ed8;
+      --warn:#b91c1c;
     }
 
     body{
@@ -23,15 +24,21 @@
       padding-bottom:120px;
     }
 
-    .wrap{
-      max-width:820px;
-      margin:0 auto;
-    }
+    .wrap{ max-width:820px; margin:0 auto; }
 
     h1{
       font-size:22px;
       margin: 6px 0 12px;
       letter-spacing:.2px;
+      display:flex;
+      align-items:baseline;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .ver{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
     }
 
     .box{
@@ -57,9 +64,6 @@
       background:#fff;
     }
 
-    .row{ margin-top:10px; }
-
-    /* buttons */
     .btn-row{
       display:flex;
       flex-wrap:wrap;
@@ -78,17 +82,14 @@
     }
     button:disabled{ opacity:.45; }
 
-    /* Big start button */
     #btnStart{
       flex: 1 1 220px;
       font-size:20px;
       padding:16px 18px;
     }
 
-    .status{
-      margin-top:12px;
-      font-weight:900;
-    }
+    .status{ margin-top:12px; font-weight:900; }
+    .status.warn{ color: var(--warn); }
 
     .hintArea{
       margin-top:10px;
@@ -99,7 +100,6 @@
       background:#fafafa;
     }
 
-    /* score */
     .scorebar{
       display:flex;
       justify-content:space-between;
@@ -108,11 +108,8 @@
       flex-wrap:wrap;
       font-weight:900;
     }
-    .scoreleft{ font-size:16px; }
-    .accuracy{ font-size:16px; }
     .accuracy.good{ color: var(--blue); }
 
-    /* choices */
     .grid{
       display:flex;
       flex-wrap:wrap;
@@ -126,7 +123,7 @@
       font-weight:800;
     }
 
-    /* back (bottom) */
+    /* back bottom */
     .grc-backwrap{ margin-top: 12px; }
     a.grc-backbtn{
       display:inline-block;
@@ -145,19 +142,20 @@
 
 <body>
   <div class="wrap">
-    <h1>Diatonic Chord Quiz</h1>
+    <h1>
+      Diatonic Chord Quiz
+      <span class="ver">ver1.0</span>
+    </h1>
 
     <div class="box">
-      <div class="row">
-        <label for="difficulty">難易度選択</label>
-        <select id="difficulty">
-          <option value="d1">① 3和音ダイアトニックのみ</option>
-          <option value="d2">② 4和音ダイアトニックを①に加える</option>
-          <option value="d3">③ ノーマル群を①に加える</option>
-          <option value="d4">④ ノーマル群を②に加える</option>
-          <option value="d5">⑤ 全部（意地悪枠込み）</option>
-        </select>
-      </div>
+      <label for="difficulty">難易度選択</label>
+      <select id="difficulty">
+        <option value="d1">① 3和音ダイアトニックのみ</option>
+        <option value="d2">② 4和音ダイアトニックを①に加える</option>
+        <option value="d3">③ ノーマル群を①に加える</option>
+        <option value="d4">④ ノーマル群を②に加える</option>
+        <option value="d5">⑤ 全部（意地悪枠込み）</option>
+      </select>
 
       <div class="btn-row">
         <button id="btnStart">出題</button>
@@ -178,15 +176,11 @@
 
     <div class="box">
       <div class="scorebar">
-        <div class="scoreleft">
-          スコア：
-          <span id="score">0</span>/<span id="total">0</span>
-        </div>
+        <div>スコア： <span id="score">0</span>/<span id="total">0</span></div>
         <div id="accuracy" class="accuracy">正答率 00%</div>
       </div>
     </div>
 
-    <!-- back to portal (bottom) -->
     <div class="grc-backwrap">
       <a class="grc-backbtn" href="../../index.html">← ポータルに戻る</a>
     </div>
@@ -197,7 +191,6 @@
   <script>
     // ===== 出題データ（※既存のファイル名をそのまま使用）=====
     const ALL = [
-      // --- ① 3和音ダイアトニック ---
       { key:"C",    label:"C",    src:"audio/C.mp3",    hint:"Cメジャー三和音（C–E–G）" },
       { key:"Dm",   label:"Dm",   src:"audio/Dm.mp3",   hint:"マイナー三和音（D–F–A）" },
       { key:"Em",   label:"Em",   src:"audio/Em.mp3",   hint:"マイナー三和音（E–G–B）" },
@@ -206,7 +199,6 @@
       { key:"Am",   label:"Am",   src:"audio/Am.mp3",   hint:"マイナー三和音（A–C–E）" },
       { key:"Bm-5", label:"Bm-5", src:"audio/Bm-5.mp3", hint:"減三和音（B–D–F）" },
 
-      // --- ② 4和音ダイアトニック ---
       { key:"CM7",   label:"CM7",   src:"audio/CM7.mp3",   hint:"M7（B）半音で寄る感じ" },
       { key:"Dm7",   label:"Dm7",   src:"audio/Dm7.mp3",   hint:"m7（C）" },
       { key:"Em7",   label:"Em7",   src:"audio/Em7.mp3",   hint:"m7（D）" },
@@ -215,14 +207,12 @@
       { key:"Am7",   label:"Am7",   src:"audio/Am7.mp3",   hint:"m7（G）" },
       { key:"Bm7-5", label:"Bm7-5", src:"audio/Bm7-5.mp3", hint:"m7♭5（A）" },
 
-      // --- ③④ ノーマル群 ---
       { key:"E7",  label:"E7",  src:"audio/E7.mp3",  hint:"G#（長3度）外音が立つ" },
       { key:"A7",  label:"A7",  src:"audio/A7.mp3",  hint:"C#（長3度）外音で圧" },
       { key:"D7",  label:"D7",  src:"audio/D7.mp3",  hint:"F#（長3度）外音で圧" },
       { key:"C7",  label:"C7",  src:"audio/C7.mp3",  hint:"Bb（♭7）ブルース/ドミナント化" },
       { key:"D♭7", label:"D♭7", src:"audio/D♭7.mp3", hint:"代理ドミナントっぽい圧" },
 
-      // --- ⑤ 意地悪枠 ---
       { key:"Fm",     label:"Fm",     src:"audio/Fm.mp3",     hint:"Ab（♭3）サブドミマイナー" },
       { key:"A♭",     label:"A♭",     src:"audio/A♭.mp3",     hint:"Abメジャー（借用の色）" },
       { key:"B♭",     label:"B♭",     src:"audio/B♭.mp3",     hint:"♭VIIのロック感" },
@@ -234,19 +224,9 @@
 
     const POOLS = {
       d1: ["C","Dm","Em","F","G","Am","Bm-5"],
-      d2: [
-        "C","Dm","Em","F","G","Am","Bm-5",
-        "CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5"
-      ],
-      d3: [
-        "C","Dm","Em","F","G","Am","Bm-5",
-        "E7","A7","D7","C7","D♭7"
-      ],
-      d4: [
-        "C","Dm","Em","F","G","Am","Bm-5",
-        "CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5",
-        "E7","A7","D7","C7","D♭7"
-      ],
+      d2: ["C","Dm","Em","F","G","Am","Bm-5","CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5"],
+      d3: ["C","Dm","Em","F","G","Am","Bm-5","E7","A7","D7","C7","D♭7"],
+      d4: ["C","Dm","Em","F","G","Am","Bm-5","CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5","E7","A7","D7","C7","D♭7"],
       d5: ALL.map(x => x.key),
     };
 
@@ -270,7 +250,14 @@
 
     // ===== state =====
     let current = null;
-    let inQuestion = false;   // 出題中（未回答）
+    let phase = "idle"; 
+    // idle | answering | retryPrompt
+    // idle: 未出題
+    // answering: 出題して回答待ち
+    // retryPrompt: 不正解後「再挑戦しますか？」状態
+
+    let wrongAttemptsThisQuestion = 0;
+
     let score = 0;
     let total = 0;
 
@@ -278,11 +265,9 @@
       const diff = difficultySel.value;
       return POOLS[diff] ?? POOLS.d1;
     }
-
     function getItemByKey(key) {
       return ALL.find(m => m.key === key);
     }
-
     function pickRandomFromPool() {
       const poolKeys = getPoolKeys();
       const idx = Math.floor(Math.random() * poolKeys.length);
@@ -294,7 +279,7 @@
       hintArea.textContent = "";
     }
 
-    function setReplayBlockEnabled(enabled){
+    function setReplayBlock(enabled){
       btnReplay.disabled = !enabled;
       btnReveal.disabled = !enabled;
       btnHint.disabled   = !enabled;
@@ -319,30 +304,43 @@
         b.disabled = true;
 
         b.addEventListener("click", () => {
-          if (!inQuestion || !current) return;
-
-          // 回答確定
-          inQuestion = false;
-          setChoicesEnabled(false);
+          if (phase !== "answering" || !current) return;
 
           const guess = b.dataset.key;
           const correct = (guess === current.key);
 
           if (correct) {
+            // 正解確定：この時点で母数を増やす（出題瞬間に下がらない）
+            total += 1;
             score += 1;
             scoreEl.textContent = String(score);
+            totalEl.textContent = String(total);
+            updateAccuracy();
+
+            statusEl.classList.remove("warn");
             statusEl.textContent = `⭕ 正解！ ${current.label}（次の出題OK）`;
+
+            phase = "idle";
+            btnStart.disabled = false;
+            setChoicesEnabled(false);
+            setReplayBlock(false);
           } else {
-            statusEl.textContent = `❌ 不正解… 正解は ${current.label}（もう一回聴けます）`;
+            // 不正解：まだ母数に加えない／すぐ答えも出さない
+            wrongAttemptsThisQuestion += 1;
+
+            phase = "retryPrompt";
+            statusEl.classList.add("warn");
+            statusEl.textContent = "❌ 不正解… 再挑戦しますか？（もう一回 / 答え / 出題＝スキップ）";
+
+            // 選択肢は一旦止める（再挑戦は「もう一回」から）
+            setChoicesEnabled(false);
+
+            // もう一回/答え/出題は押せるようにする
+            setReplayBlock(true);
+
+            // 出題＝スキップも許可（ただし処理はbtnStartで判定）
+            btnStart.disabled = false;
           }
-
-          // 回答後も「もう一回」などは使える
-          setReplayBlockEnabled(true);
-
-          // 次の問題を出せるようにする（連打で勝手にカウントされるのを防ぐ）
-          btnStart.disabled = false;
-
-          updateAccuracy();
         });
 
         choicesWrap.appendChild(b);
@@ -367,59 +365,124 @@
     // ===== events =====
     difficultySel.addEventListener("change", () => {
       clearHint();
+      statusEl.classList.remove("warn");
       statusEl.textContent = "難易度を変更しました。出題してください。";
 
       current = null;
-      inQuestion = false;
+      phase = "idle";
+      wrongAttemptsThisQuestion = 0;
 
-      setReplayBlockEnabled(false);
+      setReplayBlock(false);
       setChoicesEnabled(false);
       btnStart.disabled = false;
 
       rebuildChoices();
     });
 
+    // 出題ボタン：
+    // - idle：新規出題
+    // - retryPrompt：スキップ扱い（＝不正解確定として母数に加える）→ 次の問題へ
     btnStart.addEventListener("click", async () => {
-      // 出題中は押せない（連打でスコア/正答率が変になるのを防ぐ）
-      if (inQuestion) return;
+      // まず「再挑戦しますか？」中に押されたら＝スキップ
+      if (phase === "retryPrompt" && current) {
+        // 不正解確定として母数に加える（試行があったので）
+        total += 1;
+        totalEl.textContent = String(total);
+        updateAccuracy();
+
+        statusEl.classList.remove("warn");
+        statusEl.textContent = `スキップ：正解は ${current.label}（次の出題OK）`;
+
+        // 次へ
+        phase = "idle";
+        current = null;
+        wrongAttemptsThisQuestion = 0;
+        setReplayBlock(false);
+        setChoicesEnabled(false);
+        // すぐ次を出せる
+        // （ここで return しない：押し直しで次の出題ができるように）
+        return;
+      }
+
+      // idle の時だけ新規出題
+      if (phase !== "idle") return;
 
       current = pickRandomFromPool();
-      inQuestion = true;
-
-      // 出題を確定した時だけ total を増やす
-      total += 1;
-      totalEl.textContent = String(total);
-      updateAccuracy();
+      wrongAttemptsThisQuestion = 0;
+      phase = "answering";
 
       clearHint();
+      statusEl.classList.remove("warn");
       statusEl.textContent = "出題中：聴いて選んでください。";
 
-      // 出題中は出題ボタンを無効化
+      // 出題中は出題ボタン無効（連打防止）
       btnStart.disabled = true;
 
-      // 出題中は選択＆再生系ボタンは使える
-      setReplayBlockEnabled(true);
+      setReplayBlock(true);
       setChoicesEnabled(true);
 
       try {
         await playSrc(current.src);
       } catch (e) {
+        statusEl.classList.add("warn");
         statusEl.textContent = "再生できませんでした。もう一度「出題」を押してください。";
-        inQuestion = false;
+        phase = "idle";
         btnStart.disabled = false;
       }
     });
 
+    // もう一回：
+    // - answering：再生だけ
+    // - retryPrompt：再挑戦開始（不正解カウントを母数に反映）
     btnReplay.addEventListener("click", async () => {
       if (!current) return;
+
       clearHint();
-      statusEl.textContent = "もう一回再生しました。";
+
+      if (phase === "retryPrompt") {
+        // 「もう一回」を押した＝その不正解は確定で母数に入れる
+        total += 1;
+        totalEl.textContent = String(total);
+        updateAccuracy();
+
+        statusEl.classList.remove("warn");
+        statusEl.textContent = "再挑戦：もう一回聴いて、答えを選んでください。";
+        phase = "answering";
+
+        // 再挑戦中は出題ボタンを無効（スキップ防止）
+        btnStart.disabled = true;
+        setChoicesEnabled(true);
+      } else {
+        statusEl.textContent = "もう一回再生しました。";
+      }
+
       try { await playSrc(current.src); } catch {}
     });
 
+    // 答え：
+    // - retryPrompt：不正解確定（母数に入れる）→ 正解表示 → 次へ
+    // - answering：ただ表示（採点にはしない）
     btnReveal.addEventListener("click", () => {
       if (!current) return;
-      statusEl.textContent = `答え：${current.label}`;
+
+      if (phase === "retryPrompt") {
+        total += 1;
+        totalEl.textContent = String(total);
+        updateAccuracy();
+
+        statusEl.classList.remove("warn");
+        statusEl.textContent = `答え：${current.label}（次の出題OK）`;
+
+        phase = "idle";
+        current = null;
+        wrongAttemptsThisQuestion = 0;
+
+        setReplayBlock(false);
+        setChoicesEnabled(false);
+        btnStart.disabled = false;
+      } else {
+        statusEl.textContent = `答え：${current.label}`;
+      }
     });
 
     btnHint.addEventListener("click", () => {
@@ -433,15 +496,17 @@
         await playSrc("audio/C.mp3");
         statusEl.textContent = "基準音：C を再生しました。";
       } catch (e) {
+        statusEl.classList.add("warn");
         statusEl.textContent = "Cの再生に失敗しました。";
       }
     });
 
     // init
     rebuildChoices();
-    setReplayBlockEnabled(false);
+    setReplayBlock(false);
     setChoicesEnabled(false);
     btnStart.disabled = false;
+
     scoreEl.textContent = "0";
     totalEl.textContent = "0";
     updateAccuracy();
