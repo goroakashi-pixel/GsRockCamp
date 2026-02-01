@@ -45,7 +45,6 @@
       margin-top:12px;
     }
 
-    /* ===== 4 blocks ===== */
     .blocks{
       display:flex;
       flex-direction:column;
@@ -105,7 +104,6 @@
       font-size:12px;
     }
 
-    /* ===== action buttons ===== */
     .btnRow{
       display:flex;
       flex-wrap:wrap;
@@ -180,7 +178,6 @@
     }
     a.backbtn:active{ transform: translateY(1px); }
 
-    /* ===== mobile vertical tuning ===== */
     @media (max-width: 520px){
       body{ margin:12px; }
       .tbtn{ min-width: 46%; flex:1 1 46%; }
@@ -191,7 +188,7 @@
 
 <body>
   <div class="wrap">
-    <h1>Diatonic Chord Quiz <span class="ver">ver1.2</span></h1>
+    <h1>Diatonic Chord Quiz <span class="ver" id="verText">ver-</span></h1>
 
     <div class="box">
       <div class="blocks">
@@ -274,10 +271,17 @@
 
   <script>
   (() => {
-    // audio path: GsRockCamp/games/diatonic/audio
+    // ===== versions =====
+    const APP_VER   = "1.2.1";   // ← ここを 1.2.2, 1.2.3… に上げる
+    const AUDIO_VER = APP_VER;   // ← 音源キャッシュバスターも同じ番号で運用
+
+    // ===== audio path: GsRockCamp/games/diatonic/audio =====
     const AUDIO_BASE = "audio/";
-    // キャッシュバスター（マイナーバージョンは 1.2.1 → 1.2.2… で運用）
-    const AUDIO_VER  = "1.2.1";
+
+    // show version on UI/title
+    const verEl = document.getElementById("verText");
+    if (verEl) verEl.textContent = "ver" + APP_VER;
+    document.title = "Diatonic Chord Quiz ver" + APP_VER;
 
     // ===== blocks =====
     const blocks = {
@@ -288,7 +292,6 @@
     };
 
     // ===== voicing tables =====
-    // triads: 4-note voicing
     const TRIAD_V = {
       C:    { root:"C-E-G-C",    inv1:"E-G-C-E",    inv2:"G-C-E-G" },
       Dm:   { root:"D-F-A-D",    inv1:"F-A-D-F",    inv2:"A-D-F-A" },
@@ -306,7 +309,6 @@
       "F#dim":{ root:"F#-A-C-F#",inv1:"A-C-F#-A",   inv2:"C-F#-A-C" },
     };
 
-    // 7ths: 1-3-5-7
     const SEVENTH_V = {
       CM7:   { root:"C-E-G-B",   inv1:"E-G-B-C",   inv2:"G-B-C-E",   inv3:"B-C-E-G" },
       Dm7:   { root:"D-F-A-C",   inv1:"F-A-C-D",   inv2:"A-C-D-F",   inv3:"C-D-F-A" },
@@ -327,7 +329,6 @@
 
     // ===== items =====
     const ITEMS = [
-      // easy (triads with inv mp3)
       { id:"C",    label:"C",    group:"easy",   files_root:["C.mp3"],    files_inv:["C.mp3","C_inv1.mp3","C_inv2.mp3"] },
       { id:"Dm",   label:"Dm",   group:"easy",   files_root:["Dm.mp3"],   files_inv:["Dm.mp3","Dm_inv1.mp3","Dm_inv2.mp3"] },
       { id:"Em",   label:"Em",   group:"easy",   files_root:["Em.mp3"],   files_inv:["Em.mp3","Em_inv1.mp3","Em_inv2.mp3"] },
@@ -336,7 +337,6 @@
       { id:"Am",   label:"Am",   group:"easy",   files_root:["Am.mp3"],   files_inv:["Am.mp3","Am_inv1.mp3","Am_inv2.mp3"] },
       { id:"Bm-5", label:"Bm-5", group:"easy",   files_root:["Bm-5.mp3"], files_inv:["Bm-5.mp3","Bm-5_inv1.mp3","Bm-5_inv2.mp3"] },
 
-      // normal (diatonic 7ths)  ※転回形音源あり
       { id:"CM7",   label:"CM7",   group:"normal", files_root:["CM7.mp3"],   files_inv:["CM7.mp3","CM7_inv1.mp3","CM7_inv2.mp3","CM7_inv3.mp3"] },
       { id:"Dm7",   label:"Dm7",   group:"normal", files_root:["Dm7.mp3"],   files_inv:["Dm7.mp3","Dm7_inv1.mp3","Dm7_inv2.mp3","Dm7_inv3.mp3"] },
       { id:"Em7",   label:"Em7",   group:"normal", files_root:["Em7.mp3"],   files_inv:["Em7.mp3","Em7_inv1.mp3","Em7_inv2.mp3","Em7_inv3.mp3"] },
@@ -345,14 +345,12 @@
       { id:"Am7",   label:"Am7",   group:"normal", files_root:["Am7.mp3"],   files_inv:["Am7.mp3","Am7_inv1.mp3","Am7_inv2.mp3","Am7_inv3.mp3"] },
       { id:"Bm7-5", label:"Bm7-5", group:"normal", files_root:["Bm7-5.mp3"], files_inv:["Bm7-5.mp3","Bm7-5_inv1.mp3","Bm7-5_inv2.mp3","Bm7-5_inv3.mp3"] },
 
-      // plus (secondary)
       { id:"E7",   label:"E7",   group:"plus", files_root:["E7.mp3"],  files_inv:[] },
       { id:"A7",   label:"A7",   group:"plus", files_root:["A7.mp3"],  files_inv:[] },
       { id:"D7",   label:"D7",   group:"plus", files_root:["D7.mp3"],  files_inv:[] },
       { id:"C7",   label:"C7",   group:"plus", files_root:["C7.mp3"],  files_inv:[] },
       { id:"Db7",  label:"D♭7",  group:"plus", files_root:["Db7.mp3"], files_inv:[] },
 
-      // hard (others)
       { id:"Fm",     label:"Fm",     group:"hard", files_root:["Fm.mp3"],     files_inv:[] },
       { id:"Ab",     label:"A♭",     group:"hard", files_root:["Ab.mp3"],     files_inv:[] },
       { id:"Bb",     label:"B♭",     group:"hard", files_root:["Bb.mp3"],     files_inv:[] },
@@ -381,8 +379,7 @@
     const choicesWrap = document.getElementById("choices");
 
     // ===== state =====
-    // idle | answering | retryPrompt
-    let phase = "idle";
+    let phase = "idle"; // idle | answering | retryPrompt
     let current = null; // { id,label,file,group,voicingText,invName }
     let score = 0;
     let total = 0;
@@ -424,7 +421,7 @@
       player.pause();
       player.currentTime = 0;
       player.src = buildSrc(file);
-      player.load();            // ← iOS/PWA対策：src変更時にloadを挟む
+      player.load();
       await player.play();
     }
 
@@ -500,7 +497,7 @@
 
             setChoicesEnabled(false);
             setAnswerControls(true);
-            btnStart.disabled = false; // スキップ用
+            btnStart.disabled = false;
           }
         });
 
@@ -524,7 +521,6 @@
     }
 
     function voicingForFile(itemId, file){
-      // triads
       const tv = TRIAD_V[itemId];
       if (tv){
         if (file.includes("_inv1")) return { v: tv.inv1, invName: "第一転回形" };
@@ -532,7 +528,6 @@
         return { v: tv.root, invName: "ルート" };
       }
 
-      // 7ths / dim7
       const sv = SEVENTH_V[itemId];
       if (sv){
         if (file.includes("_inv1")) return { v: sv.inv1 ?? sv.root, invName: "第一転回形" };
@@ -541,7 +536,6 @@
         return { v: sv.root, invName: "ルート" };
       }
 
-      // fallback
       return { v: "", invName: "" };
     }
 
@@ -571,7 +565,6 @@
       };
     }
 
-    // ===== block button handlers =====
     document.querySelectorAll(".tbtn").forEach(el => {
       el.addEventListener("click", () => {
         const role = el.dataset.role;
@@ -601,9 +594,7 @@
       });
     });
 
-    // ===== buttons =====
     btnStart.addEventListener("click", async () => {
-      // retryPrompt中：スキップ確定
       if (phase === "retryPrompt" && current){
         total += 1;
         totalEl.textContent = String(total);
@@ -704,7 +695,6 @@
       }
     });
 
-    // init
     scoreEl.textContent = "0";
     totalEl.textContent = "0";
     updateAccuracy();
