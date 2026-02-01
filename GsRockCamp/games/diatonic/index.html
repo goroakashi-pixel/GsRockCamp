@@ -335,14 +335,14 @@
       { id:"Am",   label:"Am",   group:"easy",   files_root:["Am.mp3"],   files_inv:["Am.mp3","Am_inv1.mp3","Am_inv2.mp3"] },
       { id:"Bm-5", label:"Bm-5", group:"easy",   files_root:["Bm-5.mp3"], files_inv:["Bm-5.mp3","Bm-5_inv1.mp3","Bm-5_inv2.mp3"] },
 
-      // normal (diatonic 7ths)
-      { id:"CM7",   label:"CM7",   group:"normal", files_root:["CM7.mp3"],   files_inv:[] },
-      { id:"Dm7",   label:"Dm7",   group:"normal", files_root:["Dm7.mp3"],   files_inv:[] },
-      { id:"Em7",   label:"Em7",   group:"normal", files_root:["Em7.mp3"],   files_inv:[] },
-      { id:"FM7",   label:"FM7",   group:"normal", files_root:["FM7.mp3"],   files_inv:[] },
-      { id:"G7",    label:"G7",    group:"normal", files_root:["G7.mp3"],    files_inv:[] },
-      { id:"Am7",   label:"Am7",   group:"normal", files_root:["Am7.mp3"],   files_inv:[] },
-      { id:"Bm7-5", label:"Bm7-5", group:"normal", files_root:["Bm7-5.mp3"], files_inv:[] },
+      // normal (diatonic 7ths)  ※転回形音源あり
+      { id:"CM7",   label:"CM7",   group:"normal", files_root:["CM7.mp3"],   files_inv:["CM7.mp3","CM7_inv1.mp3","CM7_inv2.mp3","CM7_inv3.mp3"] },
+      { id:"Dm7",   label:"Dm7",   group:"normal", files_root:["Dm7.mp3"],   files_inv:["Dm7.mp3","Dm7_inv1.mp3","Dm7_inv2.mp3","Dm7_inv3.mp3"] },
+      { id:"Em7",   label:"Em7",   group:"normal", files_root:["Em7.mp3"],   files_inv:["Em7.mp3","Em7_inv1.mp3","Em7_inv2.mp3","Em7_inv3.mp3"] },
+      { id:"FM7",   label:"FM7",   group:"normal", files_root:["FM7.mp3"],   files_inv:["FM7.mp3","FM7_inv1.mp3","FM7_inv2.mp3","FM7_inv3.mp3"] },
+      { id:"G7",    label:"G7",    group:"normal", files_root:["G7.mp3"],    files_inv:["G7.mp3","G7_inv1.mp3","G7_inv2.mp3","G7_inv3.mp3"] },
+      { id:"Am7",   label:"Am7",   group:"normal", files_root:["Am7.mp3"],   files_inv:["Am7.mp3","Am7_inv1.mp3","Am7_inv2.mp3","Am7_inv3.mp3"] },
+      { id:"Bm7-5", label:"Bm7-5", group:"normal", files_root:["Bm7-5.mp3"], files_inv:["Bm7-5.mp3","Bm7-5_inv1.mp3","Bm7-5_inv2.mp3","Bm7-5_inv3.mp3"] },
 
       // plus (secondary)
       { id:"E7",   label:"E7",   group:"plus", files_root:["E7.mp3"],  files_inv:[] },
@@ -532,7 +532,6 @@
       // 7ths / dim7
       const sv = SEVENTH_V[itemId];
       if (sv){
-        // 今は rootファイル想定。invファイル名が将来来ても対応できるようにしておく
         if (file.includes("_inv1")) return { v: sv.inv1 ?? sv.root, invName: "第一転回形" };
         if (file.includes("_inv2")) return { v: sv.inv2 ?? sv.root, invName: "第二転回形" };
         if (file.includes("_inv3")) return { v: sv.inv3 ?? sv.root, invName: "第三転回形" };
@@ -579,7 +578,6 @@
         if (role === "active"){
           blocks[blk].active = !blocks[blk].active;
           renderBlockButtons();
-          // 出題中だったら待機に戻す
           if (phase !== "idle") resetToIdle("設定を変更しました。");
           rebuildChoices();
           return;
@@ -589,8 +587,8 @@
           blocks[blk].inv = !blocks[blk].inv;
           renderBlockButtons();
 
-          if (blk !== "easy"){
-            setStatus(`${blk === "normal" ? "② Normal" : blk === "plus" ? "③ Plus" : "④ Hard"} の転回形は音源未整備のため、効果が出ない場合があります。`, true);
+          if (blk === "plus" || blk === "hard"){
+            setStatus(`${blk === "plus" ? "③ Plus" : "④ Hard"} の転回形は音源未整備のため、効果が出ない場合があります。`, true);
           } else {
             setStatus("設定を変更しました。");
           }
@@ -692,8 +690,6 @@
 
     btnHint.addEventListener("click", () => {
       if (!current) return;
-
-      // いまはヒント文字列を持ってないので、必要ならここに実装追加
       setHint("（なし）");
     });
 
