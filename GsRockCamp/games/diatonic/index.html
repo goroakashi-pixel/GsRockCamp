@@ -269,13 +269,14 @@
       <a class="backbtn" href="../../index.html">← ポータルに戻る</a>
     </div>
 
-    <audio id="player" preload="auto"></audio>
+    <audio id="player" preload="auto" playsinline></audio>
   </div>
 
   <script>
   (() => {
     // audio path: GsRockCamp/games/diatonic/audio
     const AUDIO_BASE = "audio/";
+    // キャッシュバスター（マイナーバージョンは 1.2.1 → 1.2.2… で運用）
     const AUDIO_VER  = "1.2.1";
 
     // ===== blocks =====
@@ -418,10 +419,12 @@
       const url = encodeURI(AUDIO_BASE + file);
       return url + "?v=" + encodeURIComponent(AUDIO_VER);
     }
+
     async function playFile(file){
       player.pause();
       player.currentTime = 0;
       player.src = buildSrc(file);
+      player.load();            // ← iOS/PWA対策：src変更時にloadを挟む
       await player.play();
     }
 
@@ -546,7 +549,6 @@
       const gs = activeGroups();
       if (gs.length === 0) return null;
 
-      // group random
       const group = gs[Math.floor(Math.random() * gs.length)];
       const candidates = ITEMS.filter(x => x.group === group);
       if (!candidates.length) return null;
@@ -713,4 +715,3 @@
   </script>
 </body>
 </html>
-
