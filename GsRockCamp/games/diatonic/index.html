@@ -12,29 +12,67 @@
       --line:#ddd;
       --bg:#fff;
       --card:#fff;
-      --pill:#f6f7fb;
-      --on:#1d4ed8;
+      --blue:#1d4ed8;
       --warn:#b91c1c;
+
+      --btn-bg:#fff;
+      --btn-on-border: 2px solid var(--blue);
+      --btn-off-border: 1px solid var(--line);
+      --btn-radius: 16px;
+
+      --oct-font: 14px;      /* ここ小さめ */
+      --main-font: 16px;
+      --title-font: 22px;
+
+      --tap-min-h: 44px;     /* 見た目小さくてもタップは確保 */
     }
+
     body{
       font-family:-apple-system, system-ui, "Segoe UI", sans-serif;
       margin:16px;
       color:var(--text);
       background:var(--bg);
-      padding-bottom:160px;
-      line-height:1.35;
+      padding-bottom:140px;
     }
-    .wrap{ max-width:900px; margin:0 auto; }
+
+    .wrap{ max-width:820px; margin:0 auto; }
 
     h1{
-      font-size:22px;
-      margin: 6px 0 12px;
+      font-size:var(--title-font);
+      margin:6px 0 6px;
+      letter-spacing:.2px;
       display:flex;
-      align-items:center;
+      align-items:baseline;
       gap:10px;
       flex-wrap:wrap;
     }
-    .ver{ font-size:12px; color:var(--muted); font-weight:900; }
+    .ver{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .changelog{
+      margin:0 0 12px;
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:var(--card);
+    }
+    .changelog-title{
+      font-weight:900;
+      margin:0 0 6px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .changelog ul{
+      margin:0;
+      padding-left:18px;
+      color:#333;
+      line-height:1.4;
+      font-size:13px;
+    }
+    .changelog li{ margin:4px 0; }
 
     .box{
       padding:14px;
@@ -44,108 +82,90 @@
       margin-top:12px;
     }
 
-    .blocks{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    .blk{
+    /* ===== Blocks (①〜④) ===== */
+    .block{
       border:1px solid var(--line);
-      border-radius:14px;
-      background:var(--pill);
+      border-radius:16px;
       padding:12px;
+      background:#fafafa;
+      margin-top:12px;
     }
-    .blkTop{
+    .block-title{
       font-weight:900;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .blkName{
-      min-width:0;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
+      font-size:18px;
+      margin:0 0 10px;
     }
 
-    .row{
+    /* “段ずれ”を潰す：行は必ず「左：ボタン」「右：Oct×2」 */
+    .opt-row{
+      display:grid;
+      grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr);
+      gap:10px;
+      align-items:stretch;
       margin-top:10px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .rowLeft{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .rowRight{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      flex-wrap:wrap;
     }
 
-    .tbtn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
+    .btn{
+      width:100%;
+      min-height: var(--tap-min-h);
       padding:12px 14px;
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:#fff;
+      font-size:var(--main-font);
+      border-radius:var(--btn-radius);
+      border: var(--btn-off-border);
+      background:var(--btn-bg);
       font-weight:900;
       -webkit-tap-highlight-color: transparent;
-      user-select:none;
-      min-width:140px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
     }
-    .tbtn:active{ transform: translateY(1px); }
-    .tbtn.on{
-      border-color: var(--on);
-      box-shadow: 0 0 0 2px rgba(29,78,216,.12) inset;
+    .btn:active{ transform: translateY(1px); }
+    .btn[disabled]{ opacity:.45; }
+
+    .btn.on{
+      border: var(--btn-on-border);
     }
-    .tbtn small{
+
+    .btn small{
       font-weight:900;
       color:var(--muted);
-      font-size:12px;
+      letter-spacing:.3px;
     }
 
-    .oct{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:10px 12px;
-      border:1px solid var(--line);
+    .oct-pair{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+
+    .oct-btn{
+      width:100%;
+      min-height: var(--tap-min-h);
+      padding:10px 10px;
+      font-size:var(--oct-font);
       border-radius:999px;
-      background:#fff;
+      border: var(--btn-off-border);
+      background:var(--btn-bg);
       font-weight:900;
-      min-width:76px;
       -webkit-tap-highlight-color: transparent;
-      user-select:none;
+      display:flex;
+      justify-content:center;
+      align-items:center;
     }
-    .oct:active{ transform: translateY(1px); }
-    .oct.on{
-      border-color: var(--on);
-      box-shadow: 0 0 0 2px rgba(29,78,216,.12) inset;
-    }
-    .oct.disabled, .tbtn.disabled{
-      opacity:.35;
-      pointer-events:none;
-    }
+    .oct-btn:active{ transform: translateY(1px); }
+    .oct-btn[disabled]{ opacity:.45; }
+    .oct-btn.on{ border: var(--btn-on-border); }
 
-    .btnRow{
+    /* ===== Main Controls ===== */
+    .btn-row{
       display:flex;
       flex-wrap:wrap;
       gap:10px;
       margin-top:12px;
     }
-    button{
+
+    button.ctrl{
       padding:12px 14px;
       font-size:16px;
       border:1px solid var(--line);
@@ -154,8 +174,7 @@
       font-weight:900;
       -webkit-tap-highlight-color: transparent;
     }
-    button:disabled{ opacity:.45; }
-
+    button.ctrl:disabled{ opacity:.45; }
     #btnStart{
       flex: 1 1 220px;
       font-size:20px;
@@ -172,6 +191,8 @@
       border-radius:12px;
       display:none;
       background:#fafafa;
+      white-space:pre-wrap;
+      line-height:1.5;
     }
 
     .scorebar{
@@ -182,24 +203,27 @@
       flex-wrap:wrap;
       font-weight:900;
     }
-    .accuracy.good{ color: var(--on); }
+    .accuracy.good{ color: var(--blue); }
 
-    .choicesGrid{
+    /* ===== Choices ===== */
+    .grid{
       display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
+      grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
       gap:10px;
       margin-top:10px;
     }
     .choice{
       padding:14px 12px;
-      border-radius:14px;
-      font-weight:900;
       border:1px solid var(--line);
+      border-radius:14px;
       background:#fff;
-      white-space:nowrap;
+      font-weight:900;
+      -webkit-tap-highlight-color: transparent;
     }
+    .choice:disabled{ opacity:.45; }
 
-    .backwrap{ margin-top:12px; }
+    /* ===== Back ===== */
+    .backwrap{ margin-top: 12px; text-align:center; }
     a.backbtn{
       display:inline-block;
       padding:12px 14px;
@@ -213,11 +237,14 @@
     }
     a.backbtn:active{ transform: translateY(1px); }
 
-    @media (max-width: 520px){
-      body{ margin:12px; }
-      .tbtn{ min-width: 46%; flex:1 1 46%; }
-      .blkName{ white-space:normal; overflow:visible; text-overflow:clip; }
-      .oct{ min-width: 34%; flex:1 1 34%; }
+    /* iPhone縦で詰まりやすい時：左右を縦積みにしても段ずれしない */
+    @media (max-width: 420px){
+      .opt-row{
+        grid-template-columns: 1fr;
+      }
+      .oct-pair{
+        grid-template-columns: 1fr 1fr; /* ここは横並び維持 */
+      }
     }
   </style>
 </head>
@@ -226,123 +253,123 @@
   <div class="wrap">
     <h1>
       Diatonic Chord Quiz
-      <span class="ver" id="verText">ver-</span>
+      <span class="ver" id="verText">ver1.2.6</span>
     </h1>
 
+    <div class="changelog">
+      <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
+      <ul>
+        <li>4ブロック（Easy / Normal / Plus / Hard）＋各ブロック個別アクティブ</li>
+        <li>転回形はブロック内ボタンでON/OFF（判定はコード名、出題は転回形を混在可能）</li>
+        <li>Octは「_3が常に混在」＋Oct-で_2混在、Oct+で_4混在（行ごと）</li>
+        <li>スマホ縦向け：各ブロックは必ず2段×2行のレイアウト固定（段ずれ対策）</li>
+        <li>Octボタンの「●」削除＋見た目サイズを小さめに調整（タップ領域は確保）</li>
+      </ul>
+    </div>
+
+    <!-- ===== Blocks ===== -->
     <div class="box">
-      <div class="blocks">
 
-        <div class="blk" data-block="easy">
-          <div class="blkTop"><div class="blkName">① Easy：基本ダイアトニック（3和音）</div></div>
+      <!-- ① EASY -->
+      <div class="block" id="blk_easy">
+        <div class="block-title">① Easy：基本ダイアトニック（3和音）</div>
 
-          <div class="row">
-            <div class="rowLeft">
-              <div class="tbtn on" data-role="active" data-block="easy">アクティブ <small>ON</small></div>
-            </div>
-            <div class="rowRight">
-              <div class="oct" data-role="octDown" data-row="root" data-block="easy">●Oct-</div>
-              <div class="oct" data-role="octUp"   data-row="root" data-block="easy">●Oct+</div>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="rowLeft">
-              <div class="tbtn disabled" data-role="inv" data-block="easy">転回形 <small>OFF</small></div>
-            </div>
-            <div class="rowRight">
-              <div class="oct disabled" data-role="octDown" data-row="inv" data-block="easy">●Oct-</div>
-              <div class="oct disabled" data-role="octUp"   data-row="inv" data-block="easy">●Oct+</div>
-            </div>
+        <div class="opt-row">
+          <button class="btn" id="easy_activeBtn"><span>アクティブ</span><small id="easy_activeStat">OFF</small></button>
+          <div class="oct-pair">
+            <button class="oct-btn" id="easy_rootOctMinus">Oct-</button>
+            <button class="oct-btn" id="easy_rootOctPlus">Oct+</button>
           </div>
         </div>
 
-        <div class="blk" data-block="normal">
-          <div class="blkTop"><div class="blkName">② Normal：ダイアトニック4和音（7th系）</div></div>
-
-          <div class="row">
-            <div class="rowLeft">
-              <div class="tbtn" data-role="active" data-block="normal">アクティブ <small>OFF</small></div>
-            </div>
-            <div class="rowRight">
-              <div class="oct disabled" data-role="octDown" data-row="root" data-block="normal">●Oct-</div>
-              <div class="oct disabled" data-role="octUp"   data-row="root" data-block="normal">●Oct+</div>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="rowLeft">
-              <div class="tbtn disabled" data-role="inv" data-block="normal">転回形 <small>OFF</small></div>
-            </div>
-            <div class="rowRight">
-              <div class="oct disabled" data-role="octDown" data-row="inv" data-block="normal">●Oct-</div>
-              <div class="oct disabled" data-role="octUp"   data-row="inv" data-block="normal">●Oct+</div>
-            </div>
+        <div class="opt-row">
+          <button class="btn" id="easy_invBtn"><span>転回形</span><small id="easy_invStat">OFF</small></button>
+          <div class="oct-pair">
+            <button class="oct-btn" id="easy_invOctMinus">Oct-</button>
+            <button class="oct-btn" id="easy_invOctPlus">Oct+</button>
           </div>
         </div>
-
-        <div class="blk" data-block="plus">
-          <div class="blkTop"><div class="blkName">③ Plus：セカンダリー系</div></div>
-
-          <div class="row">
-            <div class="rowLeft">
-              <div class="tbtn" data-role="active" data-block="plus">アクティブ <small>OFF</small></div>
-            </div>
-            <div class="rowRight">
-              <div class="oct disabled" data-role="octDown" data-row="root" data-block="plus">●Oct-</div>
-              <div class="oct disabled" data-role="octUp"   data-row="root" data-block="plus">●Oct+</div>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="rowLeft">
-              <div class="tbtn disabled" data-role="inv" data-block="plus">転回形 <small>OFF</small></div>
-            </div>
-            <div class="rowRight">
-              <div class="oct disabled" data-role="octDown" data-row="inv" data-block="plus">●Oct-</div>
-              <div class="oct disabled" data-role="octUp"   data-row="inv" data-block="plus">●Oct+</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="blk" data-block="hard">
-          <div class="blkTop"><div class="blkName">④ Hard：その他高度な代理</div></div>
-
-          <div class="row">
-            <div class="rowLeft">
-              <div class="tbtn" data-role="active" data-block="hard">アクティブ <small>OFF</small></div>
-            </div>
-            <div class="rowRight">
-              <div class="oct disabled" data-role="octDown" data-row="root" data-block="hard">●Oct-</div>
-              <div class="oct disabled" data-role="octUp"   data-row="root" data-block="hard">●Oct+</div>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="rowLeft">
-              <div class="tbtn disabled" data-role="inv" data-block="hard">転回形 <small>OFF</small></div>
-            </div>
-            <div class="rowRight">
-              <div class="oct disabled" data-role="octDown" data-row="inv" data-block="hard">●Oct-</div>
-              <div class="oct disabled" data-role="octUp"   data-row="inv" data-block="hard">●Oct+</div>
-            </div>
-          </div>
-        </div>
-
       </div>
 
-      <div class="btnRow">
-        <button id="btnReveal" disabled>答え</button>
-        <button id="btnHint" disabled>ヒント</button>
-        <button id="btnC" disabled>C（基準音）</button>
+      <!-- ② NORMAL -->
+      <div class="block" id="blk_normal">
+        <div class="block-title">② Normal：ダイアトニック4和音（7th系）</div>
+
+        <div class="opt-row">
+          <button class="btn" id="normal_activeBtn"><span>アクティブ</span><small id="normal_activeStat">OFF</small></button>
+          <div class="oct-pair">
+            <button class="oct-btn" id="normal_rootOctMinus">Oct-</button>
+            <button class="oct-btn" id="normal_rootOctPlus">Oct+</button>
+          </div>
+        </div>
+
+        <div class="opt-row">
+          <button class="btn" id="normal_invBtn"><span>転回形</span><small id="normal_invStat">OFF</small></button>
+          <div class="oct-pair">
+            <button class="oct-btn" id="normal_invOctMinus">Oct-</button>
+            <button class="oct-btn" id="normal_invOctPlus">Oct+</button>
+          </div>
+        </div>
       </div>
 
-      <div class="btnRow">
-        <button id="btnStart">出題</button>
-        <button id="btnReplay" disabled>もう一回</button>
+      <!-- ③ PLUS -->
+      <div class="block" id="blk_plus">
+        <div class="block-title">③ Plus：セカンダリー系</div>
+
+        <div class="opt-row">
+          <button class="btn" id="plus_activeBtn"><span>アクティブ</span><small id="plus_activeStat">OFF</small></button>
+          <div class="oct-pair">
+            <button class="oct-btn" id="plus_rootOctMinus">Oct-</button>
+            <button class="oct-btn" id="plus_rootOctPlus">Oct+</button>
+          </div>
+        </div>
+
+        <div class="opt-row">
+          <button class="btn" id="plus_invBtn"><span>転回形</span><small id="plus_invStat">OFF</small></button>
+          <div class="oct-pair">
+            <button class="oct-btn" id="plus_invOctMinus">Oct-</button>
+            <button class="oct-btn" id="plus_invOctPlus">Oct+</button>
+          </div>
+        </div>
       </div>
 
-      <div id="status" class="status">待機中</div>
+      <!-- ④ HARD -->
+      <div class="block" id="blk_hard">
+        <div class="block-title">④ Hard：その他高度な代理</div>
+
+        <div class="opt-row">
+          <button class="btn" id="hard_activeBtn"><span>アクティブ</span><small id="hard_activeStat">OFF</small></button>
+          <div class="oct-pair">
+            <button class="oct-btn" id="hard_rootOctMinus">Oct-</button>
+            <button class="oct-btn" id="hard_rootOctPlus">Oct+</button>
+          </div>
+        </div>
+
+        <div class="opt-row">
+          <button class="btn" id="hard_invBtn"><span>転回形</span><small id="hard_invStat">OFF</small></button>
+          <div class="oct-pair">
+            <button class="oct-btn" id="hard_invOctMinus">Oct-</button>
+            <button class="oct-btn" id="hard_invOctPlus">Oct+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Main Buttons ===== -->
+      <div class="btn-row">
+        <button class="ctrl" id="btnStart">出題</button>
+        <button class="ctrl" id="btnReplay" disabled>もう一回</button>
+        <button class="ctrl" id="btnReveal" disabled>答え</button>
+        <button class="ctrl" id="btnHint" disabled>ヒント</button>
+        <button class="ctrl" id="btnC">C（基準音）</button>
+      </div>
+
+      <div id="status" class="status">まだ出題していません</div>
       <div id="hintArea" class="hintArea"></div>
+    </div>
+
+    <div class="box">
+      <div style="font-weight:900;">答え</div>
+      <div class="grid" id="choices"></div>
     </div>
 
     <div class="box">
@@ -352,633 +379,660 @@
       </div>
     </div>
 
-    <div class="box">
-      <div style="font-weight:900;">答え</div>
-      <div class="choicesGrid" id="choices"></div>
-    </div>
-
     <div class="backwrap">
       <a class="backbtn" href="../../index.html">← ポータルに戻る</a>
     </div>
 
-    <audio id="player" preload="auto" playsinline></audio>
+    <audio id="player" preload="auto"></audio>
   </div>
 
   <script>
   (() => {
-    // ===== versions =====
-    const APP_VER   = "1.2.5";
-    const AUDIO_VER = APP_VER;
+    const VER = "1.2.6";
+    document.getElementById("verText").textContent = "ver" + VER;
 
-    // audio path: GsRockCamp/games/diatonic/audio
-    const AUDIO_BASE = "audio/";
+    // ===== パス（GitHub：GsRockCamp/games/diatonic/audio）=====
+    const AUDIO_DIR = "audio/";
+    const CACHE_BUSTER = "?v=" + encodeURIComponent(VER);
 
-    // show version
-    const verEl = document.getElementById("verText");
-    if (verEl) verEl.textContent = "ver" + APP_VER;
-    document.title = "Diatonic Chord Quiz ver" + APP_VER;
-
-    // ===== settings =====
-    // Oct flags are "mix-in": _3 is ALWAYS included. Oct- adds _2, Oct+ adds _4.
-    const blocks = {
-      easy:   { active:true,  inv:false, octRoot:{down:false,up:false}, octInv:{down:false,up:false} },
-      normal: { active:false, inv:false, octRoot:{down:false,up:false}, octInv:{down:false,up:false} },
-      plus:   { active:false, inv:false, octRoot:{down:false,up:false}, octInv:{down:false,up:false} },
-      hard:   { active:false, inv:false, octRoot:{down:false,up:false}, octInv:{down:false,up:false} },
+    // ===== コード定義（表示名＝id）=====
+    // 3和音：inv1/inv2
+    // 7th系：inv1/inv2/inv3
+    const BLOCKS = {
+      easy: {
+        label: "Easy",
+        triad: true,
+        chords: ["C","Dm","Em","F","G","Am","Bm-5"]
+      },
+      normal: {
+        label: "Normal",
+        triad: false,
+        chords: ["CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5"]
+      },
+      plus: {
+        label: "Plus",
+        triad: false,
+        chords: ["A7","C7","D7","Db7","E7"]
+      },
+      hard: {
+        label: "Hard",
+        triad: false,
+        chords: ["Ab","Bb","Eb","Fm","Gm","F#dim","G#dim7"]
+      }
     };
 
-    // ===== voicing tables =====
-    const TRIAD_V = {
-      C:    { root:"C-E-G-C",    inv1:"E-G-C-E",    inv2:"G-C-E-G" },
-      Dm:   { root:"D-F-A-D",    inv1:"F-A-D-F",    inv2:"A-D-F-A" },
-      Em:   { root:"E-G-B-E",    inv1:"G-B-E-G",    inv2:"B-E-G-B" },
-      F:    { root:"F-A-C-F",    inv1:"A-C-F-A",    inv2:"C-F-A-C" },
-      G:    { root:"G-B-D-G",    inv1:"B-D-G-B",    inv2:"D-G-B-D" },
-      Am:   { root:"A-C-E-A",    inv1:"C-E-A-C",    inv2:"E-A-C-E" },
-      "Bm-5":{ root:"B-D-F-B",   inv1:"D-F-B-D",    inv2:"F-B-D-F" },
+    // ===== コード音（表示用：転回形はパターンで生成）=====
+    const CHORD_TONES = {
+      // triads
+      "C": ["C","E","G"],
+      "Dm": ["D","F","A"],
+      "Em": ["E","G","B"],
+      "F": ["F","A","C"],
+      "G": ["G","B","D"],
+      "Am": ["A","C","E"],
+      "Bm-5": ["B","D","F"],
+      "F#dim": ["F#","A","C"],
+      "Fm": ["F","Ab","C"],
+      "Gm": ["G","Bb","D"],
+      "Ab": ["Ab","C","Eb"],
+      "Bb": ["Bb","D","F"],
+      "Eb": ["Eb","G","Bb"],
 
-      Fm:   { root:"F-A♭-C-F",   inv1:"A♭-C-F-A♭",  inv2:"C-F-A♭-C" },
-      Ab:   { root:"A♭-C-E♭-A♭", inv1:"C-E♭-A♭-C",  inv2:"E♭-A♭-C-E♭" },
-      Bb:   { root:"B♭-D-F-B♭",  inv1:"D-F-B♭-D",   inv2:"F-B♭-D-F" },
-      Eb:   { root:"E♭-G-B♭-E♭", inv1:"G-B♭-E♭-G",  inv2:"B♭-E♭-G-B♭" },
-      Gm:   { root:"G-B♭-D-G",   inv1:"B♭-D-G-B♭",  inv2:"D-G-B♭-D" },
-      "F#dim":{ root:"F#-A-C-F#",inv1:"A-C-F#-A",   inv2:"C-F#-A-C" },
+      // 7ths
+      "C7": ["C","E","G","Bb"],
+      "CM7": ["C","E","G","B"],
+      "Dm7": ["D","F","A","C"],
+      "Em7": ["E","G","B","D"],
+      "FM7": ["F","A","C","E"],
+      "G7": ["G","B","D","F"],
+      "Am7": ["A","C","E","G"],
+      "Bm7-5": ["B","D","F","A"],
+      "A7": ["A","C#","E","G"],
+      "D7": ["D","F#","A","C"],
+      "Db7": ["Db","F","Ab","B"],     // Cb表記は避けてB
+      "E7": ["E","G#","B","D"],
+      "G#dim7": ["G#","B","D","F"]
     };
 
-    const SEVENTH_V = {
-      CM7:   { root:"C-E-G-B",   inv1:"E-G-B-C",   inv2:"G-B-C-E",   inv3:"B-C-E-G" },
-      Dm7:   { root:"D-F-A-C",   inv1:"F-A-C-D",   inv2:"A-C-D-F",   inv3:"C-D-F-A" },
-      Em7:   { root:"E-G-B-D",   inv1:"G-B-D-E",   inv2:"B-D-E-G",   inv3:"D-E-G-B" },
-      FM7:   { root:"F-A-C-E",   inv1:"A-C-E-F",   inv2:"C-E-F-A",   inv3:"E-F-A-C" },
-      G7:    { root:"G-B-D-F",   inv1:"B-D-F-G",   inv2:"D-F-G-B",   inv3:"F-G-B-D" },
-      Am7:   { root:"A-C-E-G",   inv1:"C-E-G-A",   inv2:"E-G-A-C",   inv3:"G-A-C-E" },
-      "Bm7-5":{root:"B-D-F-A",   inv1:"D-F-A-B",   inv2:"F-A-B-D",   inv3:"A-B-D-F" },
-
-      E7:    { root:"E-G#-B-D",  inv1:"G#-B-D-E",  inv2:"B-D-E-G#",  inv3:"D-E-G#-B" },
-      A7:    { root:"A-C#-E-G",  inv1:"C#-E-G-A",  inv2:"E-G-A-C#",  inv3:"G-A-C#-E" },
-      D7:    { root:"D-F#-A-C",  inv1:"F#-A-C-D",  inv2:"A-C-D-F#",  inv3:"C-D-F#-A" },
-      C7:    { root:"C-E-G-B♭",  inv1:"E-G-B♭-C",  inv2:"G-B♭-C-E",  inv3:"B♭-C-E-G" },
-      Db7:   { root:"D♭-F-A♭-C♭",inv1:"F-A♭-C♭-D♭",inv2:"A♭-C♭-D♭-F",inv3:"C♭-D♭-F-A♭" },
-
-      "G#dim7":{ root:"G#-B-D-F", inv1:"B-D-F-G#", inv2:"D-F-G#-B", inv3:"F-G#-B-D" },
-    };
-
-    // ===== items =====
-    // Files may be given WITHOUT _2/_3/_4 suffix (recommended).
-    // If they already include suffix, it will be normalized and replaced by chosen octave.
-    const ITEMS = [
-      { id:"C",    label:"C",    group:"easy",   files_root:["C.mp3"],    files_inv:["C.mp3","C_inv1.mp3","C_inv2.mp3"] },
-      { id:"Dm",   label:"Dm",   group:"easy",   files_root:["Dm.mp3"],   files_inv:["Dm.mp3","Dm_inv1.mp3","Dm_inv2.mp3"] },
-      { id:"Em",   label:"Em",   group:"easy",   files_root:["Em.mp3"],   files_inv:["Em.mp3","Em_inv1.mp3","Em_inv2.mp3"] },
-      { id:"F",    label:"F",    group:"easy",   files_root:["F.mp3"],    files_inv:["F.mp3","F_inv1.mp3","F_inv2.mp3"] },
-      { id:"G",    label:"G",    group:"easy",   files_root:["G.mp3"],    files_inv:["G.mp3","G_inv1.mp3","G_inv2.mp3"] },
-      { id:"Am",   label:"Am",   group:"easy",   files_root:["Am.mp3"],   files_inv:["Am.mp3","Am_inv1.mp3","Am_inv2.mp3"] },
-      { id:"Bm-5", label:"Bm-5", group:"easy",   files_root:["Bm-5.mp3"], files_inv:["Bm-5.mp3","Bm-5_inv1.mp3","Bm-5_inv2.mp3"] },
-
-      { id:"CM7",   label:"CM7",   group:"normal", files_root:["CM7.mp3"],   files_inv:["CM7.mp3","CM7_inv1.mp3","CM7_inv2.mp3","CM7_inv3.mp3"] },
-      { id:"Dm7",   label:"Dm7",   group:"normal", files_root:["Dm7.mp3"],   files_inv:["Dm7.mp3","Dm7_inv1.mp3","Dm7_inv2.mp3","Dm7_inv3.mp3"] },
-      { id:"Em7",   label:"Em7",   group:"normal", files_root:["Em7.mp3"],   files_inv:["Em7.mp3","Em7_inv1.mp3","Em7_inv2.mp3","Em7_inv3.mp3"] },
-      { id:"FM7",   label:"FM7",   group:"normal", files_root:["FM7.mp3"],   files_inv:["FM7.mp3","FM7_inv1.mp3","FM7_inv2.mp3","FM7_inv3.mp3"] },
-      { id:"G7",    label:"G7",    group:"normal", files_root:["G7.mp3"],    files_inv:["G7.mp3","G7_inv1.mp3","G7_inv2.mp3","G7_inv3.mp3"] },
-      { id:"Am7",   label:"Am7",   group:"normal", files_root:["Am7.mp3"],   files_inv:["Am7.mp3","Am7_inv1.mp3","Am7_inv2.mp3","Am7_inv3.mp3"] },
-      { id:"Bm7-5", label:"Bm7-5", group:"normal", files_root:["Bm7-5.mp3"], files_inv:["Bm7-5.mp3","Bm7-5_inv1.mp3","Bm7-5_inv2.mp3","Bm7-5_inv3.mp3"] },
-
-      { id:"E7",   label:"E7",   group:"plus", files_root:["E7.mp3"],  files_inv:[] },
-      { id:"A7",   label:"A7",   group:"plus", files_root:["A7.mp3"],  files_inv:[] },
-      { id:"D7",   label:"D7",   group:"plus", files_root:["D7.mp3"],  files_inv:[] },
-      { id:"C7",   label:"C7",   group:"plus", files_root:["C7.mp3"],  files_inv:[] },
-      { id:"Db7",  label:"D♭7",  group:"plus", files_root:["Db7.mp3"], files_inv:[] },
-
-      { id:"Fm",     label:"Fm",     group:"hard", files_root:["Fm.mp3"],     files_inv:[] },
-      { id:"Ab",     label:"A♭",     group:"hard", files_root:["Ab.mp3"],     files_inv:[] },
-      { id:"Bb",     label:"B♭",     group:"hard", files_root:["Bb.mp3"],     files_inv:[] },
-      { id:"Eb",     label:"E♭",     group:"hard", files_root:["Eb.mp3"],     files_inv:[] },
-      { id:"Gm",     label:"Gm",     group:"hard", files_root:["Gm.mp3"],     files_inv:[] },
-      { id:"F#dim",  label:"F#dim",  group:"hard", files_root:["F#dim.mp3"],  files_inv:[] },
-      { id:"G#dim7", label:"G#dim7", group:"hard", files_root:["G#dim7.mp3"], files_inv:[] },
-    ];
-
-    const byId = new Map(ITEMS.map(x => [x.id, x]));
-
-    // ===== DOM =====
-    let player = document.getElementById("player");
+    // ===== UI要素 =====
+    const player = document.getElementById("player");
     const statusEl = document.getElementById("status");
     const hintArea = document.getElementById("hintArea");
-
-    const scoreEl  = document.getElementById("score");
-    const totalEl  = document.getElementById("total");
-    const accuracyEl = document.getElementById("accuracy");
-
-    const btnStart = document.getElementById("btnStart");
-    const btnReplay= document.getElementById("btnReplay");
-    const btnReveal= document.getElementById("btnReveal");
-    const btnHint  = document.getElementById("btnHint");
-    const btnC     = document.getElementById("btnC");
     const choicesWrap = document.getElementById("choices");
 
-    // ===== state =====
+    const btnStart  = document.getElementById("btnStart");
+    const btnReplay = document.getElementById("btnReplay");
+    const btnReveal = document.getElementById("btnReveal");
+    const btnHint   = document.getElementById("btnHint");
+    const btnC      = document.getElementById("btnC");
+
+    const scoreEl = document.getElementById("score");
+    const totalEl = document.getElementById("total");
+    const accuracyEl = document.getElementById("accuracy");
+
+    // ===== 状態 =====
     let phase = "idle"; // idle | answering | retryPrompt
-    let current = null; // { id,label,fileBase,fileActual,group,voicingText,invName }
+    let current = null; // {id, file, invIdx, isInv, blockKey, oct}
     let score = 0;
     let total = 0;
+
+    // ブロック設定状態
+    const state = {
+      easy:   { active:false, inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
+      normal: { active:true,  inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
+      plus:   { active:false, inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
+      hard:   { active:false, inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
+    };
+
+    // ===== ボタン紐づけ =====
+    const UI = {
+      easy: {
+        activeBtn: document.getElementById("easy_activeBtn"),
+        activeStat: document.getElementById("easy_activeStat"),
+        invBtn: document.getElementById("easy_invBtn"),
+        invStat: document.getElementById("easy_invStat"),
+        rootOctMinus: document.getElementById("easy_rootOctMinus"),
+        rootOctPlus:  document.getElementById("easy_rootOctPlus"),
+        invOctMinus:  document.getElementById("easy_invOctMinus"),
+        invOctPlus:   document.getElementById("easy_invOctPlus"),
+      },
+      normal: {
+        activeBtn: document.getElementById("normal_activeBtn"),
+        activeStat: document.getElementById("normal_activeStat"),
+        invBtn: document.getElementById("normal_invBtn"),
+        invStat: document.getElementById("normal_invStat"),
+        rootOctMinus: document.getElementById("normal_rootOctMinus"),
+        rootOctPlus:  document.getElementById("normal_rootOctPlus"),
+        invOctMinus:  document.getElementById("normal_invOctMinus"),
+        invOctPlus:   document.getElementById("normal_invOctPlus"),
+      },
+      plus: {
+        activeBtn: document.getElementById("plus_activeBtn"),
+        activeStat: document.getElementById("plus_activeStat"),
+        invBtn: document.getElementById("plus_invBtn"),
+        invStat: document.getElementById("plus_invStat"),
+        rootOctMinus: document.getElementById("plus_rootOctMinus"),
+        rootOctPlus:  document.getElementById("plus_rootOctPlus"),
+        invOctMinus:  document.getElementById("plus_invOctMinus"),
+        invOctPlus:   document.getElementById("plus_invOctPlus"),
+      },
+      hard: {
+        activeBtn: document.getElementById("hard_activeBtn"),
+        activeStat: document.getElementById("hard_activeStat"),
+        invBtn: document.getElementById("hard_invBtn"),
+        invStat: document.getElementById("hard_invStat"),
+        rootOctMinus: document.getElementById("hard_rootOctMinus"),
+        rootOctPlus:  document.getElementById("hard_rootOctPlus"),
+        invOctMinus:  document.getElementById("hard_invOctMinus"),
+        invOctPlus:   document.getElementById("hard_invOctPlus"),
+      },
+    };
 
     function setStatus(text, warn=false){
       statusEl.textContent = text;
       statusEl.classList.toggle("warn", !!warn);
     }
+
+    function showHint(text){
+      hintArea.style.display = "block";
+      hintArea.textContent = text;
+    }
+
     function clearHint(){
       hintArea.style.display = "none";
       hintArea.textContent = "";
     }
-    function setHint(text){
-      hintArea.style.display = "block";
-      hintArea.textContent = text;
-    }
+
     function updateAccuracy(){
       const acc = total === 0 ? 0 : Math.round((score / total) * 100);
-      const accText = String(acc).padStart(2, "0") + "%";
-      accuracyEl.textContent = `正答率 ${accText}`;
+      accuracyEl.textContent = "正答率 " + String(acc).padStart(2,"0") + "%";
       accuracyEl.classList.toggle("good", acc >= 80);
     }
-    function setAnswerControls(enabled){
-      btnReplay.disabled = !enabled;
-      btnReveal.disabled = !enabled;
-      btnHint.disabled   = !enabled;
-      btnC.disabled      = !enabled;
+
+    // ===== UI反映（段ずれ防止はCSSで固定）=====
+    function syncOne(blockKey){
+      const s = state[blockKey];
+      const u = UI[blockKey];
+
+      // Active
+      u.activeStat.textContent = s.active ? "ON" : "OFF";
+      u.activeBtn.classList.toggle("on", s.active);
+
+      // Inversion
+      u.invStat.textContent = s.inv ? "ON" : "OFF";
+      u.invBtn.classList.toggle("on", s.inv);
+
+      // Oct buttons visual
+      u.rootOctMinus.classList.toggle("on", s.rootOctMinus);
+      u.rootOctPlus.classList.toggle("on", s.rootOctPlus);
+      u.invOctMinus.classList.toggle("on", s.invOctMinus);
+      u.invOctPlus.classList.toggle("on", s.invOctPlus);
+
+      // Enable/Disable rule
+      // ブロック非アクティブ：転回形＆Oct 全部OFF（触れない）
+      const enabled = !!s.active;
+
+      u.rootOctMinus.disabled = !enabled;
+      u.rootOctPlus.disabled  = !enabled;
+
+      u.invBtn.disabled       = !enabled;
+
+      // 転回形OFFなら転回形行Octは触れない
+      const invEnabled = enabled && !!s.inv;
+      u.invOctMinus.disabled = !invEnabled;
+      u.invOctPlus.disabled  = !invEnabled;
+
+      // 見た目も薄くしたい時は disabled の opacity で統一
     }
+
+    function syncAll(){
+      syncOne("easy");
+      syncOne("normal");
+      syncOne("plus");
+      syncOne("hard");
+
+      // 選択肢再生成（待機中のみ）
+      if (phase === "idle"){
+        buildChoices();
+      }
+    }
+
+    // ===== トグル操作 =====
+    function wireBlock(blockKey){
+      const u = UI[blockKey];
+      u.activeBtn.addEventListener("click", () => {
+        // 出題中に変えたら待機へ戻す
+        state[blockKey].active = !state[blockKey].active;
+        if (!state[blockKey].active){
+          state[blockKey].inv = false;
+          state[blockKey].rootOctMinus = false;
+          state[blockKey].rootOctPlus  = false;
+          state[blockKey].invOctMinus  = false;
+          state[blockKey].invOctPlus   = false;
+        }
+        resetToIdle("設定を変更しました（待機）");
+        syncAll();
+      });
+
+      u.invBtn.addEventListener("click", () => {
+        if (!state[blockKey].active) return;
+        state[blockKey].inv = !state[blockKey].inv;
+        if (!state[blockKey].inv){
+          state[blockKey].invOctMinus = false;
+          state[blockKey].invOctPlus  = false;
+        }
+        resetToIdle("設定を変更しました（待機）");
+        syncAll();
+      });
+
+      u.rootOctMinus.addEventListener("click", () => {
+        if (!state[blockKey].active) return;
+        state[blockKey].rootOctMinus = !state[blockKey].rootOctMinus;
+        resetToIdle("設定を変更しました（待機）");
+        syncAll();
+      });
+      u.rootOctPlus.addEventListener("click", () => {
+        if (!state[blockKey].active) return;
+        state[blockKey].rootOctPlus = !state[blockKey].rootOctPlus;
+        resetToIdle("設定を変更しました（待機）");
+        syncAll();
+      });
+
+      u.invOctMinus.addEventListener("click", () => {
+        if (!state[blockKey].active || !state[blockKey].inv) return;
+        state[blockKey].invOctMinus = !state[blockKey].invOctMinus;
+        resetToIdle("設定を変更しました（待機）");
+        syncAll();
+      });
+      u.invOctPlus.addEventListener("click", () => {
+        if (!state[blockKey].active || !state[blockKey].inv) return;
+        state[blockKey].invOctPlus = !state[blockKey].invOctPlus;
+        resetToIdle("設定を変更しました（待機）");
+        syncAll();
+      });
+    }
+
+    wireBlock("easy");
+    wireBlock("normal");
+    wireBlock("plus");
+    wireBlock("hard");
+
+    // ===== 出題プール生成 =====
+    function getActiveBlocks(){
+      return Object.keys(BLOCKS).filter(k => state[k].active);
+    }
+
+    function getAnswerPoolChords(){
+      // 選択肢（答えの候補）はアクティブなブロックのコード集合
+      const act = getActiveBlocks();
+      const set = new Set();
+      act.forEach(bk => BLOCKS[bk].chords.forEach(c => set.add(c)));
+      return Array.from(set);
+    }
+
+    function getCandidateFilesForChord(blockKey, chordId, wantInv){
+      const s = state[blockKey];
+      const triad = BLOCKS[blockKey].triad;
+
+      // その行のオクターブ候補（_3は常に混在）
+      const octs = [3];
+      if (wantInv){
+        if (s.invOctMinus) octs.push(2);
+        if (s.invOctPlus)  octs.push(4);
+      }else{
+        if (s.rootOctMinus) octs.push(2);
+        if (s.rootOctPlus)  octs.push(4);
+      }
+
+      // 転回形候補
+      // 3和音: inv1, inv2
+      // 7th系: inv1, inv2, inv3
+      const invMax = triad ? 2 : 3;
+
+      const files = [];
+      if (!wantInv){
+        // ルートのみ
+        octs.forEach(oct => files.push({
+          file: `${chordId}_${oct}.mp3`,
+          invIdx: 0,
+          isInv: false,
+          oct
+        }));
+        return files;
+      }
+
+      // wantInv: invを混ぜる（invファイルが無いコードは結果0）
+      for (let i=1; i<=invMax; i++){
+        octs.forEach(oct => files.push({
+          file: `${chordId}_inv${i}_${oct}.mp3`,
+          invIdx: i,
+          isInv: true,
+          oct
+        }));
+      }
+      return files;
+    }
+
+    function buildQuestionPool(){
+      const act = getActiveBlocks();
+      if (act.length === 0) return [];
+
+      const pool = [];
+
+      act.forEach(blockKey => {
+        const chords = BLOCKS[blockKey].chords;
+        const useInv = !!state[blockKey].inv;
+
+        chords.forEach(chordId => {
+          // ルートは常に対象
+          getCandidateFilesForChord(blockKey, chordId, false).forEach(x => {
+            pool.push({
+              blockKey,
+              chordId,
+              file: x.file,
+              invIdx: x.invIdx,
+              isInv: x.isInv,
+              oct: x.oct
+            });
+          });
+
+          // 転回形ONなら inv候補も追加（ファイルが存在しない場合でも落ちない：再生で弾く）
+          if (useInv){
+            getCandidateFilesForChord(blockKey, chordId, true).forEach(x => {
+              pool.push({
+                blockKey,
+                chordId,
+                file: x.file,
+                invIdx: x.invIdx,
+                isInv: x.isInv,
+                oct: x.oct
+              });
+            });
+          }
+        });
+      });
+
+      return pool;
+    }
+
+    // ===== ファイル存在チェック（軽い：404なら次候補へ）=====
+    async function canPlay(url){
+      try{
+        const r = await fetch(url, { method:"HEAD", cache:"no-store" });
+        return r.ok;
+      }catch{
+        return false;
+      }
+    }
+
+    function pickRandom(arr){
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function chordVoicingText(chordId, invIdx){
+      const tones = CHORD_TONES[chordId];
+      if (!tones) return chordId;
+
+      // triadは4音にする（R-3-5-3 / 3-5-R-3 / 5-R-3-5）
+      if (tones.length === 3){
+        const [R, T, F] = tones;
+        if (invIdx === 0) return `${R}-${T}-${F}-${T}`;
+        if (invIdx === 1) return `${T}-${F}-${R}-${T}`;
+        if (invIdx === 2) return `${F}-${R}-${T}-${F}`;
+        return `${R}-${T}-${F}-${T}`;
+      }
+
+      // 7thは4音（R-3-5-7 / 3-5-7-R / 5-7-R-3 / 7-R-3-5）
+      if (tones.length === 4){
+        const [R, T, F, S] = tones;
+        if (invIdx === 0) return `${R}-${T}-${F}-${S}`;
+        if (invIdx === 1) return `${T}-${F}-${S}-${R}`;
+        if (invIdx === 2) return `${F}-${S}-${R}-${T}`;
+        if (invIdx === 3) return `${S}-${R}-${T}-${F}`;
+        return `${R}-${T}-${F}-${S}`;
+      }
+
+      return tones.join("-");
+    }
+
+    function invLabel(invIdx){
+      if (invIdx === 0) return "ルート";
+      if (invIdx === 1) return "第一転回形";
+      if (invIdx === 2) return "第二転回形";
+      if (invIdx === 3) return "第三転回形";
+      return "";
+    }
+
+    function makeHint(chordId){
+      const tones = CHORD_TONES[chordId];
+      if (!tones) return "未登録";
+      return `構成音：${tones.join("-")}`;
+    }
+
     function setChoicesEnabled(enabled){
-      Array.from(document.querySelectorAll(".choice")).forEach(b => b.disabled = !enabled);
-    }
-    function resetToIdle(msg){
-      phase = "idle";
-      current = null;
-      clearHint();
-      setAnswerControls(false);
-      setChoicesEnabled(false);
-      btnStart.disabled = false;
-      setStatus(msg ?? "待機中");
+      const btns = Array.from(document.querySelectorAll(".choice"));
+      btns.forEach(b => b.disabled = !enabled);
     }
 
-    // ===== audio helpers =====
-    function normalizeFileBase(file){
-      // remove _2/_3/_4 before .mp3 if already present
-      return file.replace(/_([234])\.mp3$/i, ".mp3");
-    }
-    function withOct(fileBase, oct){
-      const base = normalizeFileBase(fileBase);
-      return base.replace(/\.mp3$/i, `_${oct}.mp3`);
-    }
-    function buildSrc(file){
-      const url = encodeURI(AUDIO_BASE + file);
-      return url + "?v=" + encodeURIComponent(AUDIO_VER);
-    }
-
-    function waitPlayable(el, timeoutMs){
-      return new Promise((resolve, reject) => {
-        let done = false;
-        const ok = () => {
-          if (done) return;
-          done = true;
-          cleanup();
-          resolve();
-        };
-        const ng = () => {
-          if (done) return;
-          done = true;
-          cleanup();
-          const code = el && el.error ? el.error.code : "unknown";
-          reject(new Error("audio_error_code_" + code));
-        };
-        const t = setTimeout(() => {
-          if (done) return;
-          done = true;
-          cleanup();
-          resolve();
-        }, timeoutMs);
-
-        function cleanup(){
-          clearTimeout(t);
-          el.removeEventListener("canplay", ok);
-          el.removeEventListener("loadeddata", ok);
-          el.removeEventListener("canplaythrough", ok);
-          el.removeEventListener("error", ng);
-          el.removeEventListener("stalled", ng);
-          el.removeEventListener("abort", ng);
-        }
-
-        el.addEventListener("canplay", ok, { once:true });
-        el.addEventListener("loadeddata", ok, { once:true });
-        el.addEventListener("canplaythrough", ok, { once:true });
-        el.addEventListener("error", ng, { once:true });
-        el.addEventListener("stalled", ng, { once:true });
-        el.addEventListener("abort", ng, { once:true });
-      });
-    }
-
-    function rebuildPlayerElement(){
-      try{ player.pause(); }catch(e){}
-      const old = player;
-      const neu = document.createElement("audio");
-      neu.id = "player";
-      neu.preload = "auto";
-      neu.setAttribute("playsinline", "");
-      old.parentNode.replaceChild(neu, old);
-      player = neu;
-    }
-
-    async function playFile(actualFile){
-      const src = buildSrc(actualFile);
-
-      try{ player.pause(); }catch(e){}
-      try{ player.currentTime = 0; }catch(e){}
-      player.muted = false;
-      player.volume = 1;
-
-      try{
-        player.removeAttribute("src");
-        player.load();
-      }catch(e){}
-
-      player.src = src;
-      player.load();
-
-      await waitPlayable(player, 2500);
-
-      try{
-        await player.play();
-      }catch(err){
-        rebuildPlayerElement();
-        player.src = src;
-        player.load();
-        await waitPlayable(player, 2500);
-        await player.play();
-      }
-    }
-
-    // ===== selection pools =====
-    function activeGroups(){
-      return Object.keys(blocks).filter(k => blocks[k].active);
-    }
-    function idsForActiveGroups(){
-      const gs = new Set(activeGroups());
-      const ids = [];
-      for (const it of ITEMS){
-        if (gs.has(it.group)) ids.push(it.id);
-      }
-      return ids;
-    }
-
-    function safeFiles(item, wantInv){
-      const root = Array.isArray(item.files_root) && item.files_root.length ? item.files_root : [];
-      const inv  = Array.isArray(item.files_inv)  && item.files_inv.length  ? item.files_inv  : [];
-      if (wantInv && inv.length) return inv;
-      return root.length ? root : inv;
-    }
-
-    function voicingForFile(itemId, fileBase){
-      const tv = TRIAD_V[itemId];
-      if (tv){
-        if (fileBase.includes("_inv1")) return { v: tv.inv1, invName: "第一転回形" };
-        if (fileBase.includes("_inv2")) return { v: tv.inv2, invName: "第二転回形" };
-        return { v: tv.root, invName: "ルート" };
-      }
-
-      const sv = SEVENTH_V[itemId];
-      if (sv){
-        if (fileBase.includes("_inv1")) return { v: sv.inv1 ?? sv.root, invName: "第一転回形" };
-        if (fileBase.includes("_inv2")) return { v: sv.inv2 ?? sv.root, invName: "第二転回形" };
-        if (fileBase.includes("_inv3")) return { v: sv.inv3 ?? sv.root, invName: "第三転回形" };
-        return { v: sv.root, invName: "ルート" };
-      }
-
-      return { v: "", invName: "" };
-    }
-
-    function allowedOctavesForRow(blockKey, rowKey){
-      // rowKey: "root" | "inv"
-      // ALWAYS include 3
-      const cfg = blocks[blockKey];
-      const flags = (rowKey === "inv") ? cfg.octInv : cfg.octRoot;
-      const list = [3];
-      if (flags.down) list.push(2);
-      if (flags.up)   list.push(4);
-      // stable order: [3,2,4] -> but random pick anyway; sort for readability
-      const uniq = Array.from(new Set(list));
-      return uniq;
-    }
-
-    function pickQuestion(){
-      const gs = activeGroups();
-      if (gs.length === 0) return null;
-
-      const group = gs[Math.floor(Math.random() * gs.length)];
-      const candidates = ITEMS.filter(x => x.group === group);
-      if (!candidates.length) return null;
-
-      const item = candidates[Math.floor(Math.random() * candidates.length)];
-      const wantInv = !!blocks[group].inv;
-
-      const files = safeFiles(item, wantInv);
-      if (!files || !files.length) return null;
-
-      // choose file base (no octave yet)
-      const fileBase = normalizeFileBase(files[Math.floor(Math.random() * files.length)]);
-
-      // decide row by fileBase itself
-      const rowKey = fileBase.includes("_inv") ? "inv" : "root";
-
-      // choose octave from allowed set (always includes 3)
-      const octs = allowedOctavesForRow(group, rowKey);
-      const oct = octs[Math.floor(Math.random() * octs.length)];
-
-      const fileActual = withOct(fileBase, oct);
-
-      const vx = voicingForFile(item.id, fileBase);
-
-      return {
-        id: item.id,
-        label: item.label,
-        fileBase,
-        fileActual,
-        group,
-        rowKey,
-        voicingText: vx.v,
-        invName: vx.invName
-      };
-    }
-
-    // ===== UI render =====
-    function renderButtons(){
-      // toggles
-      document.querySelectorAll(".tbtn").forEach(el => {
-        const role = el.dataset.role;
-        const blk = el.dataset.block;
-
-        if (role === "active"){
-          const on = blocks[blk].active;
-          el.classList.toggle("on", !!on);
-          const sm = el.querySelector("small");
-          if (sm) sm.textContent = on ? "ON" : "OFF";
-          el.classList.remove("disabled");
-          return;
-        }
-
-        if (role === "inv"){
-          const enabledByActive = blocks[blk].active;
-          const on = blocks[blk].inv;
-          el.classList.toggle("on", !!on);
-          const sm = el.querySelector("small");
-          if (sm) sm.textContent = on ? "ON" : "OFF";
-          el.classList.toggle("disabled", !enabledByActive);
-          return;
-        }
-      });
-
-      // oct buttons
-      document.querySelectorAll(".oct").forEach(el => {
-        const blk = el.dataset.block;
-        const row = el.dataset.row; // root/inv
-        const role = el.dataset.role; // octDown/octUp
-
-        const cfg = blocks[blk];
-        const enabledBlock = cfg.active;
-        const enabledRow = (row === "root") ? cfg.active : (cfg.active && cfg.inv);
-
-        // state
-        const flags = (row === "inv") ? cfg.octInv : cfg.octRoot;
-        const isOn = (role === "octDown") ? flags.down : flags.up;
-
-        el.classList.toggle("on", !!isOn);
-        el.classList.toggle("disabled", !(enabledBlock && enabledRow));
-      });
-    }
-
-    function rebuildChoices(){
-      const ids = idsForActiveGroups();
+    function buildChoices(){
       choicesWrap.innerHTML = "";
+      const poolChords = getAnswerPoolChords();
 
-      ids.forEach(id => {
-        const item = byId.get(id);
-        if (!item) return;
+      // 表示は文字列ソート（少し見やすく）
+      poolChords.sort((a,b) => a.localeCompare(b, "en"));
 
+      poolChords.forEach(ch => {
         const b = document.createElement("button");
         b.className = "choice";
-        b.textContent = item.label;
-        b.dataset.id = item.id;
+        b.textContent = ch;
+        b.dataset.id = ch;
         b.disabled = true;
 
         b.addEventListener("click", () => {
           if (phase !== "answering" || !current) return;
-
           const guess = b.dataset.id;
 
           if (guess === current.id){
+            // 正解確定：ここでtotal加算
             total += 1;
             score += 1;
             totalEl.textContent = String(total);
             scoreEl.textContent = String(score);
             updateAccuracy();
 
-            setStatus(`${current.label} 正解!（${current.voicingText} ${current.invName}）`);
+            const v = chordVoicingText(current.id, current.invIdx);
+            const invTxt = invLabel(current.invIdx);
+            setStatus(`⭕ 正解！ ${current.id}（${v}${invTxt ? " / " + invTxt : ""}）`);
+
+            clearHint();
             phase = "idle";
             current = null;
 
-            setChoicesEnabled(false);
-            setAnswerControls(false);
             btnStart.disabled = false;
-          } else {
-            // NOT counted yet
-            phase = "retryPrompt";
-            setStatus("不正解…（もう一回 / 答え / 出題＝スキップ）", true);
+            btnReplay.disabled = true;
+            btnReveal.disabled = true;
+            btnHint.disabled = true;
 
             setChoicesEnabled(false);
-            setAnswerControls(true);
-            btnStart.disabled = false;
+          }else{
+            // 不正解：totalはまだ増やさない
+            setStatus("❌ 不正解…（再挑戦 / 答え / 出題＝スキップ）", true);
+            phase = "retryPrompt";
+
+            // ここでは選択肢は押せるまま
+            btnStart.disabled = false; // ＝スキップ出題
+            btnReplay.disabled = false; // ＝再挑戦
+            btnReveal.disabled = false; // ＝答え確定
+            btnHint.disabled = false;
           }
         });
 
         choicesWrap.appendChild(b);
       });
+    }
 
-      if (ids.length === 0){
-        setStatus("出題が全部OFFです。", true);
+    // ===== 再生 =====
+    async function playFile(file){
+      const url = AUDIO_DIR + file + CACHE_BUSTER;
+      player.src = url;
+      try{
+        await player.play();
+        return true;
+      }catch{
+        return false;
       }
     }
 
-    // ===== interactions =====
-    // active / inv
-    document.querySelectorAll(".tbtn").forEach(el => {
-      el.addEventListener("click", () => {
-        const role = el.dataset.role;
-        const blk = el.dataset.block;
+    async function playWithFallback(candidate){
+      // candidate.file が無ければ、同じコードの _3 ルートにフォールバック
+      const tryUrl = AUDIO_DIR + candidate.file + CACHE_BUSTER;
+      const ok = await canPlay(tryUrl);
+      if (ok){
+        const played = await playFile(candidate.file);
+        return played;
+      }
 
-        if (role === "active"){
-          blocks[blk].active = !blocks[blk].active;
+      // fallback: <id>_3.mp3
+      const fallback = `${candidate.chordId}_3.mp3`;
+      const fbUrl = AUDIO_DIR + fallback + CACHE_BUSTER;
+      const fbOk = await canPlay(fbUrl);
+      if (!fbOk) return false;
 
-          // if turning OFF, also force inv OFF
-          if (!blocks[blk].active){
-            blocks[blk].inv = false;
-          }
+      // fallbackは「inv扱いにしない」
+      candidate.file = fallback;
+      candidate.invIdx = 0;
+      candidate.isInv = false;
+      candidate.oct = 3;
+      const played = await playFile(fallback);
+      return played;
+    }
 
-          if (phase !== "idle") resetToIdle("設定を変更しました。");
-          rebuildChoices();
-          renderButtons();
-          return;
+    function resetToIdle(msg){
+      phase = "idle";
+      current = null;
+      btnStart.disabled = false;
+      btnReplay.disabled = true;
+      btnReveal.disabled = true;
+      btnHint.disabled = true;
+      setChoicesEnabled(false);
+      clearHint();
+      if (msg) setStatus(msg);
+    }
+
+    async function startNewQuestion(){
+      const activeBlocks = getActiveBlocks();
+      if (activeBlocks.length === 0){
+        resetToIdle("アクティブが0です（どれかONにしてください）");
+        return;
+      }
+
+      const qpool = buildQuestionPool();
+      if (qpool.length === 0){
+        resetToIdle("出題プールが空です");
+        return;
+      }
+
+      // “鳴るもの”が出るまで最大20回試す
+      let picked = null;
+      for (let i=0; i<20; i++){
+        const c = pickRandom(qpool);
+        const ok = await playWithFallback(c);
+        if (ok){
+          picked = c;
+          break;
         }
+      }
+      if (!picked){
+        resetToIdle("音源が見つからず出題できません");
+        return;
+      }
 
-        if (role === "inv"){
-          if (!blocks[blk].active) return;
-          blocks[blk].inv = !blocks[blk].inv;
+      current = {
+        id: picked.chordId,
+        file: picked.file,
+        invIdx: picked.invIdx,
+        isInv: picked.isInv,
+        blockKey: picked.blockKey,
+        oct: picked.oct
+      };
 
-          if (!blocks[blk].inv){
-            // keep oct flags (mix) as-is, but row becomes disabled; state preserved
-          }
+      phase = "answering";
+      setStatus("出題中：答えを選んでください");
+      clearHint();
 
-          if (phase !== "idle") resetToIdle("設定を変更しました。");
-          renderButtons();
-          setStatus("設定を変更しました。");
-          return;
-        }
-      });
-    });
+      btnStart.disabled = true;
+      btnReplay.disabled = false;
+      btnReveal.disabled = false;
+      btnHint.disabled = false;
 
-    // oct buttons
-    document.querySelectorAll(".oct").forEach(el => {
-      el.addEventListener("click", () => {
-        const blk = el.dataset.block;
-        const row = el.dataset.row; // root/inv
-        const role = el.dataset.role; // octDown/octUp
+      setChoicesEnabled(true);
+    }
 
-        const cfg = blocks[blk];
-
-        // block must be active
-        if (!cfg.active) return;
-
-        // row must be enabled
-        if (row === "inv" && !cfg.inv) return;
-
-        const flags = (row === "inv") ? cfg.octInv : cfg.octRoot;
-
-        if (role === "octDown") flags.down = !flags.down;
-        if (role === "octUp")   flags.up   = !flags.up;
-
-        if (phase !== "idle") resetToIdle("設定を変更しました。");
-        renderButtons();
-      });
-    });
-
-    // buttons
+    // ===== メインボタン挙動 =====
     btnStart.addEventListener("click", async () => {
-      // in retryPrompt: "skip"
+      if (phase === "idle"){
+        await startNewQuestion();
+        return;
+      }
+
       if (phase === "retryPrompt" && current){
+        // 出題＝スキップ：ここでtotal加算
         total += 1;
         totalEl.textContent = String(total);
         updateAccuracy();
 
-        setStatus(`${current.label} スキップ（${current.voicingText} ${current.invName}）`);
-        phase = "idle";
-        current = null;
-
-        setAnswerControls(false);
-        setChoicesEnabled(false);
-        btnStart.disabled = false;
-        return;
-      }
-
-      if (phase !== "idle") return;
-
-      const ids = idsForActiveGroups();
-      if (ids.length === 0){
-        setStatus("出題が全部OFFです。", true);
-        return;
-      }
-
-      current = pickQuestion();
-      if (!current){
-        setStatus("出題できません（音源名/配置を確認）", true);
-        current = null;
-        return;
-      }
-
-      clearHint();
-      setStatus("出題中");
-      phase = "answering";
-
-      btnStart.disabled = true;
-      setAnswerControls(true);
-      setChoicesEnabled(true);
-
-      try{
-        await playFile(current.fileActual);
-      }catch(e){
-        setStatus(`再生失敗：${current.fileActual}`, true);
+        // 次へ
+        await startNewQuestion();
       }
     });
 
     btnReplay.addEventListener("click", async () => {
       if (!current) return;
-      clearHint();
+      // もう一回：同一ファイルを再生（再抽選しない）
+      await playFile(current.file);
+    });
 
-      if (phase === "retryPrompt"){
-        // retry does NOT count total
-        setStatus("再挑戦");
-        phase = "answering";
-        btnStart.disabled = true;
-        setChoicesEnabled(true);
-      } else {
-        setStatus("もう一回");
-      }
-
-      try{
-        await playFile(current.fileActual); // same file, same octave
-      }catch(e){
-        setStatus(`再生失敗：${current.fileActual}`, true);
-      }
+    btnHint.addEventListener("click", () => {
+      if (!current) return;
+      showHint(makeHint(current.id));
     });
 
     btnReveal.addEventListener("click", () => {
       if (!current) return;
 
-      if (phase === "retryPrompt"){
-        // finalize as incorrect
-        total += 1;
-        totalEl.textContent = String(total);
-        updateAccuracy();
+      // 答え：ここでtotal加算（不正解扱い）
+      total += 1;
+      totalEl.textContent = String(total);
+      updateAccuracy();
 
-        setStatus(`${current.label}（${current.voicingText} ${current.invName}）`);
-        phase = "idle";
-        current = null;
+      const v = chordVoicingText(current.id, current.invIdx);
+      const invTxt = invLabel(current.invIdx);
 
-        setAnswerControls(false);
-        setChoicesEnabled(false);
-        btnStart.disabled = false;
-      } else {
-        setStatus(`${current.label}（${current.voicingText} ${current.invName}）`);
-      }
-    });
+      setStatus(`答え：${current.id}（${v}${invTxt ? " / " + invTxt : ""}）`);
 
-    btnHint.addEventListener("click", () => {
-      if (!current) return;
-      setHint("（なし）");
+      phase = "idle";
+      current = null;
+
+      btnStart.disabled = false;
+      btnReplay.disabled = true;
+      btnReveal.disabled = true;
+      btnHint.disabled = true;
+      setChoicesEnabled(false);
+      clearHint();
     });
 
     btnC.addEventListener("click", async () => {
-      // fixed reference tone: C_3
-      const f = withOct("C.mp3", 3);
-      try{
-        await playFile(f);
-        setStatus("C（基準音）");
-      }catch(e){
-        setStatus(`Cを再生できません（${f}）`, true);
-      }
+      // 基準音：C_3固定
+      await playFile("C_3.mp3");
     });
 
-    // init
-    scoreEl.textContent = "0";
+    // ===== 初期化 =====
     totalEl.textContent = "0";
+    scoreEl.textContent = "0";
     updateAccuracy();
-    rebuildChoices();
-    renderButtons();
+
+    buildChoices();
+    syncAll();
     resetToIdle("待機中");
   })();
   </script>
