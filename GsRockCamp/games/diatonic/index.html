@@ -20,11 +20,11 @@
       --btn-off-border: 1px solid var(--line);
       --btn-radius: 16px;
 
-      --oct-font: 14px;      /* 小さめ */
+      --oct-font: 14px;
       --main-font: 16px;
       --title-font: 22px;
 
-      --tap-min-h: 44px;     /* タップ領域 */
+      --tap-min-h: 44px;
     }
 
     body{
@@ -121,9 +121,7 @@
     .btn:active{ transform: translateY(1px); }
     .btn[disabled]{ opacity:.45; }
 
-    .btn.on{
-      border: var(--btn-on-border);
-    }
+    .btn.on{ border: var(--btn-on-border); }
 
     .btn small{
       font-weight:900;
@@ -233,12 +231,8 @@
     a.backbtn:active{ transform: translateY(1px); }
 
     @media (max-width: 420px){
-      .opt-row{
-        grid-template-columns: 1fr;
-      }
-      .oct-pair{
-        grid-template-columns: 1fr 1fr;
-      }
+      .opt-row{ grid-template-columns: 1fr; }
+      .oct-pair{ grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -247,17 +241,17 @@
   <div class="wrap">
     <h1>
       Diatonic Chord Quiz
-      <span class="ver" id="verText">ver1.2.7</span>
+      <span class="ver" id="verText">ver1.2.8</span>
     </h1>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
+        <li>ver1.2.8：答えを押した瞬間に採点確定（正解=total+1&score+1 / 不正解=total+1）</li>
+        <li>不正解直後だけ「もう一回」→「再挑戦」に変化（再挑戦は同一音再生＋再回答中へ）</li>
+        <li>答えを押したら、その答えのroot _3 を再生（転回形は追従しない）</li>
         <li>起動デフォルト：①Easyのみアクティブ（②③④はOFF）</li>
-        <li>Octは「_3が常に混在」＋Oct-で_2混在、Oct+で_4混在（行ごと）</li>
-        <li>スマホ縦：ブロック内レイアウト固定（段ずれ対策）＋Oct表示小さめ</li>
-        <li>間違えた後も「もう一回」「答え」「選択肢」を継続して操作可能</li>
-        <li>選択肢の並び：C→…→B（音名順）</li>
+        <li>選択肢の並び：C→…→B</li>
       </ul>
     </div>
 
@@ -376,7 +370,7 @@
 
   <script>
   (() => {
-    const VER = "1.2.7";
+    const VER = "1.2.8";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_DIR = "audio/";
@@ -434,12 +428,13 @@
     const totalEl = document.getElementById("total");
     const accuracyEl = document.getElementById("accuracy");
 
-    let phase = "idle"; // idle | answering | retryPrompt
+    // phase: idle | answering | retryPrompt
+    let phase = "idle";
     let current = null; // {id, file, invIdx, isInv, blockKey, oct}
     let score = 0;
     let total = 0;
 
-    // ✅ 起動デフォルト：①のみアクティブ、他OFF
+    // 起動デフォルト：①のみアクティブ
     const state = {
       easy:   { active:true,  inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
       normal: { active:false, inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
@@ -539,14 +534,20 @@
     }
 
     function syncAll(){
-      syncOne("easy");
-      syncOne("normal");
-      syncOne("plus");
-      syncOne("hard");
+      ["easy","normal","plus","hard"].forEach(syncOne);
 
       if (phase === "idle"){
         buildChoices();
       }
+    }
+
+    function setChoicesEnabled(enabled){
+      const btns = Array.from(document.querySelectorAll(".choice"));
+      btns.forEach(b => b.disabled = !enabled);
+    }
+
+    function setReplayLabel(){
+      btnReplay.textContent = (phase === "retryPrompt") ? "再挑戦" : "もう一回";
     }
 
     function resetToIdle(msg){
@@ -558,6 +559,7 @@
       btnReveal.disabled = true;
       btnHint.disabled = true;
 
+      setReplayLabel();
       setChoicesEnabled(false);
       clearHint();
       if (msg) setStatus(msg);
@@ -639,6 +641,7 @@
       const s = state[blockKey];
       const triad = BLOCKS[blockKey].triad;
 
+      // oct: 3は常に混在。押されていれば2/4も混在。
       const octs = [3];
       if (wantInv){
         if (s.invOctMinus) octs.push(2);
@@ -649,8 +652,8 @@
       }
 
       const invMax = triad ? 2 : 3;
-
       const files = [];
+
       if (!wantInv){
         octs.forEach(oct => files.push({ file: `${chordId}_${oct}.mp3`, invIdx:0, isInv:false, oct }));
         return files;
@@ -687,6 +690,10 @@
       return pool;
     }
 
+    function pickRandom(arr){
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
     async function canPlay(url){
       try{
         const r = await fetch(url, { method:"HEAD", cache:"no-store" });
@@ -696,8 +703,35 @@
       }
     }
 
-    function pickRandom(arr){
-      return arr[Math.floor(Math.random() * arr.length)];
+    async function playFile(file){
+      const url = AUDIO_DIR + file + CACHE_BUSTER;
+      player.src = url;
+      try{
+        await player.play();
+        return true;
+      }catch{
+        return false;
+      }
+    }
+
+    // 出題音のフォールバック：invが無ければ root_3
+    async function playWithFallback(candidate){
+      const tryUrl = AUDIO_DIR + candidate.file + CACHE_BUSTER;
+      const ok = await canPlay(tryUrl);
+      if (ok){
+        return await playFile(candidate.file);
+      }
+
+      const fallback = `${candidate.chordId}_3.mp3`;
+      const fbUrl = AUDIO_DIR + fallback + CACHE_BUSTER;
+      const fbOk = await canPlay(fbUrl);
+      if (!fbOk) return false;
+
+      candidate.file = fallback;
+      candidate.invIdx = 0;
+      candidate.isInv = false;
+      candidate.oct = 3;
+      return await playFile(fallback);
     }
 
     function invLabel(invIdx){
@@ -738,24 +772,14 @@
       return `構成音：${tones.join("-")}`;
     }
 
-    function setChoicesEnabled(enabled){
-      const btns = Array.from(document.querySelectorAll(".choice"));
-      btns.forEach(b => b.disabled = !enabled);
-    }
-
-    // ✅ 選択肢並び：C→…→B（音名順）
+    // --- 選択肢並び：C→…→B ---
     function rootFromChordId(id){
-      // 先頭の音名（例：CM7->C / Db7->Db / F#dim->F# / Bm7-5->B）
       const m = id.match(/^(Ab|Bb|Cb|Db|Eb|Fb|Gb|C#|D#|E#|F#|G#|A|B|C|D|E|F|G)/);
       return m ? m[1] : id;
     }
-
     const ROOT_ORDER = ["C","C#","Db","D","D#","Eb","E","E#","F","F#","Gb","G","G#","Ab","A","A#","Bb","B","Cb"];
     const ROOT_SCORE = new Map(ROOT_ORDER.map((x,i)=>[x,i]));
-
     function qualityRank(id){
-      // 同ルート内の並び（ざっくり優先）
-      // 0:無印, 1:m, 2:dim, 3:m-5, 4:7, 5:M7, 6:m7, 7:m7-5, 8:dim7, 99:その他
       if (/_inv\d+/.test(id)) return 99;
       if (/dim7$/.test(id)) return 8;
       if (/m7-5$/.test(id)) return 7;
@@ -767,7 +791,6 @@
       if (/m$/.test(id)) return 1;
       return 0;
     }
-
     function sortChordIdsCtoB(a,b){
       const ra = rootFromChordId(a);
       const rb = rootFromChordId(b);
@@ -782,10 +805,18 @@
       return a.localeCompare(b, "en");
     }
 
+    // B案：押した答えの root_3 を鳴らす
+    async function playAnswerRoot3(chordId){
+      const f = `${chordId}_3.mp3`;
+      const url = AUDIO_DIR + f + CACHE_BUSTER;
+      const ok = await canPlay(url);
+      if (!ok) return false;
+      return await playFile(f);
+    }
+
     function buildChoices(){
       choicesWrap.innerHTML = "";
       const poolChords = getAnswerPoolChords();
-
       poolChords.sort(sortChordIdsCtoB);
 
       poolChords.forEach(ch => {
@@ -795,17 +826,24 @@
         b.dataset.id = ch;
         b.disabled = true;
 
-        b.addEventListener("click", () => {
+        b.addEventListener("click", async () => {
           if ((phase !== "answering" && phase !== "retryPrompt") || !current) return;
+
           const guess = b.dataset.id;
 
-          if (guess === current.id){
-            total += 1;
-            score += 1;
-            totalEl.textContent = String(total);
-            scoreEl.textContent = String(score);
-            updateAccuracy();
+          // 押した答えの音(root_3)を鳴らす（採点前でも鳴る）
+          await playAnswerRoot3(guess);
 
+          // --- 採点確定：答えを押した瞬間 ---
+          total += 1;
+          if (guess === current.id){
+            score += 1;
+          }
+          totalEl.textContent = String(total);
+          scoreEl.textContent = String(score);
+          updateAccuracy();
+
+          if (guess === current.id){
             const v = chordVoicingText(current.id, current.invIdx);
             const invTxt = invLabel(current.invIdx);
             setStatus(`⭕ 正解！ ${current.id}（${v}${invTxt ? " / " + invTxt : ""}）`);
@@ -819,54 +857,26 @@
             btnReveal.disabled = true;
             btnHint.disabled = true;
 
+            setReplayLabel();
             setChoicesEnabled(false);
           }else{
-            setStatus("❌ 不正解…（再挑戦 / 答え / 出題＝スキップ）", true);
-            phase = "retryPrompt";
+            setStatus("❌ 不正解…（再挑戦 / 答え）", true);
 
-            // ✅ 間違えた後も操作可能（もう一回/答え/選択肢）
-            btnStart.disabled  = false; // スキップ出題
-            btnReplay.disabled = false; // 再挑戦
-            btnReveal.disabled = false; // 答え
-            btnHint.disabled   = false; // ヒント
+            // 不正解直後：再挑戦モード
+            phase = "retryPrompt";
+            setReplayLabel();
+
+            // まだ同じ問題を継続する
+            btnStart.disabled  = true;   // 出題(別問題)はここでは触らせない
+            btnReplay.disabled = false;  // 再挑戦
+            btnReveal.disabled = false;  // 答え
+            btnHint.disabled   = false;  // ヒント
             setChoicesEnabled(true);
           }
         });
 
         choicesWrap.appendChild(b);
       });
-    }
-
-    async function playFile(file){
-      const url = AUDIO_DIR + file + CACHE_BUSTER;
-      player.src = url;
-      try{
-        await player.play();
-        return true;
-      }catch{
-        return false;
-      }
-    }
-
-    async function playWithFallback(candidate){
-      const tryUrl = AUDIO_DIR + candidate.file + CACHE_BUSTER;
-      const ok = await canPlay(tryUrl);
-      if (ok){
-        const played = await playFile(candidate.file);
-        return played;
-      }
-
-      const fallback = `${candidate.chordId}_3.mp3`;
-      const fbUrl = AUDIO_DIR + fallback + CACHE_BUSTER;
-      const fbOk = await canPlay(fbUrl);
-      if (!fbOk) return false;
-
-      candidate.file = fallback;
-      candidate.invIdx = 0;
-      candidate.isInv = false;
-      candidate.oct = 3;
-      const played = await playFile(fallback);
-      return played;
     }
 
     async function startNewQuestion(){
@@ -883,7 +893,7 @@
       }
 
       let picked = null;
-      for (let i=0; i<20; i++){
+      for (let i=0; i<25; i++){
         const c = pickRandom(qpool);
         const ok = await playWithFallback(c);
         if (ok){
@@ -906,62 +916,65 @@
       };
 
       phase = "answering";
+      setReplayLabel();
+
       setStatus("出題中：答えを選んでください");
       clearHint();
 
       btnStart.disabled = true;
-      btnReplay.disabled = false;
+      btnReplay.disabled = false; // もう一回
       btnReveal.disabled = false;
       btnHint.disabled = false;
 
       setChoicesEnabled(true);
     }
 
+    // 出題
     btnStart.addEventListener("click", async () => {
-      if (phase === "idle"){
-        await startNewQuestion();
-        return;
-      }
-
-      if (phase === "retryPrompt" && current){
-        total += 1;
-        totalEl.textContent = String(total);
-        updateAccuracy();
-        await startNewQuestion();
-      }
+      if (phase !== "idle") return;
+      await startNewQuestion();
     });
 
+    // もう一回 / 再挑戦
     btnReplay.addEventListener("click", async () => {
       if (!current) return;
 
-      // ✅ もう一回後も、答え/選択肢が押せる状態を強制維持
-      await playFile(current.file);
       if (phase === "retryPrompt"){
+        // 再挑戦：同一ファイル再生＋再回答中へ
+        await playFile(current.file);
+        phase = "answering";
+        setReplayLabel();
+        setStatus("再回答中：答えを選んでください");
+        setChoicesEnabled(true);
+
+        // 出題は継続なので押せないまま
+        btnStart.disabled = true;
         btnReveal.disabled = false;
         btnHint.disabled = false;
-        setChoicesEnabled(true);
-      }else if (phase === "answering"){
-        btnReveal.disabled = false;
-        btnHint.disabled = false;
-        setChoicesEnabled(true);
+        btnReplay.disabled = false; // もう一回
+        return;
       }
+
+      // 通常：聴き直し
+      await playFile(current.file);
+      // ステータスは変えない
+      setChoicesEnabled(true);
+      btnReveal.disabled = false;
+      btnHint.disabled = false;
     });
 
+    // ヒント
     btnHint.addEventListener("click", () => {
       if (!current) return;
       showHint(makeHint(current.id));
     });
 
+    // 答え（採点はしない。表示して終了）
     btnReveal.addEventListener("click", () => {
       if (!current) return;
 
-      total += 1;
-      totalEl.textContent = String(total);
-      updateAccuracy();
-
       const v = chordVoicingText(current.id, current.invIdx);
       const invTxt = invLabel(current.invIdx);
-
       setStatus(`答え：${current.id}（${v}${invTxt ? " / " + invTxt : ""}）`);
 
       phase = "idle";
@@ -971,14 +984,18 @@
       btnReplay.disabled = true;
       btnReveal.disabled = true;
       btnHint.disabled = true;
+
+      setReplayLabel();
       setChoicesEnabled(false);
       clearHint();
     });
 
+    // C（基準音）
     btnC.addEventListener("click", async () => {
       await playFile("C_3.mp3");
     });
 
+    // 初期化
     totalEl.textContent = "0";
     scoreEl.textContent = "0";
     updateAccuracy();
