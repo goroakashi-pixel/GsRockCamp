@@ -16,7 +16,6 @@
       --on:#1d4ed8;
       --warn:#b91c1c;
     }
-
     body{
       font-family:-apple-system, system-ui, "Segoe UI", sans-serif;
       margin:16px;
@@ -50,7 +49,6 @@
       flex-direction:column;
       gap:10px;
     }
-
     .blk{
       border:1px solid var(--line);
       border-radius:14px;
@@ -71,7 +69,6 @@
       text-overflow:ellipsis;
       white-space:nowrap;
     }
-
     .blkBtns{
       display:flex;
       gap:10px;
@@ -194,9 +191,7 @@
       <div class="blocks">
 
         <div class="blk" data-block="easy">
-          <div class="blkTop">
-            <div class="blkName">① Easy：基本ダイアトニック（3和音）</div>
-          </div>
+          <div class="blkTop"><div class="blkName">① Easy：基本ダイアトニック（3和音）</div></div>
           <div class="blkBtns">
             <div class="tbtn on" data-role="active" data-block="easy">アクティブ <small>ON</small></div>
             <div class="tbtn" data-role="inv" data-block="easy">転回形 <small>OFF</small></div>
@@ -204,9 +199,7 @@
         </div>
 
         <div class="blk" data-block="normal">
-          <div class="blkTop">
-            <div class="blkName">② Normal：ダイアトニック4和音（7th系）</div>
-          </div>
+          <div class="blkTop"><div class="blkName">② Normal：ダイアトニック4和音（7th系）</div></div>
           <div class="blkBtns">
             <div class="tbtn" data-role="active" data-block="normal">アクティブ <small>OFF</small></div>
             <div class="tbtn" data-role="inv" data-block="normal">転回形 <small>OFF</small></div>
@@ -214,9 +207,7 @@
         </div>
 
         <div class="blk" data-block="plus">
-          <div class="blkTop">
-            <div class="blkName">③ Plus：セカンダリー系</div>
-          </div>
+          <div class="blkTop"><div class="blkName">③ Plus：セカンダリー系</div></div>
           <div class="blkBtns">
             <div class="tbtn" data-role="active" data-block="plus">アクティブ <small>OFF</small></div>
             <div class="tbtn" data-role="inv" data-block="plus">転回形 <small>OFF</small></div>
@@ -224,9 +215,7 @@
         </div>
 
         <div class="blk" data-block="hard">
-          <div class="blkTop">
-            <div class="blkName">④ Hard：その他高度な代理</div>
-          </div>
+          <div class="blkTop"><div class="blkName">④ Hard：その他高度な代理</div></div>
           <div class="blkBtns">
             <div class="tbtn" data-role="active" data-block="hard">アクティブ <small>OFF</small></div>
             <div class="tbtn" data-role="inv" data-block="hard">転回形 <small>OFF</small></div>
@@ -272,13 +261,13 @@
   <script>
   (() => {
     // ===== versions =====
-    const APP_VER   = "1.2.1";   // ← ここを 1.2.2, 1.2.3… に上げる
-    const AUDIO_VER = APP_VER;   // ← 音源キャッシュバスターも同じ番号で運用
+    const APP_VER   = "1.2.1";
+    const AUDIO_VER = APP_VER;
 
-    // ===== audio path: GsRockCamp/games/diatonic/audio =====
+    // audio path: GsRockCamp/games/diatonic/audio
     const AUDIO_BASE = "audio/";
 
-    // show version on UI/title
+    // show version
     const verEl = document.getElementById("verText");
     if (verEl) verEl.textContent = "ver" + APP_VER;
     document.title = "Diatonic Chord Quiz ver" + APP_VER;
@@ -363,7 +352,7 @@
     const byId = new Map(ITEMS.map(x => [x.id, x]));
 
     // ===== DOM =====
-    const player = document.getElementById("player");
+    let player = document.getElementById("player");
     const statusEl = document.getElementById("status");
     const hintArea = document.getElementById("hintArea");
 
@@ -417,12 +406,92 @@
       return url + "?v=" + encodeURIComponent(AUDIO_VER);
     }
 
+    function waitPlayable(el, timeoutMs){
+      return new Promise((resolve, reject) => {
+        let done = false;
+        const onOk = () => {
+          if (done) return;
+          done = true;
+          cleanup();
+          resolve();
+        };
+        const onNg = () => {
+          if (done) return;
+          done = true;
+          cleanup();
+          const code = el && el.error ? el.error.code : "unknown";
+          reject(new Error("audio_error_code_" + code));
+        };
+        const t = setTimeout(() => {
+          if (done) return;
+          done = true;
+          cleanup();
+          resolve(); // タイムアウトでも進める（playが投げたら捕まえる）
+        }, timeoutMs);
+
+        function cleanup(){
+          clearTimeout(t);
+          el.removeEventListener("canplay", onOk);
+          el.removeEventListener("loadeddata", onOk);
+          el.removeEventListener("canplaythrough", onOk);
+          el.removeEventListener("error", onNg);
+          el.removeEventListener("stalled", onNg);
+          el.removeEventListener("abort", onNg);
+        }
+
+        el.addEventListener("canplay", onOk, { once:true });
+        el.addEventListener("loadeddata", onOk, { once:true });
+        el.addEventListener("canplaythrough", onOk, { once:true });
+        el.addEventListener("error", onNg, { once:true });
+        el.addEventListener("stalled", onNg, { once:true });
+        el.addEventListener("abort", onNg, { once:true });
+      });
+    }
+
+    function rebuildPlayerElement(){
+      try{ player.pause(); }catch(e){}
+      const old = player;
+      const neu = document.createElement("audio");
+      neu.id = "player";
+      neu.preload = "auto";
+      neu.setAttribute("playsinline", "");
+      old.parentNode.replaceChild(neu, old);
+      player = neu;
+    }
+
     async function playFile(file){
-      player.pause();
-      player.currentTime = 0;
-      player.src = buildSrc(file);
+      const src = buildSrc(file);
+
+      // 強制初期化
+      try{ player.pause(); }catch(e){}
+      try{ player.currentTime = 0; }catch(e){}
+      player.muted = false;
+      player.volume = 1;
+
+      // srcを一旦空にして完全リセット
+      try{
+        player.removeAttribute("src");
+        player.load();
+      }catch(e){}
+
+      // 新srcセット
+      player.src = src;
       player.load();
-      await player.play();
+
+      // 読み込み待ち
+      await waitPlayable(player, 2500);
+
+      // 再生
+      try{
+        await player.play();
+      }catch(err){
+        // iOSでたまに詰まるので、要素作り直して一度だけ再試行
+        rebuildPlayerElement();
+        player.src = src;
+        player.load();
+        await waitPlayable(player, 2500);
+        await player.play();
+      }
     }
 
     function activeGroups(){
@@ -565,6 +634,7 @@
       };
     }
 
+    // ===== block buttons =====
     document.querySelectorAll(".tbtn").forEach(el => {
       el.addEventListener("click", () => {
         const role = el.dataset.role;
@@ -581,19 +651,14 @@
         if (role === "inv"){
           blocks[blk].inv = !blocks[blk].inv;
           renderBlockButtons();
-
-          if (blk === "plus" || blk === "hard"){
-            setStatus(`${blk === "plus" ? "③ Plus" : "④ Hard"} の転回形は音源未整備のため、効果が出ない場合があります。`, true);
-          } else {
-            setStatus("設定を変更しました。");
-          }
-
           if (phase !== "idle") resetToIdle("設定を変更しました。");
+          setStatus("設定を変更しました。");
           return;
         }
       });
     });
 
+    // ===== buttons =====
     btnStart.addEventListener("click", async () => {
       if (phase === "retryPrompt" && current){
         total += 1;
@@ -636,8 +701,7 @@
       try{
         await playFile(current.file);
       }catch(e){
-        setStatus("再生できません（audio/ のファイル名を確認）", true);
-        resetToIdle("待機中");
+        setStatus(`再生失敗：${current.file}`, true);
       }
     });
 
@@ -649,7 +713,6 @@
         total += 1;
         totalEl.textContent = String(total);
         updateAccuracy();
-
         setStatus("再挑戦");
         phase = "answering";
         btnStart.disabled = true;
@@ -658,7 +721,11 @@
         setStatus("もう一回");
       }
 
-      try{ await playFile(current.file); }catch(e){}
+      try{
+        await playFile(current.file);
+      }catch(e){
+        setStatus(`再生失敗：${current.file}`, true);
+      }
     });
 
     btnReveal.addEventListener("click", () => {
@@ -695,6 +762,7 @@
       }
     });
 
+    // init
     scoreEl.textContent = "0";
     totalEl.textContent = "0";
     updateAccuracy();
