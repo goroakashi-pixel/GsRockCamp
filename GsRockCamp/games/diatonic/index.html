@@ -241,15 +241,16 @@
   <div class="wrap">
     <h1>
       Diatonic Chord Quiz
-      <span class="ver" id="verText">ver1.2.8</span>
+      <span class="ver" id="verText">ver1.2.9</span>
     </h1>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.2.8：答えを押した瞬間に採点確定（正解=total+1&score+1 / 不正解=total+1）</li>
-        <li>不正解直後だけ「もう一回」→「再挑戦」に変化（再挑戦は同一音再生＋再回答中へ）</li>
-        <li>答えを押したら、その答えのroot _3 を再生（転回形は追従しない）</li>
+        <li>ver1.2.9：不正解後は回答ロック（再挑戦を押すまで回答は受けつけない）</li>
+        <li>ロック中に答えを押したら「再挑戦」をクリックしてください。を表示</li>
+        <li>答えクリックで音は鳴らさない（正解時のみ正解音＝出題音を再生）</li>
+        <li>採点：答えを押した瞬間に確定（正解=total+1&score+1 / 不正解=total+1）</li>
         <li>起動デフォルト：①Easyのみアクティブ（②③④はOFF）</li>
         <li>選択肢の並び：C→…→B</li>
       </ul>
@@ -370,7 +371,7 @@
 
   <script>
   (() => {
-    const VER = "1.2.8";
+    const VER = "1.2.9";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_DIR = "audio/";
@@ -428,7 +429,7 @@
     const totalEl = document.getElementById("total");
     const accuracyEl = document.getElementById("accuracy");
 
-    // phase: idle | answering | retryPrompt
+    // phase: idle | answering | lockedAfterWrong
     let phase = "idle";
     let current = null; // {id, file, invIdx, isInv, blockKey, oct}
     let score = 0;
@@ -547,7 +548,7 @@
     }
 
     function setReplayLabel(){
-      btnReplay.textContent = (phase === "retryPrompt") ? "再挑戦" : "もう一回";
+      btnReplay.textContent = (phase === "lockedAfterWrong") ? "再挑戦" : "もう一回";
     }
 
     function resetToIdle(msg){
@@ -805,15 +806,6 @@
       return a.localeCompare(b, "en");
     }
 
-    // B案：押した答えの root_3 を鳴らす
-    async function playAnswerRoot3(chordId){
-      const f = `${chordId}_3.mp3`;
-      const url = AUDIO_DIR + f + CACHE_BUSTER;
-      const ok = await canPlay(url);
-      if (!ok) return false;
-      return await playFile(f);
-    }
-
     function buildChoices(){
       choicesWrap.innerHTML = "";
       const poolChords = getAnswerPoolChords();
@@ -827,12 +819,18 @@
         b.disabled = true;
 
         b.addEventListener("click", async () => {
-          if ((phase !== "answering" && phase !== "retryPrompt") || !current) return;
+          if (!current) return;
+
+          // 不正解後ロック中は回答を受けつけない
+          if (phase === "lockedAfterWrong"){
+            setStatus("「再挑戦」をクリックしてください。", true);
+            return;
+          }
+
+          // answering 以外は無視
+          if (phase !== "answering") return;
 
           const guess = b.dataset.id;
-
-          // 押した答えの音(root_3)を鳴らす（採点前でも鳴る）
-          await playAnswerRoot3(guess);
 
           // --- 採点確定：答えを押した瞬間 ---
           total += 1;
@@ -848,6 +846,9 @@
             const invTxt = invLabel(current.invIdx);
             setStatus(`⭕ 正解！ ${current.id}（${v}${invTxt ? " / " + invTxt : ""}）`);
 
+            // 正解時のみ：正解音（= 出題で鳴った同一ファイル）を再生
+            await playFile(current.file);
+
             clearHint();
             phase = "idle";
             current = null;
@@ -862,15 +863,16 @@
           }else{
             setStatus("❌ 不正解…（再挑戦 / 答え）", true);
 
-            // 不正解直後：再挑戦モード
-            phase = "retryPrompt";
+            // 不正解後：回答ロック
+            phase = "lockedAfterWrong";
             setReplayLabel();
 
-            // まだ同じ問題を継続する
-            btnStart.disabled  = true;   // 出題(別問題)はここでは触らせない
+            btnStart.disabled  = true;   // 別問題へは行かせない
             btnReplay.disabled = false;  // 再挑戦
             btnReveal.disabled = false;  // 答え
             btnHint.disabled   = false;  // ヒント
+
+            // 見た目は押せるが、回答は受けつけない（クリックしたら促す）
             setChoicesEnabled(true);
           }
         });
@@ -939,15 +941,14 @@
     btnReplay.addEventListener("click", async () => {
       if (!current) return;
 
-      if (phase === "retryPrompt"){
-        // 再挑戦：同一ファイル再生＋再回答中へ
+      if (phase === "lockedAfterWrong"){
+        // 再挑戦：同一ファイル再生＋再回答中へ（回答ロック解除）
         await playFile(current.file);
         phase = "answering";
         setReplayLabel();
         setStatus("再回答中：答えを選んでください");
         setChoicesEnabled(true);
 
-        // 出題は継続なので押せないまま
         btnStart.disabled = true;
         btnReveal.disabled = false;
         btnHint.disabled = false;
@@ -956,11 +957,9 @@
       }
 
       // 通常：聴き直し
-      await playFile(current.file);
-      // ステータスは変えない
-      setChoicesEnabled(true);
-      btnReveal.disabled = false;
-      btnHint.disabled = false;
+      if (phase === "answering"){
+        await playFile(current.file);
+      }
     });
 
     // ヒント
