@@ -30,11 +30,20 @@
       font-size:22px;
       margin: 6px 0 12px;
       display:flex;
-      align-items:baseline;
+      align-items:center;
       gap:10px;
       flex-wrap:wrap;
     }
     .ver{ font-size:12px; color:var(--muted); font-weight:900; }
+    .pill{
+      font-size:12px;
+      font-weight:900;
+      color:var(--muted);
+      border:1px solid var(--line);
+      padding:6px 10px;
+      border-radius:999px;
+      background:#fff;
+    }
 
     .box{
       padding:14px;
@@ -100,6 +109,36 @@
       color:var(--muted);
       font-size:12px;
     }
+
+    .seg{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+      align-items:center;
+    }
+    .segLabel{
+      font-weight:900;
+      color:var(--muted);
+    }
+    .segBtn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      font-weight:900;
+      min-width:90px;
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+    }
+    .segBtn.on{
+      border-color: var(--on);
+      box-shadow: 0 0 0 2px rgba(29,78,216,.12) inset;
+    }
+    .segBtn:active{ transform: translateY(1px); }
 
     .btnRow{
       display:flex;
@@ -179,13 +218,18 @@
       body{ margin:12px; }
       .tbtn{ min-width: 46%; flex:1 1 46%; }
       .blkName{ white-space:normal; overflow:visible; text-overflow:clip; }
+      .segBtn{ min-width: 30%; flex:1 1 30%; }
     }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <h1>Diatonic Chord Quiz <span class="ver" id="verText">ver-</span></h1>
+    <h1>
+      Diatonic Chord Quiz
+      <span class="ver" id="verText">ver-</span>
+      <span class="pill" id="octPill">Oct3</span>
+    </h1>
 
     <div class="box">
       <div class="blocks">
@@ -222,6 +266,14 @@
           </div>
         </div>
 
+      </div>
+
+      <!-- octave -->
+      <div class="seg">
+        <div class="segLabel">オクターブ</div>
+        <div class="segBtn" data-oct="2">下（_2）</div>
+        <div class="segBtn on" data-oct="3">基準（_3）</div>
+        <div class="segBtn" data-oct="4">上（_4）</div>
       </div>
 
       <div class="btnRow">
@@ -261,7 +313,7 @@
   <script>
   (() => {
     // ===== versions =====
-    const APP_VER   = "1.2.2";
+    const APP_VER   = "1.2.4";
     const AUDIO_VER = APP_VER;
 
     // audio path: GsRockCamp/games/diatonic/audio
@@ -271,6 +323,12 @@
     const verEl = document.getElementById("verText");
     if (verEl) verEl.textContent = "ver" + APP_VER;
     document.title = "Diatonic Chord Quiz ver" + APP_VER;
+
+    // ===== octave (2/3/4) =====
+    let OCT = 3;
+    const octPill = document.getElementById("octPill");
+    function setOctPill(){ if (octPill) octPill.textContent = "Oct" + OCT; }
+    setOctPill();
 
     // ===== blocks =====
     const blocks = {
@@ -317,6 +375,8 @@
     };
 
     // ===== items =====
+    // ファイルは「末尾に _2/_3/_4 が付く」前提（例：CM7_inv1_3.mp3）
+    // ここでは _2/_3/_4 を書かない（再生時に自動付与）
     const ITEMS = [
       { id:"C",    label:"C",    group:"easy",   files_root:["C.mp3"],    files_inv:["C.mp3","C_inv1.mp3","C_inv2.mp3"] },
       { id:"Dm",   label:"Dm",   group:"easy",   files_root:["Dm.mp3"],   files_inv:["Dm.mp3","Dm_inv1.mp3","Dm_inv2.mp3"] },
@@ -400,22 +460,44 @@
     function setChoicesEnabled(enabled){
       Array.from(document.querySelectorAll(".choice")).forEach(b => b.disabled = !enabled);
     }
+    function resetToIdle(msg){
+      phase = "idle";
+      current = null;
+      clearHint();
+      setAnswerControls(false);
+      setChoicesEnabled(false);
+      btnStart.disabled = false;
+      setStatus(msg ?? "待機中");
+    }
+
+    // ===== file name (add _2/_3/_4 before .mp3) =====
+    function applyOctave(file){
+      // already has suffix like _3.mp3 ?
+      if (/_([234])\.mp3$/i.test(file)) return file;
+
+      // insert before .mp3
+      if (/\.mp3$/i.test(file)){
+        return file.replace(/\.mp3$/i, `_${OCT}.mp3`);
+      }
+      return file;
+    }
 
     function buildSrc(file){
-      const url = encodeURI(AUDIO_BASE + file);
+      const withOct = applyOctave(file);
+      const url = encodeURI(AUDIO_BASE + withOct);
       return url + "?v=" + encodeURIComponent(AUDIO_VER);
     }
 
     function waitPlayable(el, timeoutMs){
       return new Promise((resolve, reject) => {
         let done = false;
-        const onOk = () => {
+        const ok = () => {
           if (done) return;
           done = true;
           cleanup();
           resolve();
         };
-        const onNg = () => {
+        const ng = () => {
           if (done) return;
           done = true;
           cleanup();
@@ -426,25 +508,25 @@
           if (done) return;
           done = true;
           cleanup();
-          resolve(); // タイムアウトでも進める（playが投げたら捕まえる）
+          resolve(); // タイムアウトでも次へ（playで落ちたら捕まえる）
         }, timeoutMs);
 
         function cleanup(){
           clearTimeout(t);
-          el.removeEventListener("canplay", onOk);
-          el.removeEventListener("loadeddata", onOk);
-          el.removeEventListener("canplaythrough", onOk);
-          el.removeEventListener("error", onNg);
-          el.removeEventListener("stalled", onNg);
-          el.removeEventListener("abort", onNg);
+          el.removeEventListener("canplay", ok);
+          el.removeEventListener("loadeddata", ok);
+          el.removeEventListener("canplaythrough", ok);
+          el.removeEventListener("error", ng);
+          el.removeEventListener("stalled", ng);
+          el.removeEventListener("abort", ng);
         }
 
-        el.addEventListener("canplay", onOk, { once:true });
-        el.addEventListener("loadeddata", onOk, { once:true });
-        el.addEventListener("canplaythrough", onOk, { once:true });
-        el.addEventListener("error", onNg, { once:true });
-        el.addEventListener("stalled", onNg, { once:true });
-        el.addEventListener("abort", onNg, { once:true });
+        el.addEventListener("canplay", ok, { once:true });
+        el.addEventListener("loadeddata", ok, { once:true });
+        el.addEventListener("canplaythrough", ok, { once:true });
+        el.addEventListener("error", ng, { once:true });
+        el.addEventListener("stalled", ng, { once:true });
+        el.addEventListener("abort", ng, { once:true });
       });
     }
 
@@ -462,30 +544,25 @@
     async function playFile(file){
       const src = buildSrc(file);
 
-      // 強制初期化
       try{ player.pause(); }catch(e){}
       try{ player.currentTime = 0; }catch(e){}
       player.muted = false;
       player.volume = 1;
 
-      // srcを一旦空にして完全リセット
+      // hard reset
       try{
         player.removeAttribute("src");
         player.load();
       }catch(e){}
 
-      // 新srcセット
       player.src = src;
       player.load();
 
-      // 読み込み待ち
       await waitPlayable(player, 2500);
 
-      // 再生
       try{
         await player.play();
       }catch(err){
-        // iOSでたまに詰まるので、要素作り直して一度だけ再試行
         rebuildPlayerElement();
         player.src = src;
         player.load();
@@ -516,16 +593,6 @@
         const sm = el.querySelector("small");
         if (sm) sm.textContent = on ? "ON" : "OFF";
       });
-    }
-
-    function resetToIdle(msg){
-      phase = "idle";
-      current = null;
-      clearHint();
-      setAnswerControls(false);
-      setChoicesEnabled(false);
-      btnStart.disabled = false;
-      setStatus(msg ?? "待機中");
     }
 
     function rebuildChoices(){
@@ -658,6 +725,29 @@
       });
     });
 
+    // ===== octave buttons =====
+    function renderOctBtns(){
+      document.querySelectorAll(".segBtn").forEach(el => {
+        const o = Number(el.dataset.oct);
+        el.classList.toggle("on", o === OCT);
+      });
+      setOctPill();
+    }
+
+    document.querySelectorAll(".segBtn").forEach(el => {
+      el.addEventListener("click", () => {
+        const o = Number(el.dataset.oct);
+        if (![2,3,4].includes(o)) return;
+        if (OCT === o) return;
+
+        OCT = o;
+        renderOctBtns();
+
+        if (phase !== "idle") resetToIdle("設定を変更しました。");
+        else setStatus("設定を変更しました。");
+      });
+    });
+
     // ===== buttons =====
     btnStart.addEventListener("click", async () => {
       if (phase === "retryPrompt" && current){
@@ -701,7 +791,7 @@
       try{
         await playFile(current.file);
       }catch(e){
-        setStatus(`再生失敗：${current.file}`, true);
+        setStatus(`再生失敗：${applyOctave(current.file)}`, true);
       }
     });
 
@@ -724,7 +814,7 @@
       try{
         await playFile(current.file);
       }catch(e){
-        setStatus(`再生失敗：${current.file}`, true);
+        setStatus(`再生失敗：${applyOctave(current.file)}`, true);
       }
     });
 
@@ -755,10 +845,10 @@
 
     btnC.addEventListener("click", async () => {
       try{
-        await playFile("C.mp3");
-        setStatus("C（基準音）");
+        await playFile("C.mp3"); // C_2 / C_3 / C_4 を自動選択
+        setStatus(`C（基準音 Oct${OCT}）`);
       }catch(e){
-        setStatus("Cを再生できません（audio/C.mp3 を確認）", true);
+        setStatus(`Cを再生できません（${applyOctave("C.mp3")}）`, true);
       }
     });
 
@@ -767,10 +857,10 @@
     totalEl.textContent = "0";
     updateAccuracy();
     renderBlockButtons();
+    renderOctBtns();
     rebuildChoices();
     resetToIdle("待機中");
   })();
   </script>
 </body>
 </html>
-
