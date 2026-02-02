@@ -20,11 +20,11 @@
       --btn-off-border: 1px solid var(--line);
       --btn-radius: 16px;
 
-      --oct-font: 14px;      /* ここ小さめ */
+      --oct-font: 14px;      /* 小さめ */
       --main-font: 16px;
       --title-font: 22px;
 
-      --tap-min-h: 44px;     /* 見た目小さくてもタップは確保 */
+      --tap-min-h: 44px;     /* タップ領域 */
     }
 
     body{
@@ -82,7 +82,6 @@
       margin-top:12px;
     }
 
-    /* ===== Blocks (①〜④) ===== */
     .block{
       border:1px solid var(--line);
       border-radius:16px;
@@ -96,7 +95,6 @@
       margin:0 0 10px;
     }
 
-    /* “段ずれ”を潰す：行は必ず「左：ボタン」「右：Oct×2」 */
     .opt-row{
       display:grid;
       grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr);
@@ -157,7 +155,6 @@
     .oct-btn[disabled]{ opacity:.45; }
     .oct-btn.on{ border: var(--btn-on-border); }
 
-    /* ===== Main Controls ===== */
     .btn-row{
       display:flex;
       flex-wrap:wrap;
@@ -205,7 +202,6 @@
     }
     .accuracy.good{ color: var(--blue); }
 
-    /* ===== Choices ===== */
     .grid{
       display:grid;
       grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
@@ -222,7 +218,6 @@
     }
     .choice:disabled{ opacity:.45; }
 
-    /* ===== Back ===== */
     .backwrap{ margin-top: 12px; text-align:center; }
     a.backbtn{
       display:inline-block;
@@ -237,13 +232,12 @@
     }
     a.backbtn:active{ transform: translateY(1px); }
 
-    /* iPhone縦で詰まりやすい時：左右を縦積みにしても段ずれしない */
     @media (max-width: 420px){
       .opt-row{
         grid-template-columns: 1fr;
       }
       .oct-pair{
-        grid-template-columns: 1fr 1fr; /* ここは横並び維持 */
+        grid-template-columns: 1fr 1fr;
       }
     }
   </style>
@@ -253,24 +247,22 @@
   <div class="wrap">
     <h1>
       Diatonic Chord Quiz
-      <span class="ver" id="verText">ver1.2.6</span>
+      <span class="ver" id="verText">ver1.2.7</span>
     </h1>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>4ブロック（Easy / Normal / Plus / Hard）＋各ブロック個別アクティブ</li>
-        <li>転回形はブロック内ボタンでON/OFF（判定はコード名、出題は転回形を混在可能）</li>
+        <li>起動デフォルト：①Easyのみアクティブ（②③④はOFF）</li>
         <li>Octは「_3が常に混在」＋Oct-で_2混在、Oct+で_4混在（行ごと）</li>
-        <li>スマホ縦向け：各ブロックは必ず2段×2行のレイアウト固定（段ずれ対策）</li>
-        <li>Octボタンの「●」削除＋見た目サイズを小さめに調整（タップ領域は確保）</li>
+        <li>スマホ縦：ブロック内レイアウト固定（段ずれ対策）＋Oct表示小さめ</li>
+        <li>間違えた後も「もう一回」「答え」「選択肢」を継続して操作可能</li>
+        <li>選択肢の並び：C→…→B（音名順）</li>
       </ul>
     </div>
 
-    <!-- ===== Blocks ===== -->
     <div class="box">
 
-      <!-- ① EASY -->
       <div class="block" id="blk_easy">
         <div class="block-title">① Easy：基本ダイアトニック（3和音）</div>
 
@@ -291,7 +283,6 @@
         </div>
       </div>
 
-      <!-- ② NORMAL -->
       <div class="block" id="blk_normal">
         <div class="block-title">② Normal：ダイアトニック4和音（7th系）</div>
 
@@ -312,7 +303,6 @@
         </div>
       </div>
 
-      <!-- ③ PLUS -->
       <div class="block" id="blk_plus">
         <div class="block-title">③ Plus：セカンダリー系</div>
 
@@ -333,7 +323,6 @@
         </div>
       </div>
 
-      <!-- ④ HARD -->
       <div class="block" id="blk_hard">
         <div class="block-title">④ Hard：その他高度な代理</div>
 
@@ -354,7 +343,6 @@
         </div>
       </div>
 
-      <!-- ===== Main Buttons ===== -->
       <div class="btn-row">
         <button class="ctrl" id="btnStart">出題</button>
         <button class="ctrl" id="btnReplay" disabled>もう一回</button>
@@ -388,42 +376,20 @@
 
   <script>
   (() => {
-    const VER = "1.2.6";
+    const VER = "1.2.7";
     document.getElementById("verText").textContent = "ver" + VER;
 
-    // ===== パス（GitHub：GsRockCamp/games/diatonic/audio）=====
     const AUDIO_DIR = "audio/";
     const CACHE_BUSTER = "?v=" + encodeURIComponent(VER);
 
-    // ===== コード定義（表示名＝id）=====
-    // 3和音：inv1/inv2
-    // 7th系：inv1/inv2/inv3
     const BLOCKS = {
-      easy: {
-        label: "Easy",
-        triad: true,
-        chords: ["C","Dm","Em","F","G","Am","Bm-5"]
-      },
-      normal: {
-        label: "Normal",
-        triad: false,
-        chords: ["CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5"]
-      },
-      plus: {
-        label: "Plus",
-        triad: false,
-        chords: ["A7","C7","D7","Db7","E7"]
-      },
-      hard: {
-        label: "Hard",
-        triad: false,
-        chords: ["Ab","Bb","Eb","Fm","Gm","F#dim","G#dim7"]
-      }
+      easy:   { label: "Easy",   triad: true,  chords: ["C","Dm","Em","F","G","Am","Bm-5"] },
+      normal: { label: "Normal", triad: false, chords: ["CM7","Dm7","Em7","FM7","G7","Am7","Bm7-5"] },
+      plus:   { label: "Plus",   triad: false, chords: ["A7","C7","D7","Db7","E7"] },
+      hard:   { label: "Hard",   triad: false, chords: ["Ab","Bb","Eb","Fm","Gm","F#dim","G#dim7"] }
     };
 
-    // ===== コード音（表示用：転回形はパターンで生成）=====
     const CHORD_TONES = {
-      // triads
       "C": ["C","E","G"],
       "Dm": ["D","F","A"],
       "Em": ["E","G","B"],
@@ -438,7 +404,6 @@
       "Bb": ["Bb","D","F"],
       "Eb": ["Eb","G","Bb"],
 
-      // 7ths
       "C7": ["C","E","G","Bb"],
       "CM7": ["C","E","G","B"],
       "Dm7": ["D","F","A","C"],
@@ -449,12 +414,11 @@
       "Bm7-5": ["B","D","F","A"],
       "A7": ["A","C#","E","G"],
       "D7": ["D","F#","A","C"],
-      "Db7": ["Db","F","Ab","B"],     // Cb表記は避けてB
+      "Db7": ["Db","F","Ab","B"],
       "E7": ["E","G#","B","D"],
       "G#dim7": ["G#","B","D","F"]
     };
 
-    // ===== UI要素 =====
     const player = document.getElementById("player");
     const statusEl = document.getElementById("status");
     const hintArea = document.getElementById("hintArea");
@@ -470,21 +434,19 @@
     const totalEl = document.getElementById("total");
     const accuracyEl = document.getElementById("accuracy");
 
-    // ===== 状態 =====
     let phase = "idle"; // idle | answering | retryPrompt
     let current = null; // {id, file, invIdx, isInv, blockKey, oct}
     let score = 0;
     let total = 0;
 
-    // ブロック設定状態
+    // ✅ 起動デフォルト：①のみアクティブ、他OFF
     const state = {
-      easy:   { active:false, inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
-      normal: { active:true,  inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
+      easy:   { active:true,  inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
+      normal: { active:false, inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
       plus:   { active:false, inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
       hard:   { active:false, inv:false, rootOctMinus:false, rootOctPlus:false, invOctMinus:false, invOctPlus:false },
     };
 
-    // ===== ボタン紐づけ =====
     const UI = {
       easy: {
         activeBtn: document.getElementById("easy_activeBtn"),
@@ -549,27 +511,21 @@
       accuracyEl.classList.toggle("good", acc >= 80);
     }
 
-    // ===== UI反映（段ずれ防止はCSSで固定）=====
     function syncOne(blockKey){
       const s = state[blockKey];
       const u = UI[blockKey];
 
-      // Active
       u.activeStat.textContent = s.active ? "ON" : "OFF";
       u.activeBtn.classList.toggle("on", s.active);
 
-      // Inversion
       u.invStat.textContent = s.inv ? "ON" : "OFF";
       u.invBtn.classList.toggle("on", s.inv);
 
-      // Oct buttons visual
       u.rootOctMinus.classList.toggle("on", s.rootOctMinus);
       u.rootOctPlus.classList.toggle("on", s.rootOctPlus);
       u.invOctMinus.classList.toggle("on", s.invOctMinus);
       u.invOctPlus.classList.toggle("on", s.invOctPlus);
 
-      // Enable/Disable rule
-      // ブロック非アクティブ：転回形＆Oct 全部OFF（触れない）
       const enabled = !!s.active;
 
       u.rootOctMinus.disabled = !enabled;
@@ -577,12 +533,9 @@
 
       u.invBtn.disabled       = !enabled;
 
-      // 転回形OFFなら転回形行Octは触れない
       const invEnabled = enabled && !!s.inv;
       u.invOctMinus.disabled = !invEnabled;
       u.invOctPlus.disabled  = !invEnabled;
-
-      // 見た目も薄くしたい時は disabled の opacity で統一
     }
 
     function syncAll(){
@@ -591,17 +544,29 @@
       syncOne("plus");
       syncOne("hard");
 
-      // 選択肢再生成（待機中のみ）
       if (phase === "idle"){
         buildChoices();
       }
     }
 
-    // ===== トグル操作 =====
+    function resetToIdle(msg){
+      phase = "idle";
+      current = null;
+
+      btnStart.disabled = false;
+      btnReplay.disabled = true;
+      btnReveal.disabled = true;
+      btnHint.disabled = true;
+
+      setChoicesEnabled(false);
+      clearHint();
+      if (msg) setStatus(msg);
+    }
+
     function wireBlock(blockKey){
       const u = UI[blockKey];
+
       u.activeBtn.addEventListener("click", () => {
-        // 出題中に変えたら待機へ戻す
         state[blockKey].active = !state[blockKey].active;
         if (!state[blockKey].active){
           state[blockKey].inv = false;
@@ -631,6 +596,7 @@
         resetToIdle("設定を変更しました（待機）");
         syncAll();
       });
+
       u.rootOctPlus.addEventListener("click", () => {
         if (!state[blockKey].active) return;
         state[blockKey].rootOctPlus = !state[blockKey].rootOctPlus;
@@ -644,6 +610,7 @@
         resetToIdle("設定を変更しました（待機）");
         syncAll();
       });
+
       u.invOctPlus.addEventListener("click", () => {
         if (!state[blockKey].active || !state[blockKey].inv) return;
         state[blockKey].invOctPlus = !state[blockKey].invOctPlus;
@@ -657,13 +624,11 @@
     wireBlock("plus");
     wireBlock("hard");
 
-    // ===== 出題プール生成 =====
     function getActiveBlocks(){
       return Object.keys(BLOCKS).filter(k => state[k].active);
     }
 
     function getAnswerPoolChords(){
-      // 選択肢（答えの候補）はアクティブなブロックのコード集合
       const act = getActiveBlocks();
       const set = new Set();
       act.forEach(bk => BLOCKS[bk].chords.forEach(c => set.add(c)));
@@ -674,7 +639,6 @@
       const s = state[blockKey];
       const triad = BLOCKS[blockKey].triad;
 
-      // その行のオクターブ候補（_3は常に混在）
       const octs = [3];
       if (wantInv){
         if (s.invOctMinus) octs.push(2);
@@ -684,31 +648,16 @@
         if (s.rootOctPlus)  octs.push(4);
       }
 
-      // 転回形候補
-      // 3和音: inv1, inv2
-      // 7th系: inv1, inv2, inv3
       const invMax = triad ? 2 : 3;
 
       const files = [];
       if (!wantInv){
-        // ルートのみ
-        octs.forEach(oct => files.push({
-          file: `${chordId}_${oct}.mp3`,
-          invIdx: 0,
-          isInv: false,
-          oct
-        }));
+        octs.forEach(oct => files.push({ file: `${chordId}_${oct}.mp3`, invIdx:0, isInv:false, oct }));
         return files;
       }
 
-      // wantInv: invを混ぜる（invファイルが無いコードは結果0）
       for (let i=1; i<=invMax; i++){
-        octs.forEach(oct => files.push({
-          file: `${chordId}_inv${i}_${oct}.mp3`,
-          invIdx: i,
-          isInv: true,
-          oct
-        }));
+        octs.forEach(oct => files.push({ file: `${chordId}_inv${i}_${oct}.mp3`, invIdx:i, isInv:true, oct }));
       }
       return files;
     }
@@ -718,35 +667,18 @@
       if (act.length === 0) return [];
 
       const pool = [];
-
       act.forEach(blockKey => {
         const chords = BLOCKS[blockKey].chords;
         const useInv = !!state[blockKey].inv;
 
         chords.forEach(chordId => {
-          // ルートは常に対象
           getCandidateFilesForChord(blockKey, chordId, false).forEach(x => {
-            pool.push({
-              blockKey,
-              chordId,
-              file: x.file,
-              invIdx: x.invIdx,
-              isInv: x.isInv,
-              oct: x.oct
-            });
+            pool.push({ blockKey, chordId, file:x.file, invIdx:x.invIdx, isInv:x.isInv, oct:x.oct });
           });
 
-          // 転回形ONなら inv候補も追加（ファイルが存在しない場合でも落ちない：再生で弾く）
           if (useInv){
             getCandidateFilesForChord(blockKey, chordId, true).forEach(x => {
-              pool.push({
-                blockKey,
-                chordId,
-                file: x.file,
-                invIdx: x.invIdx,
-                isInv: x.isInv,
-                oct: x.oct
-              });
+              pool.push({ blockKey, chordId, file:x.file, invIdx:x.invIdx, isInv:x.isInv, oct:x.oct });
             });
           }
         });
@@ -755,7 +687,6 @@
       return pool;
     }
 
-    // ===== ファイル存在チェック（軽い：404なら次候補へ）=====
     async function canPlay(url){
       try{
         const r = await fetch(url, { method:"HEAD", cache:"no-store" });
@@ -769,11 +700,18 @@
       return arr[Math.floor(Math.random() * arr.length)];
     }
 
+    function invLabel(invIdx){
+      if (invIdx === 0) return "ルート";
+      if (invIdx === 1) return "第一転回形";
+      if (invIdx === 2) return "第二転回形";
+      if (invIdx === 3) return "第三転回形";
+      return "";
+    }
+
     function chordVoicingText(chordId, invIdx){
       const tones = CHORD_TONES[chordId];
       if (!tones) return chordId;
 
-      // triadは4音にする（R-3-5-3 / 3-5-R-3 / 5-R-3-5）
       if (tones.length === 3){
         const [R, T, F] = tones;
         if (invIdx === 0) return `${R}-${T}-${F}-${T}`;
@@ -782,7 +720,6 @@
         return `${R}-${T}-${F}-${T}`;
       }
 
-      // 7thは4音（R-3-5-7 / 3-5-7-R / 5-7-R-3 / 7-R-3-5）
       if (tones.length === 4){
         const [R, T, F, S] = tones;
         if (invIdx === 0) return `${R}-${T}-${F}-${S}`;
@@ -793,14 +730,6 @@
       }
 
       return tones.join("-");
-    }
-
-    function invLabel(invIdx){
-      if (invIdx === 0) return "ルート";
-      if (invIdx === 1) return "第一転回形";
-      if (invIdx === 2) return "第二転回形";
-      if (invIdx === 3) return "第三転回形";
-      return "";
     }
 
     function makeHint(chordId){
@@ -814,12 +743,50 @@
       btns.forEach(b => b.disabled = !enabled);
     }
 
+    // ✅ 選択肢並び：C→…→B（音名順）
+    function rootFromChordId(id){
+      // 先頭の音名（例：CM7->C / Db7->Db / F#dim->F# / Bm7-5->B）
+      const m = id.match(/^(Ab|Bb|Cb|Db|Eb|Fb|Gb|C#|D#|E#|F#|G#|A|B|C|D|E|F|G)/);
+      return m ? m[1] : id;
+    }
+
+    const ROOT_ORDER = ["C","C#","Db","D","D#","Eb","E","E#","F","F#","Gb","G","G#","Ab","A","A#","Bb","B","Cb"];
+    const ROOT_SCORE = new Map(ROOT_ORDER.map((x,i)=>[x,i]));
+
+    function qualityRank(id){
+      // 同ルート内の並び（ざっくり優先）
+      // 0:無印, 1:m, 2:dim, 3:m-5, 4:7, 5:M7, 6:m7, 7:m7-5, 8:dim7, 99:その他
+      if (/_inv\d+/.test(id)) return 99;
+      if (/dim7$/.test(id)) return 8;
+      if (/m7-5$/.test(id)) return 7;
+      if (/m7$/.test(id)) return 6;
+      if (/M7$/.test(id)) return 5;
+      if (/7$/.test(id)) return 4;
+      if (/m-5$/.test(id)) return 3;
+      if (/dim$/.test(id)) return 2;
+      if (/m$/.test(id)) return 1;
+      return 0;
+    }
+
+    function sortChordIdsCtoB(a,b){
+      const ra = rootFromChordId(a);
+      const rb = rootFromChordId(b);
+      const sa = ROOT_SCORE.has(ra) ? ROOT_SCORE.get(ra) : 999;
+      const sb = ROOT_SCORE.has(rb) ? ROOT_SCORE.get(rb) : 999;
+      if (sa !== sb) return sa - sb;
+
+      const qa = qualityRank(a);
+      const qb = qualityRank(b);
+      if (qa !== qb) return qa - qb;
+
+      return a.localeCompare(b, "en");
+    }
+
     function buildChoices(){
       choicesWrap.innerHTML = "";
       const poolChords = getAnswerPoolChords();
 
-      // 表示は文字列ソート（少し見やすく）
-      poolChords.sort((a,b) => a.localeCompare(b, "en"));
+      poolChords.sort(sortChordIdsCtoB);
 
       poolChords.forEach(ch => {
         const b = document.createElement("button");
@@ -829,11 +796,10 @@
         b.disabled = true;
 
         b.addEventListener("click", () => {
-          if (phase !== "answering" || !current) return;
+          if ((phase !== "answering" && phase !== "retryPrompt") || !current) return;
           const guess = b.dataset.id;
 
           if (guess === current.id){
-            // 正解確定：ここでtotal加算
             total += 1;
             score += 1;
             totalEl.textContent = String(total);
@@ -855,15 +821,15 @@
 
             setChoicesEnabled(false);
           }else{
-            // 不正解：totalはまだ増やさない
             setStatus("❌ 不正解…（再挑戦 / 答え / 出題＝スキップ）", true);
             phase = "retryPrompt";
 
-            // ここでは選択肢は押せるまま
-            btnStart.disabled = false; // ＝スキップ出題
-            btnReplay.disabled = false; // ＝再挑戦
-            btnReveal.disabled = false; // ＝答え確定
-            btnHint.disabled = false;
+            // ✅ 間違えた後も操作可能（もう一回/答え/選択肢）
+            btnStart.disabled  = false; // スキップ出題
+            btnReplay.disabled = false; // 再挑戦
+            btnReveal.disabled = false; // 答え
+            btnHint.disabled   = false; // ヒント
+            setChoicesEnabled(true);
           }
         });
 
@@ -871,7 +837,6 @@
       });
     }
 
-    // ===== 再生 =====
     async function playFile(file){
       const url = AUDIO_DIR + file + CACHE_BUSTER;
       player.src = url;
@@ -884,7 +849,6 @@
     }
 
     async function playWithFallback(candidate){
-      // candidate.file が無ければ、同じコードの _3 ルートにフォールバック
       const tryUrl = AUDIO_DIR + candidate.file + CACHE_BUSTER;
       const ok = await canPlay(tryUrl);
       if (ok){
@@ -892,31 +856,17 @@
         return played;
       }
 
-      // fallback: <id>_3.mp3
       const fallback = `${candidate.chordId}_3.mp3`;
       const fbUrl = AUDIO_DIR + fallback + CACHE_BUSTER;
       const fbOk = await canPlay(fbUrl);
       if (!fbOk) return false;
 
-      // fallbackは「inv扱いにしない」
       candidate.file = fallback;
       candidate.invIdx = 0;
       candidate.isInv = false;
       candidate.oct = 3;
       const played = await playFile(fallback);
       return played;
-    }
-
-    function resetToIdle(msg){
-      phase = "idle";
-      current = null;
-      btnStart.disabled = false;
-      btnReplay.disabled = true;
-      btnReveal.disabled = true;
-      btnHint.disabled = true;
-      setChoicesEnabled(false);
-      clearHint();
-      if (msg) setStatus(msg);
     }
 
     async function startNewQuestion(){
@@ -932,7 +882,6 @@
         return;
       }
 
-      // “鳴るもの”が出るまで最大20回試す
       let picked = null;
       for (let i=0; i<20; i++){
         const c = pickRandom(qpool);
@@ -968,7 +917,6 @@
       setChoicesEnabled(true);
     }
 
-    // ===== メインボタン挙動 =====
     btnStart.addEventListener("click", async () => {
       if (phase === "idle"){
         await startNewQuestion();
@@ -976,20 +924,27 @@
       }
 
       if (phase === "retryPrompt" && current){
-        // 出題＝スキップ：ここでtotal加算
         total += 1;
         totalEl.textContent = String(total);
         updateAccuracy();
-
-        // 次へ
         await startNewQuestion();
       }
     });
 
     btnReplay.addEventListener("click", async () => {
       if (!current) return;
-      // もう一回：同一ファイルを再生（再抽選しない）
+
+      // ✅ もう一回後も、答え/選択肢が押せる状態を強制維持
       await playFile(current.file);
+      if (phase === "retryPrompt"){
+        btnReveal.disabled = false;
+        btnHint.disabled = false;
+        setChoicesEnabled(true);
+      }else if (phase === "answering"){
+        btnReveal.disabled = false;
+        btnHint.disabled = false;
+        setChoicesEnabled(true);
+      }
     });
 
     btnHint.addEventListener("click", () => {
@@ -1000,7 +955,6 @@
     btnReveal.addEventListener("click", () => {
       if (!current) return;
 
-      // 答え：ここでtotal加算（不正解扱い）
       total += 1;
       totalEl.textContent = String(total);
       updateAccuracy();
@@ -1022,11 +976,9 @@
     });
 
     btnC.addEventListener("click", async () => {
-      // 基準音：C_3固定
       await playFile("C_3.mp3");
     });
 
-    // ===== 初期化 =====
     totalEl.textContent = "0";
     scoreEl.textContent = "0";
     updateAccuracy();
