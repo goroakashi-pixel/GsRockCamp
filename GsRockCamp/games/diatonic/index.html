@@ -35,15 +35,6 @@
       flex-wrap:wrap;
     }
     .ver{ font-size:12px; color:var(--muted); font-weight:900; }
-    .pill{
-      font-size:12px;
-      font-weight:900;
-      color:var(--muted);
-      border:1px solid var(--line);
-      padding:6px 10px;
-      border-radius:999px;
-      background:#fff;
-    }
 
     .box{
       padding:14px;
@@ -78,11 +69,26 @@
       text-overflow:ellipsis;
       white-space:nowrap;
     }
-    .blkBtns{
+
+    .row{
+      margin-top:10px;
       display:flex;
+      align-items:center;
+      justify-content:space-between;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:10px;
+    }
+    .rowLeft{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .rowRight{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
     }
 
     .tbtn{
@@ -97,7 +103,7 @@
       font-weight:900;
       -webkit-tap-highlight-color: transparent;
       user-select:none;
-      min-width:120px;
+      min-width:140px;
     }
     .tbtn:active{ transform: translateY(1px); }
     .tbtn.on{
@@ -110,35 +116,28 @@
       font-size:12px;
     }
 
-    .seg{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:12px;
-      align-items:center;
-    }
-    .segLabel{
-      font-weight:900;
-      color:var(--muted);
-    }
-    .segBtn{
+    .oct{
       display:inline-flex;
       align-items:center;
       justify-content:center;
       padding:10px 12px;
       border:1px solid var(--line);
-      border-radius:14px;
+      border-radius:999px;
       background:#fff;
       font-weight:900;
-      min-width:90px;
+      min-width:76px;
       -webkit-tap-highlight-color: transparent;
       user-select:none;
     }
-    .segBtn.on{
+    .oct:active{ transform: translateY(1px); }
+    .oct.on{
       border-color: var(--on);
       box-shadow: 0 0 0 2px rgba(29,78,216,.12) inset;
     }
-    .segBtn:active{ transform: translateY(1px); }
+    .oct.disabled, .tbtn.disabled{
+      opacity:.35;
+      pointer-events:none;
+    }
 
     .btnRow{
       display:flex;
@@ -218,7 +217,7 @@
       body{ margin:12px; }
       .tbtn{ min-width: 46%; flex:1 1 46%; }
       .blkName{ white-space:normal; overflow:visible; text-overflow:clip; }
-      .segBtn{ min-width: 30%; flex:1 1 30%; }
+      .oct{ min-width: 34%; flex:1 1 34%; }
     }
   </style>
 </head>
@@ -228,7 +227,6 @@
     <h1>
       Diatonic Chord Quiz
       <span class="ver" id="verText">ver-</span>
-      <span class="pill" id="octPill">Oct3</span>
     </h1>
 
     <div class="box">
@@ -236,44 +234,100 @@
 
         <div class="blk" data-block="easy">
           <div class="blkTop"><div class="blkName">① Easy：基本ダイアトニック（3和音）</div></div>
-          <div class="blkBtns">
-            <div class="tbtn on" data-role="active" data-block="easy">アクティブ <small>ON</small></div>
-            <div class="tbtn" data-role="inv" data-block="easy">転回形 <small>OFF</small></div>
+
+          <div class="row">
+            <div class="rowLeft">
+              <div class="tbtn on" data-role="active" data-block="easy">アクティブ <small>ON</small></div>
+            </div>
+            <div class="rowRight">
+              <div class="oct" data-role="octDown" data-row="root" data-block="easy">●Oct-</div>
+              <div class="oct" data-role="octUp"   data-row="root" data-block="easy">●Oct+</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="rowLeft">
+              <div class="tbtn disabled" data-role="inv" data-block="easy">転回形 <small>OFF</small></div>
+            </div>
+            <div class="rowRight">
+              <div class="oct disabled" data-role="octDown" data-row="inv" data-block="easy">●Oct-</div>
+              <div class="oct disabled" data-role="octUp"   data-row="inv" data-block="easy">●Oct+</div>
+            </div>
           </div>
         </div>
 
         <div class="blk" data-block="normal">
           <div class="blkTop"><div class="blkName">② Normal：ダイアトニック4和音（7th系）</div></div>
-          <div class="blkBtns">
-            <div class="tbtn" data-role="active" data-block="normal">アクティブ <small>OFF</small></div>
-            <div class="tbtn" data-role="inv" data-block="normal">転回形 <small>OFF</small></div>
+
+          <div class="row">
+            <div class="rowLeft">
+              <div class="tbtn" data-role="active" data-block="normal">アクティブ <small>OFF</small></div>
+            </div>
+            <div class="rowRight">
+              <div class="oct disabled" data-role="octDown" data-row="root" data-block="normal">●Oct-</div>
+              <div class="oct disabled" data-role="octUp"   data-row="root" data-block="normal">●Oct+</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="rowLeft">
+              <div class="tbtn disabled" data-role="inv" data-block="normal">転回形 <small>OFF</small></div>
+            </div>
+            <div class="rowRight">
+              <div class="oct disabled" data-role="octDown" data-row="inv" data-block="normal">●Oct-</div>
+              <div class="oct disabled" data-role="octUp"   data-row="inv" data-block="normal">●Oct+</div>
+            </div>
           </div>
         </div>
 
         <div class="blk" data-block="plus">
           <div class="blkTop"><div class="blkName">③ Plus：セカンダリー系</div></div>
-          <div class="blkBtns">
-            <div class="tbtn" data-role="active" data-block="plus">アクティブ <small>OFF</small></div>
-            <div class="tbtn" data-role="inv" data-block="plus">転回形 <small>OFF</small></div>
+
+          <div class="row">
+            <div class="rowLeft">
+              <div class="tbtn" data-role="active" data-block="plus">アクティブ <small>OFF</small></div>
+            </div>
+            <div class="rowRight">
+              <div class="oct disabled" data-role="octDown" data-row="root" data-block="plus">●Oct-</div>
+              <div class="oct disabled" data-role="octUp"   data-row="root" data-block="plus">●Oct+</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="rowLeft">
+              <div class="tbtn disabled" data-role="inv" data-block="plus">転回形 <small>OFF</small></div>
+            </div>
+            <div class="rowRight">
+              <div class="oct disabled" data-role="octDown" data-row="inv" data-block="plus">●Oct-</div>
+              <div class="oct disabled" data-role="octUp"   data-row="inv" data-block="plus">●Oct+</div>
+            </div>
           </div>
         </div>
 
         <div class="blk" data-block="hard">
           <div class="blkTop"><div class="blkName">④ Hard：その他高度な代理</div></div>
-          <div class="blkBtns">
-            <div class="tbtn" data-role="active" data-block="hard">アクティブ <small>OFF</small></div>
-            <div class="tbtn" data-role="inv" data-block="hard">転回形 <small>OFF</small></div>
+
+          <div class="row">
+            <div class="rowLeft">
+              <div class="tbtn" data-role="active" data-block="hard">アクティブ <small>OFF</small></div>
+            </div>
+            <div class="rowRight">
+              <div class="oct disabled" data-role="octDown" data-row="root" data-block="hard">●Oct-</div>
+              <div class="oct disabled" data-role="octUp"   data-row="root" data-block="hard">●Oct+</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="rowLeft">
+              <div class="tbtn disabled" data-role="inv" data-block="hard">転回形 <small>OFF</small></div>
+            </div>
+            <div class="rowRight">
+              <div class="oct disabled" data-role="octDown" data-row="inv" data-block="hard">●Oct-</div>
+              <div class="oct disabled" data-role="octUp"   data-row="inv" data-block="hard">●Oct+</div>
+            </div>
           </div>
         </div>
 
-      </div>
-
-      <!-- octave -->
-      <div class="seg">
-        <div class="segLabel">オクターブ</div>
-        <div class="segBtn" data-oct="2">下（_2）</div>
-        <div class="segBtn on" data-oct="3">基準（_3）</div>
-        <div class="segBtn" data-oct="4">上（_4）</div>
       </div>
 
       <div class="btnRow">
@@ -313,7 +367,7 @@
   <script>
   (() => {
     // ===== versions =====
-    const APP_VER   = "1.2.4";
+    const APP_VER   = "1.2.5";
     const AUDIO_VER = APP_VER;
 
     // audio path: GsRockCamp/games/diatonic/audio
@@ -324,18 +378,13 @@
     if (verEl) verEl.textContent = "ver" + APP_VER;
     document.title = "Diatonic Chord Quiz ver" + APP_VER;
 
-    // ===== octave (2/3/4) =====
-    let OCT = 3;
-    const octPill = document.getElementById("octPill");
-    function setOctPill(){ if (octPill) octPill.textContent = "Oct" + OCT; }
-    setOctPill();
-
-    // ===== blocks =====
+    // ===== settings =====
+    // Oct flags are "mix-in": _3 is ALWAYS included. Oct- adds _2, Oct+ adds _4.
     const blocks = {
-      easy:   { active:true,  inv:false },
-      normal: { active:false, inv:false },
-      plus:   { active:false, inv:false },
-      hard:   { active:false, inv:false },
+      easy:   { active:true,  inv:false, octRoot:{down:false,up:false}, octInv:{down:false,up:false} },
+      normal: { active:false, inv:false, octRoot:{down:false,up:false}, octInv:{down:false,up:false} },
+      plus:   { active:false, inv:false, octRoot:{down:false,up:false}, octInv:{down:false,up:false} },
+      hard:   { active:false, inv:false, octRoot:{down:false,up:false}, octInv:{down:false,up:false} },
     };
 
     // ===== voicing tables =====
@@ -375,8 +424,8 @@
     };
 
     // ===== items =====
-    // ファイルは「末尾に _2/_3/_4 が付く」前提（例：CM7_inv1_3.mp3）
-    // ここでは _2/_3/_4 を書かない（再生時に自動付与）
+    // Files may be given WITHOUT _2/_3/_4 suffix (recommended).
+    // If they already include suffix, it will be normalized and replaced by chosen octave.
     const ITEMS = [
       { id:"C",    label:"C",    group:"easy",   files_root:["C.mp3"],    files_inv:["C.mp3","C_inv1.mp3","C_inv2.mp3"] },
       { id:"Dm",   label:"Dm",   group:"easy",   files_root:["Dm.mp3"],   files_inv:["Dm.mp3","Dm_inv1.mp3","Dm_inv2.mp3"] },
@@ -429,7 +478,7 @@
 
     // ===== state =====
     let phase = "idle"; // idle | answering | retryPrompt
-    let current = null; // { id,label,file,group,voicingText,invName }
+    let current = null; // { id,label,fileBase,fileActual,group,voicingText,invName }
     let score = 0;
     let total = 0;
 
@@ -470,21 +519,17 @@
       setStatus(msg ?? "待機中");
     }
 
-    // ===== file name (add _2/_3/_4 before .mp3) =====
-    function applyOctave(file){
-      // already has suffix like _3.mp3 ?
-      if (/_([234])\.mp3$/i.test(file)) return file;
-
-      // insert before .mp3
-      if (/\.mp3$/i.test(file)){
-        return file.replace(/\.mp3$/i, `_${OCT}.mp3`);
-      }
-      return file;
+    // ===== audio helpers =====
+    function normalizeFileBase(file){
+      // remove _2/_3/_4 before .mp3 if already present
+      return file.replace(/_([234])\.mp3$/i, ".mp3");
     }
-
+    function withOct(fileBase, oct){
+      const base = normalizeFileBase(fileBase);
+      return base.replace(/\.mp3$/i, `_${oct}.mp3`);
+    }
     function buildSrc(file){
-      const withOct = applyOctave(file);
-      const url = encodeURI(AUDIO_BASE + withOct);
+      const url = encodeURI(AUDIO_BASE + file);
       return url + "?v=" + encodeURIComponent(AUDIO_VER);
     }
 
@@ -508,7 +553,7 @@
           if (done) return;
           done = true;
           cleanup();
-          resolve(); // タイムアウトでも次へ（playで落ちたら捕まえる）
+          resolve();
         }, timeoutMs);
 
         function cleanup(){
@@ -541,15 +586,14 @@
       player = neu;
     }
 
-    async function playFile(file){
-      const src = buildSrc(file);
+    async function playFile(actualFile){
+      const src = buildSrc(actualFile);
 
       try{ player.pause(); }catch(e){}
       try{ player.currentTime = 0; }catch(e){}
       player.muted = false;
       player.volume = 1;
 
-      // hard reset
       try{
         player.removeAttribute("src");
         player.load();
@@ -571,10 +615,10 @@
       }
     }
 
+    // ===== selection pools =====
     function activeGroups(){
       return Object.keys(blocks).filter(k => blocks[k].active);
     }
-
     function idsForActiveGroups(){
       const gs = new Set(activeGroups());
       const ids = [];
@@ -584,14 +628,128 @@
       return ids;
     }
 
-    function renderBlockButtons(){
+    function safeFiles(item, wantInv){
+      const root = Array.isArray(item.files_root) && item.files_root.length ? item.files_root : [];
+      const inv  = Array.isArray(item.files_inv)  && item.files_inv.length  ? item.files_inv  : [];
+      if (wantInv && inv.length) return inv;
+      return root.length ? root : inv;
+    }
+
+    function voicingForFile(itemId, fileBase){
+      const tv = TRIAD_V[itemId];
+      if (tv){
+        if (fileBase.includes("_inv1")) return { v: tv.inv1, invName: "第一転回形" };
+        if (fileBase.includes("_inv2")) return { v: tv.inv2, invName: "第二転回形" };
+        return { v: tv.root, invName: "ルート" };
+      }
+
+      const sv = SEVENTH_V[itemId];
+      if (sv){
+        if (fileBase.includes("_inv1")) return { v: sv.inv1 ?? sv.root, invName: "第一転回形" };
+        if (fileBase.includes("_inv2")) return { v: sv.inv2 ?? sv.root, invName: "第二転回形" };
+        if (fileBase.includes("_inv3")) return { v: sv.inv3 ?? sv.root, invName: "第三転回形" };
+        return { v: sv.root, invName: "ルート" };
+      }
+
+      return { v: "", invName: "" };
+    }
+
+    function allowedOctavesForRow(blockKey, rowKey){
+      // rowKey: "root" | "inv"
+      // ALWAYS include 3
+      const cfg = blocks[blockKey];
+      const flags = (rowKey === "inv") ? cfg.octInv : cfg.octRoot;
+      const list = [3];
+      if (flags.down) list.push(2);
+      if (flags.up)   list.push(4);
+      // stable order: [3,2,4] -> but random pick anyway; sort for readability
+      const uniq = Array.from(new Set(list));
+      return uniq;
+    }
+
+    function pickQuestion(){
+      const gs = activeGroups();
+      if (gs.length === 0) return null;
+
+      const group = gs[Math.floor(Math.random() * gs.length)];
+      const candidates = ITEMS.filter(x => x.group === group);
+      if (!candidates.length) return null;
+
+      const item = candidates[Math.floor(Math.random() * candidates.length)];
+      const wantInv = !!blocks[group].inv;
+
+      const files = safeFiles(item, wantInv);
+      if (!files || !files.length) return null;
+
+      // choose file base (no octave yet)
+      const fileBase = normalizeFileBase(files[Math.floor(Math.random() * files.length)]);
+
+      // decide row by fileBase itself
+      const rowKey = fileBase.includes("_inv") ? "inv" : "root";
+
+      // choose octave from allowed set (always includes 3)
+      const octs = allowedOctavesForRow(group, rowKey);
+      const oct = octs[Math.floor(Math.random() * octs.length)];
+
+      const fileActual = withOct(fileBase, oct);
+
+      const vx = voicingForFile(item.id, fileBase);
+
+      return {
+        id: item.id,
+        label: item.label,
+        fileBase,
+        fileActual,
+        group,
+        rowKey,
+        voicingText: vx.v,
+        invName: vx.invName
+      };
+    }
+
+    // ===== UI render =====
+    function renderButtons(){
+      // toggles
       document.querySelectorAll(".tbtn").forEach(el => {
         const role = el.dataset.role;
         const blk = el.dataset.block;
-        const on = (role === "active") ? blocks[blk].active : blocks[blk].inv;
-        el.classList.toggle("on", !!on);
-        const sm = el.querySelector("small");
-        if (sm) sm.textContent = on ? "ON" : "OFF";
+
+        if (role === "active"){
+          const on = blocks[blk].active;
+          el.classList.toggle("on", !!on);
+          const sm = el.querySelector("small");
+          if (sm) sm.textContent = on ? "ON" : "OFF";
+          el.classList.remove("disabled");
+          return;
+        }
+
+        if (role === "inv"){
+          const enabledByActive = blocks[blk].active;
+          const on = blocks[blk].inv;
+          el.classList.toggle("on", !!on);
+          const sm = el.querySelector("small");
+          if (sm) sm.textContent = on ? "ON" : "OFF";
+          el.classList.toggle("disabled", !enabledByActive);
+          return;
+        }
+      });
+
+      // oct buttons
+      document.querySelectorAll(".oct").forEach(el => {
+        const blk = el.dataset.block;
+        const row = el.dataset.row; // root/inv
+        const role = el.dataset.role; // octDown/octUp
+
+        const cfg = blocks[blk];
+        const enabledBlock = cfg.active;
+        const enabledRow = (row === "root") ? cfg.active : (cfg.active && cfg.inv);
+
+        // state
+        const flags = (row === "inv") ? cfg.octInv : cfg.octRoot;
+        const isOn = (role === "octDown") ? flags.down : flags.up;
+
+        el.classList.toggle("on", !!isOn);
+        el.classList.toggle("disabled", !(enabledBlock && enabledRow));
       });
     }
 
@@ -613,6 +771,7 @@
           if (phase !== "answering" || !current) return;
 
           const guess = b.dataset.id;
+
           if (guess === current.id){
             total += 1;
             score += 1;
@@ -627,7 +786,8 @@
             setChoicesEnabled(false);
             setAnswerControls(false);
             btnStart.disabled = false;
-          }else{
+          } else {
+            // NOT counted yet
             phase = "retryPrompt";
             setStatus("不正解…（もう一回 / 答え / 出題＝スキップ）", true);
 
@@ -645,63 +805,8 @@
       }
     }
 
-    function invWanted(group){
-      return !!blocks[group].inv;
-    }
-
-    function safeFiles(item, wantInv){
-      const root = Array.isArray(item.files_root) && item.files_root.length ? item.files_root : [];
-      const inv  = Array.isArray(item.files_inv)  && item.files_inv.length  ? item.files_inv  : [];
-      if (wantInv && inv.length) return inv;
-      return root.length ? root : inv;
-    }
-
-    function voicingForFile(itemId, file){
-      const tv = TRIAD_V[itemId];
-      if (tv){
-        if (file.includes("_inv1")) return { v: tv.inv1, invName: "第一転回形" };
-        if (file.includes("_inv2")) return { v: tv.inv2, invName: "第二転回形" };
-        return { v: tv.root, invName: "ルート" };
-      }
-
-      const sv = SEVENTH_V[itemId];
-      if (sv){
-        if (file.includes("_inv1")) return { v: sv.inv1 ?? sv.root, invName: "第一転回形" };
-        if (file.includes("_inv2")) return { v: sv.inv2 ?? sv.root, invName: "第二転回形" };
-        if (file.includes("_inv3")) return { v: sv.inv3 ?? sv.root, invName: "第三転回形" };
-        return { v: sv.root, invName: "ルート" };
-      }
-
-      return { v: "", invName: "" };
-    }
-
-    function pickQuestion(){
-      const gs = activeGroups();
-      if (gs.length === 0) return null;
-
-      const group = gs[Math.floor(Math.random() * gs.length)];
-      const candidates = ITEMS.filter(x => x.group === group);
-      if (!candidates.length) return null;
-
-      const item = candidates[Math.floor(Math.random() * candidates.length)];
-      const wantInv = invWanted(group);
-      const files = safeFiles(item, wantInv);
-      if (!files || !files.length) return null;
-
-      const file = files[Math.floor(Math.random() * files.length)];
-      const vx = voicingForFile(item.id, file);
-
-      return {
-        id: item.id,
-        label: item.label,
-        file,
-        group,
-        voicingText: vx.v,
-        invName: vx.invName
-      };
-    }
-
-    // ===== block buttons =====
+    // ===== interactions =====
+    // active / inv
     document.querySelectorAll(".tbtn").forEach(el => {
       el.addEventListener("click", () => {
         const role = el.dataset.role;
@@ -709,47 +814,62 @@
 
         if (role === "active"){
           blocks[blk].active = !blocks[blk].active;
-          renderBlockButtons();
+
+          // if turning OFF, also force inv OFF
+          if (!blocks[blk].active){
+            blocks[blk].inv = false;
+          }
+
           if (phase !== "idle") resetToIdle("設定を変更しました。");
           rebuildChoices();
+          renderButtons();
           return;
         }
 
         if (role === "inv"){
+          if (!blocks[blk].active) return;
           blocks[blk].inv = !blocks[blk].inv;
-          renderBlockButtons();
+
+          if (!blocks[blk].inv){
+            // keep oct flags (mix) as-is, but row becomes disabled; state preserved
+          }
+
           if (phase !== "idle") resetToIdle("設定を変更しました。");
+          renderButtons();
           setStatus("設定を変更しました。");
           return;
         }
       });
     });
 
-    // ===== octave buttons =====
-    function renderOctBtns(){
-      document.querySelectorAll(".segBtn").forEach(el => {
-        const o = Number(el.dataset.oct);
-        el.classList.toggle("on", o === OCT);
-      });
-      setOctPill();
-    }
-
-    document.querySelectorAll(".segBtn").forEach(el => {
+    // oct buttons
+    document.querySelectorAll(".oct").forEach(el => {
       el.addEventListener("click", () => {
-        const o = Number(el.dataset.oct);
-        if (![2,3,4].includes(o)) return;
-        if (OCT === o) return;
+        const blk = el.dataset.block;
+        const row = el.dataset.row; // root/inv
+        const role = el.dataset.role; // octDown/octUp
 
-        OCT = o;
-        renderOctBtns();
+        const cfg = blocks[blk];
+
+        // block must be active
+        if (!cfg.active) return;
+
+        // row must be enabled
+        if (row === "inv" && !cfg.inv) return;
+
+        const flags = (row === "inv") ? cfg.octInv : cfg.octRoot;
+
+        if (role === "octDown") flags.down = !flags.down;
+        if (role === "octUp")   flags.up   = !flags.up;
 
         if (phase !== "idle") resetToIdle("設定を変更しました。");
-        else setStatus("設定を変更しました。");
+        renderButtons();
       });
     });
 
-    // ===== buttons =====
+    // buttons
     btnStart.addEventListener("click", async () => {
+      // in retryPrompt: "skip"
       if (phase === "retryPrompt" && current){
         total += 1;
         totalEl.textContent = String(total);
@@ -789,9 +909,9 @@
       setChoicesEnabled(true);
 
       try{
-        await playFile(current.file);
+        await playFile(current.fileActual);
       }catch(e){
-        setStatus(`再生失敗：${applyOctave(current.file)}`, true);
+        setStatus(`再生失敗：${current.fileActual}`, true);
       }
     });
 
@@ -800,9 +920,7 @@
       clearHint();
 
       if (phase === "retryPrompt"){
-        total += 1;
-        totalEl.textContent = String(total);
-        updateAccuracy();
+        // retry does NOT count total
         setStatus("再挑戦");
         phase = "answering";
         btnStart.disabled = true;
@@ -812,9 +930,9 @@
       }
 
       try{
-        await playFile(current.file);
+        await playFile(current.fileActual); // same file, same octave
       }catch(e){
-        setStatus(`再生失敗：${applyOctave(current.file)}`, true);
+        setStatus(`再生失敗：${current.fileActual}`, true);
       }
     });
 
@@ -822,6 +940,7 @@
       if (!current) return;
 
       if (phase === "retryPrompt"){
+        // finalize as incorrect
         total += 1;
         totalEl.textContent = String(total);
         updateAccuracy();
@@ -844,11 +963,13 @@
     });
 
     btnC.addEventListener("click", async () => {
+      // fixed reference tone: C_3
+      const f = withOct("C.mp3", 3);
       try{
-        await playFile("C.mp3"); // C_2 / C_3 / C_4 を自動選択
-        setStatus(`C（基準音 Oct${OCT}）`);
+        await playFile(f);
+        setStatus("C（基準音）");
       }catch(e){
-        setStatus(`Cを再生できません（${applyOctave("C.mp3")}）`, true);
+        setStatus(`Cを再生できません（${f}）`, true);
       }
     });
 
@@ -856,9 +977,8 @@
     scoreEl.textContent = "0";
     totalEl.textContent = "0";
     updateAccuracy();
-    renderBlockButtons();
-    renderOctBtns();
     rebuildChoices();
+    renderButtons();
     resetToIdle("待機中");
   })();
   </script>
