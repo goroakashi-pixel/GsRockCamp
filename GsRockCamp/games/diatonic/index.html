@@ -386,7 +386,7 @@
     // -------------------------
     // Version / Cache buster
     // -------------------------
-    const VER = "1.2.13";
+    const VER = "1.2.14";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_DIR = "audio/";
@@ -905,9 +905,21 @@
       }
     }
 
-    async function playCorrectSfx(){
-      await playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR, sfxChord, 500);
-      if (!sfxEnhanced) return;
+    async function playSnippet(file, dir, audioEl){
+      const url = dir + file + CACHE_BUSTER;
+      audioEl.pause();
+      audioEl.currentTime = 0;
+      audioEl.src = url;
+      try { await audioEl.play(); } catch {}
+      stopAudioAfter(audioEl, 500);
+    }
+
+    async function playCorrectSfx(questionFile){
+      if (!sfxEnhanced){
+        await playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR, sfx);
+        return;
+      }
+      await playSnippet(questionFile, AUDIO_DIR, sfxChord);
       if (winStreak === 5){
         await playSfx(SFX_STREAK5, SFX_STREAK5_DIR, sfxVoice);
       }else if (winStreak === 10){
@@ -1068,7 +1080,7 @@
 
             winStreak += 1;
             missStreak = 0;
-            await playCorrectSfx();
+            await playCorrectSfx(current.file);
 
             clearHint();
             phase = "idle";
