@@ -374,7 +374,7 @@
     // -------------------------
     // Version / Cache buster
     // -------------------------
-    const VER = "1.2.11";
+    const VER = "1.2.12";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_DIR = "audio/";
@@ -392,6 +392,17 @@
     // 読み込み結果をここに入れる
     let SFX_CORRECT = [];
     let SFX_INCORRECT = [];
+
+    // manifest が読めない場合のフォールバック
+    const DEFAULT_SFX_CORRECT = ["correct.mp3"];
+    const DEFAULT_SFX_INCORRECT = [
+      "cheer1.mp3",
+      "cheer2.mp3",
+      "cheer3.mp3",
+      "cheer4.mp3",
+      "cheer5.mp3",
+      "cheer6.mp3"
+    ];
 
     // -------------------------
     // Question sets
@@ -616,15 +627,15 @@
         loadJsonArray(incorrectUrl)
       ]);
 
-      SFX_CORRECT = c;
-      SFX_INCORRECT = w;
+      SFX_CORRECT = c.length > 0 ? c : DEFAULT_SFX_CORRECT.slice();
+      SFX_INCORRECT = w.length > 0 ? w : DEFAULT_SFX_INCORRECT.slice();
 
-      if (SFX_CORRECT.length === 0 || SFX_INCORRECT.length === 0){
+      if (c.length === 0 || w.length === 0){
         // 落とさないための注意表示（ゲーム自体は動く）
         const msg = [
           "SFX一覧（manifest.json）が見つからない/空です。",
-          "正解/不正解のMP3が鳴らない場合は",
-          "assets/sound/correct/manifest.json と",
+          "フォールバックのリストで再生します。",
+          "必要なら assets/sound/correct/manifest.json と",
           "assets/sound/incorrect/manifest.json を用意してください。"
         ].join("\n");
         console.warn(msg);
