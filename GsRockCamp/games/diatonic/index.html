@@ -241,12 +241,14 @@
   <div class="wrap">
     <h1>
       Diatonic Chord Quiz
-      <span class="ver" id="verText">ver1.2.11</span>
+      <span class="ver" id="verText">ver1.2.15</span>
     </h1>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
+        <li>ver1.2.13：演出音ON/OFFを追加（正解0.5秒和音＋5/10連ボイス）</li>
+        <li>ver1.2.13：不正解は連続回数で音を変化</li>
         <li>ver1.2.11：不正解時は assets/sound/incorrect/ のMP3をランダム再生（manifest.json方式）</li>
         <li>ver1.2.11：正解時は assets/sound/correct/ のMP3をランダム再生（出題音の再生はしない）</li>
         <li>不正解後は回答ロック（再挑戦を押すまで回答は受けつけない）</li>
@@ -337,6 +339,14 @@
         </div>
       </div>
 
+      <div class="block" id="blk_sfx">
+        <div class="block-title">演出音</div>
+        <div class="opt-row">
+          <button class="btn" id="sfxToggleBtn"><span>演出音</span><small id="sfxToggleStat">ON</small></button>
+          <div></div>
+        </div>
+      </div>
+
       <div class="btn-row">
         <button class="ctrl" id="btnStart">出題</button>
         <button class="ctrl" id="btnReplay" disabled>もう一回</button>
@@ -367,6 +377,8 @@
 
     <audio id="player" preload="auto"></audio>
     <audio id="sfx" preload="auto"></audio>
+    <audio id="sfxChord" preload="auto"></audio>
+    <audio id="sfxVoice" preload="auto"></audio>
   </div>
 
   <script>
@@ -374,7 +386,7 @@
     // -------------------------
     // Version / Cache buster
     // -------------------------
-    const VER = "1.2.12";
+    const VER = "1.2.15";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_DIR = "audio/";
@@ -383,15 +395,20 @@
     // SFX folders (relative from this html)
     const SFX_CORRECT_DIR   = "../../assets/sound/correct/";
     const SFX_INCORRECT_DIR = "../../assets/sound/incorrect/";
+    const SFX_STREAK5_DIR   = "../../assets/sound/streak/streak5/";
+    const SFX_STREAK10_DIR  = "../../assets/sound/streak/streak10/";
     const SFX_BUSTER = "?v=" + encodeURIComponent(VER);
 
     // manifest.json（例： ["a.mp3","b.mp3"] ）を置く前提
     const SFX_CORRECT_MANIFEST   = "manifest.json";
     const SFX_INCORRECT_MANIFEST = "manifest.json";
+    const SFX_STREAK_MANIFEST    = "manifest.json";
 
     // 読み込み結果をここに入れる
     let SFX_CORRECT = [];
     let SFX_INCORRECT = [];
+    let SFX_STREAK5 = [];
+    let SFX_STREAK10 = [];
 
     // manifest が読めない場合のフォールバック
     const DEFAULT_SFX_CORRECT = ["correct.mp3"];
@@ -403,6 +420,27 @@
       "cheer5.mp3",
       "cheer6.mp3"
     ];
+    const DEFAULT_SFX_STREAK5 = [
+      "streak5_1.mp3",
+      "streak5_2.mp3",
+      "streak5_3.mp3",
+      "streak5_4.mp3",
+      "streak5_5.mp3",
+      "streak5_6.mp3",
+      "streak5_7.mp3",
+      "streak5_8.mp3"
+    ];
+    const DEFAULT_SFX_STREAK10 = [
+      "streak10_1.mp3",
+      "streak10_2.mp3",
+      "streak10_3.mp3",
+      "streak10_4.mp3",
+      "streak10_5.mp3"
+    ];
+    const SFX_BUZZER_A = "buzzerA.mp3";
+    const SFX_BUZZER_B = "buzzerB.mp3";
+    const SFX_CORRECT_FILE = "correct.mp3";
+    const SFX_OPTION_KEY = "diatonic_sfx_enhance";
 
     // -------------------------
     // Question sets
@@ -449,6 +487,8 @@
     // -------------------------
     const player = document.getElementById("player");
     const sfx = document.getElementById("sfx");
+    const sfxChord = document.getElementById("sfxChord");
+    const sfxVoice = document.getElementById("sfxVoice");
     const statusEl = document.getElementById("status");
     const hintArea = document.getElementById("hintArea");
     const choicesWrap = document.getElementById("choices");
@@ -458,6 +498,8 @@
     const btnReveal = document.getElementById("btnReveal");
     const btnHint   = document.getElementById("btnHint");
     const btnC      = document.getElementById("btnC");
+    const sfxToggleBtn = document.getElementById("sfxToggleBtn");
+    const sfxToggleStat = document.getElementById("sfxToggleStat");
 
     const scoreEl = document.getElementById("score");
     const totalEl = document.getElementById("total");
@@ -471,6 +513,10 @@
     let current = null; // {id, file, invIdx, isInv, blockKey, oct}
     let score = 0;
     let total = 0;
+    let winStreak = 0;
+    let missStreak = 0;
+    let sfxEnhanced = true;
+    let sfxChordStopToken = 0;
 
     // 起動デフォルト：①のみアクティブ
     const state = {
@@ -522,6 +568,25 @@
         invOctPlus:   document.getElementById("hard_invOctPlus"),
       },
     };
+
+    function loadSfxOption(){
+      try{
+        const saved = localStorage.getItem(SFX_OPTION_KEY);
+        if (saved === "on") sfxEnhanced = true;
+        if (saved === "off") sfxEnhanced = false;
+      }catch{}
+    }
+
+    function saveSfxOption(){
+      try{
+        localStorage.setItem(SFX_OPTION_KEY, sfxEnhanced ? "on" : "off");
+      }catch{}
+    }
+
+    function syncSfxOption(){
+      sfxToggleStat.textContent = sfxEnhanced ? "ON" : "OFF";
+      sfxToggleBtn.classList.toggle("on", sfxEnhanced);
+    }
 
     // -------------------------
     // UI helpers
@@ -603,6 +668,12 @@
       if (phase === "idle") buildChoices();
     }
 
+    sfxToggleBtn.addEventListener("click", () => {
+      sfxEnhanced = !sfxEnhanced;
+      saveSfxOption();
+      syncSfxOption();
+    });
+
     // -------------------------
     // SFX loader (manifest.json)
     // -------------------------
@@ -621,22 +692,30 @@
     async function loadSfxLists(){
       const correctUrl = SFX_CORRECT_DIR + SFX_CORRECT_MANIFEST + SFX_BUSTER;
       const incorrectUrl = SFX_INCORRECT_DIR + SFX_INCORRECT_MANIFEST + SFX_BUSTER;
+      const streak5Url = SFX_STREAK5_DIR + SFX_STREAK_MANIFEST + SFX_BUSTER;
+      const streak10Url = SFX_STREAK10_DIR + SFX_STREAK_MANIFEST + SFX_BUSTER;
 
-      const [c, w] = await Promise.all([
+      const [c, w, s5, s10] = await Promise.all([
         loadJsonArray(correctUrl),
-        loadJsonArray(incorrectUrl)
+        loadJsonArray(incorrectUrl),
+        loadJsonArray(streak5Url),
+        loadJsonArray(streak10Url)
       ]);
 
       SFX_CORRECT = c.length > 0 ? c : DEFAULT_SFX_CORRECT.slice();
       SFX_INCORRECT = w.length > 0 ? w : DEFAULT_SFX_INCORRECT.slice();
+      SFX_STREAK5 = s5.length > 0 ? s5 : DEFAULT_SFX_STREAK5.slice();
+      SFX_STREAK10 = s10.length > 0 ? s10 : DEFAULT_SFX_STREAK10.slice();
 
-      if (c.length === 0 || w.length === 0){
+      if (c.length === 0 || w.length === 0 || s5.length === 0 || s10.length === 0){
         // 落とさないための注意表示（ゲーム自体は動く）
         const msg = [
           "SFX一覧（manifest.json）が見つからない/空です。",
           "フォールバックのリストで再生します。",
           "必要なら assets/sound/correct/manifest.json と",
-          "assets/sound/incorrect/manifest.json を用意してください。"
+          "assets/sound/incorrect/manifest.json と",
+          "assets/sound/streak/streak5/manifest.json と",
+          "assets/sound/streak/streak10/manifest.json を用意してください。"
         ].join("\n");
         console.warn(msg);
       }
@@ -799,12 +878,73 @@
       }
     }
 
-    async function playSfx(list, dir){
+    function stopAudioAfter(audioEl, ms){
+      const token = ++sfxChordStopToken;
+      window.setTimeout(() => {
+        if (token !== sfxChordStopToken) return;
+        audioEl.pause();
+        audioEl.currentTime = 0;
+      }, ms);
+    }
+
+    async function playSfx(list, dir, audioEl = sfx){
       if (!list || list.length === 0) return;
       const f = pickRandom(list);
       const url = dir + f + SFX_BUSTER;
-      sfx.src = url;
-      try { await sfx.play(); } catch {}
+      audioEl.pause();
+      audioEl.currentTime = 0;
+      audioEl.src = url;
+      try { await audioEl.play(); } catch {}
+    }
+
+    async function playFixedSfx(file, dir, audioEl, durationMs){
+      const url = dir + file + SFX_BUSTER;
+      audioEl.pause();
+      audioEl.currentTime = 0;
+      audioEl.src = url;
+      try { await audioEl.play(); } catch {}
+      if (durationMs){
+        stopAudioAfter(audioEl, durationMs);
+      }
+    }
+
+    async function playSnippet(file, dir, audioEl){
+      const url = dir + file + CACHE_BUSTER;
+      audioEl.pause();
+      audioEl.currentTime = 0;
+      audioEl.src = url;
+      try { await audioEl.play(); } catch {}
+      stopAudioAfter(audioEl, 500);
+    }
+
+    async function playCorrectSfx(questionFile){
+      if (!sfxEnhanced){
+        await playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR, sfx);
+        return;
+      }
+      await playSnippet(questionFile, AUDIO_DIR, sfxChord);
+      if (winStreak === 5){
+        await playSfx(SFX_STREAK5, SFX_STREAK5_DIR, sfxVoice);
+      }else if (winStreak % 10 === 0){
+        await playSfx(SFX_STREAK10, SFX_STREAK10_DIR, sfxVoice);
+      }
+    }
+
+    async function playIncorrectSfx(){
+      if (!sfxEnhanced){
+        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR, sfx);
+        return;
+      }
+
+      if (missStreak === 1){
+        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR, sfx);
+        return;
+      }
+      if (missStreak === 2){
+        await playFixedSfx(SFX_BUZZER_B, SFX_INCORRECT_DIR, sfx);
+        return;
+      }
+      await playSfx(SFX_INCORRECT, SFX_INCORRECT_DIR, sfx);
     }
 
     // 出題音のフォールバック：invが無ければ root_3
@@ -941,7 +1081,11 @@
             const invTxt = invLabel(current.invIdx);
             setStatus(`⭕ 正解！ ${current.id}（${v}${invTxt ? " / " + invTxt : ""}）`);
 
-            await playSfx(SFX_CORRECT, SFX_CORRECT_DIR);
+            winStreak += 1;
+            missStreak = 0;
+            player.pause();
+            player.currentTime = 0;
+            await playCorrectSfx(current.file);
 
             clearHint();
             phase = "idle";
@@ -957,7 +1101,9 @@
           }else{
             setStatus("❌ 不正解…（再挑戦 / 答え）", true);
 
-            await playSfx(SFX_INCORRECT, SFX_INCORRECT_DIR);
+            missStreak += 1;
+            winStreak = 0;
+            await playIncorrectSfx();
 
             phase = "lockedAfterWrong";
             setReplayLabel();
@@ -1091,6 +1237,8 @@
     scoreEl.textContent = "0";
     updateAccuracy();
 
+    loadSfxOption();
+    syncSfxOption();
     await loadSfxLists();
 
     buildChoices();
