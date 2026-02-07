@@ -241,18 +241,15 @@
   <div class="wrap">
     <h1>
       Diatonic Chord Quiz
-      <span class="ver" id="verText">ver1.2.15</span>
+      <span class="ver" id="verText">ver1.2.16</span>
     </h1>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.2.13：演出音ON/OFFを追加（正解0.5秒和音＋5/10連ボイス）</li>
-        <li>ver1.2.13：不正解は連続回数で音を変化</li>
-        <li>ver1.2.11：不正解時は assets/sound/incorrect/ のMP3をランダム再生（manifest.json方式）</li>
-        <li>ver1.2.11：正解時は assets/sound/correct/ のMP3をランダム再生（出題音の再生はしない）</li>
-        <li>不正解後は回答ロック（再挑戦を押すまで回答は受けつけない）</li>
-        <li>ロック中に答えを押したら「再挑戦」をクリックしてください。を表示</li>
+        <li>ver1.2.16：EasyのBm-5除外トグル、選択肢表示のコード/ディグリー切替、不正解後も回答継続</li>
+        <li>ver1.2.15：正解時は問題音0.5秒＋連続正解ボイス、正解時に問題音を停止</li>
+        <li>ver1.2.14：不正解は連続回数で音を変化</li>
         <li>起動デフォルト：①Easyのみアクティブ（②③④はOFF）</li>
         <li>選択肢の並び：C→…→B</li>
       </ul>
@@ -276,6 +273,11 @@
             <button class="oct-btn" id="easy_invOctMinus">Oct-</button>
             <button class="oct-btn" id="easy_invOctPlus">Oct+</button>
           </div>
+        </div>
+
+        <div class="opt-row">
+          <button class="btn" id="easy_bm5Btn"><span>Bm-5を含める</span><small id="easy_bm5Stat">ON</small></button>
+          <div></div>
         </div>
       </div>
 
@@ -343,7 +345,7 @@
         <div class="block-title">演出音</div>
         <div class="opt-row">
           <button class="btn" id="sfxToggleBtn"><span>演出音</span><small id="sfxToggleStat">ON</small></button>
-          <div></div>
+          <button class="btn" id="choiceToggleBtn"><span>選択肢表示</span><small id="choiceToggleStat">コード</small></button>
         </div>
       </div>
 
@@ -386,7 +388,7 @@
     // -------------------------
     // Version / Cache buster
     // -------------------------
-    const VER = "1.2.15";
+    const VER = "1.2.16";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_DIR = "audio/";
@@ -441,6 +443,8 @@
     const SFX_BUZZER_B = "buzzerB.mp3";
     const SFX_CORRECT_FILE = "correct.mp3";
     const SFX_OPTION_KEY = "diatonic_sfx_enhance";
+    const BM5_OPTION_KEY = "diatonic_easy_bm5";
+    const CHOICE_OPTION_KEY = "diatonic_choice_label";
 
     // -------------------------
     // Question sets
@@ -482,6 +486,35 @@
       "G#dim7": ["G#","B","D","F"]
     };
 
+    const CHORD_DEGREES = {
+      "C": "Ⅰ",
+      "Dm": "Ⅱm",
+      "Em": "Ⅲm",
+      "F": "Ⅳ",
+      "G": "Ⅴ",
+      "Am": "Ⅵm",
+      "Bm-5": "Ⅶm-5",
+      "CM7": "ⅠM7",
+      "Dm7": "Ⅱm7",
+      "Em7": "Ⅲm7",
+      "FM7": "ⅣM7",
+      "G7": "Ⅴ7",
+      "Am7": "Ⅵm7",
+      "Bm7-5": "Ⅶm7-5",
+      "A7": "Ⅵ7",
+      "C7": "Ⅰ7",
+      "D7": "Ⅱ7",
+      "Db7": "Ⅱ♭7",
+      "E7": "Ⅲ7",
+      "Ab": "Ⅵ♭",
+      "Bb": "Ⅶ♭",
+      "Eb": "Ⅲ♭",
+      "Fm": "Ⅳm",
+      "Gm": "Ⅴm",
+      "F#dim": "Ⅳ#dim",
+      "G#dim7": "Ⅴ#dim7"
+    };
+
     // -------------------------
     // DOM
     // -------------------------
@@ -500,6 +533,8 @@
     const btnC      = document.getElementById("btnC");
     const sfxToggleBtn = document.getElementById("sfxToggleBtn");
     const sfxToggleStat = document.getElementById("sfxToggleStat");
+    const choiceToggleBtn = document.getElementById("choiceToggleBtn");
+    const choiceToggleStat = document.getElementById("choiceToggleStat");
 
     const scoreEl = document.getElementById("score");
     const totalEl = document.getElementById("total");
@@ -508,7 +543,7 @@
     // -------------------------
     // State
     // -------------------------
-    // phase: idle | answering | lockedAfterWrong
+    // phase: idle | answering
     let phase = "idle";
     let current = null; // {id, file, invIdx, isInv, blockKey, oct}
     let score = 0;
@@ -516,6 +551,9 @@
     let winStreak = 0;
     let missStreak = 0;
     let sfxEnhanced = true;
+    let easyIncludeBm5 = true;
+    let choiceLabelMode = "code";
+    let replayIsRetry = false;
     let sfxChordStopToken = 0;
 
     // 起動デフォルト：①のみアクティブ
@@ -536,6 +574,8 @@
         rootOctPlus:  document.getElementById("easy_rootOctPlus"),
         invOctMinus:  document.getElementById("easy_invOctMinus"),
         invOctPlus:   document.getElementById("easy_invOctPlus"),
+        bm5Btn: document.getElementById("easy_bm5Btn"),
+        bm5Stat: document.getElementById("easy_bm5Stat"),
       },
       normal: {
         activeBtn: document.getElementById("normal_activeBtn"),
@@ -588,6 +628,45 @@
       sfxToggleBtn.classList.toggle("on", sfxEnhanced);
     }
 
+    function loadBm5Option(){
+      try{
+        const saved = localStorage.getItem(BM5_OPTION_KEY);
+        if (saved === "on") easyIncludeBm5 = true;
+        if (saved === "off") easyIncludeBm5 = false;
+      }catch{}
+    }
+
+    function saveBm5Option(){
+      try{
+        localStorage.setItem(BM5_OPTION_KEY, easyIncludeBm5 ? "on" : "off");
+      }catch{}
+    }
+
+    function syncBm5Option(){
+      UI.easy.bm5Stat.textContent = easyIncludeBm5 ? "ON" : "OFF";
+      UI.easy.bm5Btn.classList.toggle("on", easyIncludeBm5);
+    }
+
+    function loadChoiceOption(){
+      try{
+        const saved = localStorage.getItem(CHOICE_OPTION_KEY);
+        if (saved === "degree") choiceLabelMode = "degree";
+        if (saved === "code") choiceLabelMode = "code";
+      }catch{}
+    }
+
+    function saveChoiceOption(){
+      try{
+        localStorage.setItem(CHOICE_OPTION_KEY, choiceLabelMode);
+      }catch{}
+    }
+
+    function syncChoiceOption(){
+      const isDegree = choiceLabelMode === "degree";
+      choiceToggleStat.textContent = isDegree ? "ディグリー" : "コード";
+      choiceToggleBtn.classList.toggle("on", isDegree);
+    }
+
     // -------------------------
     // UI helpers
     // -------------------------
@@ -618,7 +697,7 @@
     }
 
     function setReplayLabel(){
-      btnReplay.textContent = (phase === "lockedAfterWrong") ? "再挑戦" : "もう一回";
+      btnReplay.textContent = replayIsRetry ? "再挑戦" : "もう一回";
     }
 
     function resetToIdle(msg){
@@ -630,6 +709,7 @@
       btnReveal.disabled = true;
       btnHint.disabled = true;
 
+      replayIsRetry = false;
       setReplayLabel();
       setChoicesEnabled(false);
       clearHint();
@@ -665,13 +745,22 @@
 
     function syncAll(){
       ["easy","normal","plus","hard"].forEach(syncOne);
+      syncBm5Option();
       if (phase === "idle") buildChoices();
+      updateChoiceLabels();
     }
 
     sfxToggleBtn.addEventListener("click", () => {
       sfxEnhanced = !sfxEnhanced;
       saveSfxOption();
       syncSfxOption();
+    });
+
+    choiceToggleBtn.addEventListener("click", () => {
+      choiceLabelMode = (choiceLabelMode === "code") ? "degree" : "code";
+      saveChoiceOption();
+      syncChoiceOption();
+      updateChoiceLabels();
     });
 
     // -------------------------
@@ -785,6 +874,14 @@
     wireBlock("plus");
     wireBlock("hard");
 
+    UI.easy.bm5Btn.addEventListener("click", () => {
+      easyIncludeBm5 = !easyIncludeBm5;
+      saveBm5Option();
+      syncBm5Option();
+      resetToIdle("設定を変更しました（待機）");
+      syncAll();
+    });
+
     // -------------------------
     // Pools
     // -------------------------
@@ -795,7 +892,10 @@
     function getAnswerPoolChords(){
       const act = getActiveBlocks();
       const set = new Set();
-      act.forEach(bk => BLOCKS[bk].chords.forEach(c => set.add(c)));
+      act.forEach(bk => BLOCKS[bk].chords.forEach(c => {
+        if (bk === "easy" && c === "Bm-5" && !easyIncludeBm5) return;
+        set.add(c);
+      }));
       return Array.from(set);
     }
 
@@ -836,6 +936,7 @@
         const useInv = !!state[blockKey].inv;
 
         chords.forEach(chordId => {
+          if (blockKey === "easy" && chordId === "Bm-5" && !easyIncludeBm5) return;
           getCandidateFilesForChord(blockKey, chordId, false).forEach(x => {
             pool.push({ blockKey, chordId, file:x.file, invIdx:x.invIdx, isInv:x.isInv, oct:x.oct });
           });
@@ -1045,6 +1146,21 @@
     // -------------------------
     // Choices
     // -------------------------
+    function formatChoiceLabel(chordId, mode){
+      if (mode === "degree"){
+        return CHORD_DEGREES[chordId] || chordId;
+      }
+      return chordId;
+    }
+
+    function updateChoiceLabels(){
+      const btns = Array.from(document.querySelectorAll(".choice"));
+      btns.forEach(b => {
+        if (!b.dataset.id) return;
+        b.textContent = formatChoiceLabel(b.dataset.id, choiceLabelMode);
+      });
+    }
+
     function buildChoices(){
       choicesWrap.innerHTML = "";
       const poolChords = getAnswerPoolChords();
@@ -1053,17 +1169,13 @@
       poolChords.forEach(ch => {
         const b = document.createElement("button");
         b.className = "choice";
-        b.textContent = ch;
+        b.textContent = formatChoiceLabel(ch, choiceLabelMode);
         b.dataset.id = ch;
         b.disabled = true;
 
         b.addEventListener("click", async () => {
           if (!current) return;
 
-          if (phase === "lockedAfterWrong"){
-            setStatus("「再挑戦」をクリックしてください。", true);
-            return;
-          }
           if (phase !== "answering") return;
 
           const guess = b.dataset.id;
@@ -1086,6 +1198,7 @@
             player.pause();
             player.currentTime = 0;
             await playCorrectSfx(current.file);
+            replayIsRetry = false;
 
             clearHint();
             phase = "idle";
@@ -1099,13 +1212,12 @@
             setReplayLabel();
             setChoicesEnabled(false);
           }else{
-            setStatus("❌ 不正解…（再挑戦 / 答え）", true);
+            setStatus("❌ 不正解。再挑戦して", true);
 
             missStreak += 1;
             winStreak = 0;
             await playIncorrectSfx();
-
-            phase = "lockedAfterWrong";
+            replayIsRetry = true;
             setReplayLabel();
 
             btnStart.disabled  = true;
@@ -1119,6 +1231,7 @@
 
         choicesWrap.appendChild(b);
       });
+      updateChoiceLabels();
     }
 
     // -------------------------
@@ -1161,6 +1274,7 @@
       };
 
       phase = "answering";
+      replayIsRetry = false;
       setReplayLabel();
 
       setStatus("出題中：答えを選んでください");
@@ -1181,20 +1295,6 @@
 
     btnReplay.addEventListener("click", async () => {
       if (!current) return;
-
-      if (phase === "lockedAfterWrong"){
-        await playFile(current.file);
-        phase = "answering";
-        setReplayLabel();
-        setStatus("再回答中：答えを選んでください");
-        setChoicesEnabled(true);
-
-        btnStart.disabled = true;
-        btnReveal.disabled = false;
-        btnHint.disabled = false;
-        btnReplay.disabled = false;
-        return;
-      }
 
       if (phase === "answering"){
         await playFile(current.file);
@@ -1221,6 +1321,7 @@
       btnReveal.disabled = true;
       btnHint.disabled = true;
 
+      replayIsRetry = false;
       setReplayLabel();
       setChoicesEnabled(false);
       clearHint();
@@ -1239,6 +1340,10 @@
 
     loadSfxOption();
     syncSfxOption();
+    loadBm5Option();
+    syncBm5Option();
+    loadChoiceOption();
+    syncChoiceOption();
     await loadSfxLists();
 
     buildChoices();
