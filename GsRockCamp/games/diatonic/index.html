@@ -923,7 +923,9 @@
         return;
       }
       await playSnippet(questionFile, AUDIO_DIR, sfxChord);
-      if (winStreak % 10 === 0){
+      if (winStreak === 5){
+        await playSfx(SFX_STREAK5, SFX_STREAK5_DIR, sfxVoice);
+      }else if (winStreak % 10 === 0){
         await playSfx(SFX_STREAK10, SFX_STREAK10_DIR, sfxVoice);
       }
     }
