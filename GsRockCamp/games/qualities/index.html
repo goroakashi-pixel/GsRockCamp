@@ -781,6 +781,11 @@
       if (!ctx) return false;
       if (trackQuestion){
         stopQuestionAudio();
+        if (questionBusGain){
+          const now = ctx.currentTime;
+          questionBusGain.gain.cancelScheduledValues(now);
+          questionBusGain.gain.setValueAtTime(1, now);
+        }
       }
       stopActiveSources();
 
@@ -841,6 +846,10 @@
       return playSequence(url, null, true);
     }
 
+    async function playHintAudio(url){
+      return playSequence(url, null, false);
+    }
+
     async function playSnippet(url, durationMs){
       if(!url) return;
       await playSequence(url, durationMs, false);
@@ -865,10 +874,8 @@
       audioEl.play().catch(() => {});
     }
 
-    async function playCorrectSfx(questionUrl){
-      if (sfxEnhanced){
-        await playSnippet(questionUrl, 500);
-      }else{
+    async function playCorrectSfx(){
+      if (!sfxEnhanced){
         playImmediateSfx(SFX_CORRECT_DIR + SFX_CORRECT_FILE + SFX_BUSTER, sfxAudio);
       }
       await playCorrectSfxWithEnvelope();
@@ -915,7 +922,6 @@
       gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
       source.start(now);
       source.stop(now + buffer.duration + 0.1);
-      activeSources.push(source);
     }
 
     async function warmupAudio(){
@@ -1080,8 +1086,9 @@
         totalEl.textContent = total;
         updateAccuracy();
         status.textContent = `正解！ 答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
+        await ensureAudioContext();
         stopQuestionAudio();
-        await playCorrectSfx(current.audioUrl);
+        await playCorrectSfx();
         endQuestion();
       }else{
         pendingWrong = true;
@@ -1131,9 +1138,9 @@
       hintArea.style.display = "block";
       if (current.inversion > 0){
         const rootPath = buildAudioPath(current.chord.id, 3, 0);
-        playAudio(withCache(rootPath));
+        playHintAudio(withCache(rootPath));
       }else{
-        playAudio(current.audioUrl);
+        playHintAudio(current.audioUrl);
       }
     };
 
