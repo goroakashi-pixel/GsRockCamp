@@ -5,12 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Chord Qualities Quiz</title>
   <!--
-  ver1.3:
-  - audio/2・3・4 対応
-  - Oct- / Oct+ の追加式仕様
-  - inversion混在抽選
-  - Bluetooth対策の無音ウォームアップ追加
-  - Cmaj7/Cmaj9へ内部ID統一
+  ver1.2.2:
+  - 出題が止まるケースを再生トライ型に改善
+  - 音源エラーに候補/フォールバック情報を表示
+  - SFXをdiatonic相当の再生仕様に統一
   -->
 
   <style>
@@ -258,17 +256,16 @@
   <div class="wrap">
     <h1>
       Chord Qualities Quiz
-      <span class="ver" id="verText">ver1.3</span>
+      <span class="ver" id="verText">ver1.2.2</span>
     </h1>
     <div class="muted">C基準で、コードの「品質（キャラ）」を当てます。</div>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.3：audio/2・3・4 対応、Oct- / Oct+ 追加式</li>
-        <li>ver1.3：転回形の混在抽選（root + inv）</li>
-        <li>ver1.3：Bluetooth対策の無音ウォームアップ</li>
-        <li>ver1.3：Cmaj7/Cmaj9へ内部ID統一</li>
+        <li>ver1.2.2：出題停止を回避する再生トライ型に改善</li>
+        <li>ver1.2.2：音源エラーに候補/フォールバック情報を表示</li>
+        <li>ver1.2.2：SFXをdiatonic相当の再生仕様に統一</li>
       </ul>
     </div>
 
@@ -367,7 +364,7 @@
 
   <script>
   (() => {
-    const VER = "1.3";
+    const VER = "1.2.2";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_BASE = "./audio/";
@@ -585,16 +582,21 @@
         const res = await fetch(url, { method: "HEAD" });
         return res.ok;
       }catch(e){
-        return false;
+        return null;
       }
     }
 
     async function filterExistingCandidates(candidates){
+      let hadError = false;
       const checks = await Promise.all(candidates.map(async candidate => {
         const ok = await checkUrl(candidate.url);
+        if (ok === null) hadError = true;
         return ok ? candidate : null;
       }));
-      return checks.filter(Boolean);
+      return {
+        available: checks.filter(Boolean),
+        hadError
+      };
     }
 
     function buildCandidates(chord){
@@ -660,6 +662,37 @@
       audio.src = url;
       audio.currentTime = 0;
       audio.play().catch(() => {});
+    }
+
+    function attemptPlay(url){
+      return new Promise(resolve => {
+        let settled = false;
+        const cleanup = () => {
+          audio.oncanplaythrough = null;
+          audio.onerror = null;
+        };
+        audio.oncanplaythrough = () => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(true);
+        };
+        audio.onerror = () => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(false);
+        };
+        audio.src = url;
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+        window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(false);
+        }, 2000);
+      });
     }
 
     function playSnippet(url, durationMs, audioEl){
@@ -791,11 +824,16 @@
       const candidates = buildCandidates(chosenChord);
       const referenceCandidate = candidates[0];
       const triedPaths = candidates.map(candidate => candidate.path);
-      const available = await filterExistingCandidates(candidates);
+      const { available, hadError } = await filterExistingCandidates(candidates);
+
+      status.textContent = "出題中";
+      status.classList.remove("warn");
 
       let selected = null;
       if(available.length > 0){
         selected = available[Math.floor(Math.random() * available.length)];
+      }else if (hadError && candidates.length > 0){
+        selected = candidates[Math.floor(Math.random() * candidates.length)];
       }else{
         const fallbackPath = buildAudioPath(chosenChord.id, 3, 0);
         const fallbackUrl = withCache(fallbackPath);
@@ -826,6 +864,36 @@
         }
       }
 
+      const fallbackPath = buildAudioPath(chosenChord.id, 3, 0);
+      const fallbackUrl = withCache(fallbackPath);
+      const played = await attemptPlay(selected.url);
+      if (!played){
+        const fallbackPlayed = await attemptPlay(fallbackUrl);
+        if (!fallbackPlayed){
+          renderAudioError({
+            chordId: chosenChord.id,
+            inversion: selected.inversion,
+            octave: selected.octave,
+            path: selected.path,
+            fallbackPath,
+            triedPaths
+          });
+          locked = true;
+          enableOptions(false);
+          $("btnReplay").disabled = true;
+          $("btnHint").disabled = true;
+          $("btnReveal").disabled = true;
+          return;
+        }
+        selected = {
+          chord: chosenChord,
+          octave: 3,
+          inversion: 0,
+          path: fallbackPath,
+          url: fallbackUrl
+        };
+      }
+
       current = {
         chord: selected.chord,
         audioUrl: selected.url,
@@ -835,15 +903,12 @@
 
       locked = false;
       pendingWrong = false;
-      status.textContent = "出題中";
-      status.classList.remove("warn");
       hintArea.style.display = "none";
       hintArea.textContent = "";
       answerText.textContent = "未表示";
       [...opts.children].forEach(b => b.classList.remove("ok", "ng"));
       enableOptions(true);
       logSelection(selected);
-      playAudio(selected.url);
       $("btnReplay").disabled = false;
       $("btnHint").disabled = false;
       $("btnReveal").disabled = false;
