@@ -501,9 +501,13 @@
     }
 
     function loadSfxOption(){
-      const saved = localStorage.getItem(SFX_OPTION_KEY);
-      if (saved === "off") sfxEnhanced = false;
-      if (saved === "on") sfxEnhanced = true;
+      try{
+        const saved = localStorage.getItem(SFX_OPTION_KEY);
+        if (saved === "off") sfxEnhanced = false;
+        if (saved === "on") sfxEnhanced = true;
+      }catch(e){
+        if (LOG_ENABLED) console.warn("localStorage利用不可のためSFX設定はデフォルトを使用します。");
+      }
     }
 
     async function loadJsonArray(url){
