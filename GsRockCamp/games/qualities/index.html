@@ -477,6 +477,7 @@
     const sfxVoiceAudio = new Audio();
     let questionSource = null;
     let questionGain = null;
+    let questionMuted = false;
 
     const $ = id => document.getElementById(id);
     const opts = $("opts");
@@ -732,14 +733,13 @@
     }
 
     function stopQuestionAudio(){
-      if (!questionSource || !questionGain || !warmupContext) return;
+      if (!questionSource || !questionGain || !warmupContext || questionMuted) return;
       const now = warmupContext.currentTime;
       questionGain.gain.cancelScheduledValues(now);
-      questionGain.gain.setValueAtTime(questionGain.gain.value, now);
-      questionGain.gain.linearRampToValueAtTime(0, now + 0.02);
-      questionSource.stop(now + 0.03);
-      questionSource = null;
-      questionGain = null;
+      const current = questionGain.gain.getValueAtTime(now);
+      questionGain.gain.setValueAtTime(current, now);
+      questionGain.gain.linearRampToValueAtTime(0, now + 0.03);
+      questionMuted = true;
     }
 
     async function loadBuffer(url){
@@ -797,10 +797,20 @@
       if (durationMs){
         mainSource.stop(startTime + durationMs / 1000);
       }
-      activeSources.push(mainSource);
+      if (!trackQuestion){
+        activeSources.push(mainSource);
+      }
       if (trackQuestion){
         questionSource = mainSource;
         questionGain = gainNode;
+        questionMuted = false;
+        mainSource.onended = () => {
+          if (questionSource === mainSource){
+            questionSource = null;
+            questionGain = null;
+            questionMuted = false;
+          }
+        };
       }
       return true;
     }
