@@ -6,7 +6,7 @@
   <title>Chord Qualities Quiz</title>
   <!--
   ver1.2.3:
-  - Bluetooth音切れ対策のkeep-alive導入
+  - Bluetooth音切れ対策のmute先行再生
   - ヒント音を転回形→ルート音へ統一
   - 答え欄に音名並びを表示
   -->
@@ -263,7 +263,7 @@
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.2.3：Bluetooth音切れ対策のkeep-alive導入</li>
+        <li>ver1.2.3：Bluetooth音切れ対策のmute先行再生</li>
         <li>ver1.2.3：転回形のヒント音をルート音に統一</li>
         <li>ver1.2.3：答え欄に音名並びを表示</li>
       </ul>
@@ -469,15 +469,10 @@
 
     let warmupDone = false;
     let warmupContext = null;
-    let keepAliveOsc = null;
-    let keepAliveGain = null;
-    let keepAliveEnabled = true;
-
-    const audio = new Audio();
-    const sfx = new Audio();
-    const sfxChord = new Audio();
-    const sfxVoice = new Audio();
-    let sfxChordStopToken = 0;
+    let muteBuffer = null;
+    let activeSources = [];
+    let bufferCache = new Map();
+    const MUTE_URL = "../../assets/sound/system/mute.mp3";
 
     const $ = id => document.getElementById(id);
     const opts = $("opts");
@@ -541,8 +536,6 @@
       }catch(e){
         if (LOG_ENABLED) console.warn("localStorage利用不可のためSFX設定はデフォルトを使用します。");
       }
-      keepAliveEnabled = sfxEnhanced;
-      if (!keepAliveEnabled) stopKeepAlive();
     }
 
     function getVoicingText(chordId, inversion){
@@ -693,20 +686,6 @@
       [...opts.children].forEach(b => b.disabled = !on);
     }
 
-    function stopAudio(target){
-      target.pause();
-      target.currentTime = 0;
-    }
-
-    function stopAudioAfter(audioEl, ms){
-      const token = ++sfxChordStopToken;
-      window.setTimeout(() => {
-        if (token !== sfxChordStopToken) return;
-        audioEl.pause();
-        audioEl.currentTime = 0;
-      }, ms);
-    }
-
     async function ensureAudioContext(){
       try{
         if(!warmupContext){
@@ -715,131 +694,123 @@
         if(warmupContext.state === "suspended"){
           await warmupContext.resume();
         }
-        if(!keepAliveEnabled) return;
-        if(!keepAliveOsc){
-          keepAliveGain = warmupContext.createGain();
-          keepAliveGain.gain.value = 0.00001;
-          keepAliveOsc = warmupContext.createOscillator();
-          keepAliveOsc.frequency.value = 440;
-          keepAliveOsc.connect(keepAliveGain).connect(warmupContext.destination);
-          keepAliveOsc.start();
-        }
+        return warmupContext;
       }catch(e){
         if (LOG_ENABLED) console.warn("AudioContextの初期化に失敗しました。");
+        return null;
       }
     }
 
-    function stopKeepAlive(){
-      if(keepAliveOsc){
-        try{ keepAliveOsc.stop(); }catch(e){}
-        keepAliveOsc.disconnect();
-        keepAliveOsc = null;
-      }
-      if(keepAliveGain){
-        keepAliveGain.disconnect();
-        keepAliveGain = null;
-      }
-    }
-
-    function playAudio(url){
-      ensureAudioContext();
-      audio.src = url;
-      audio.currentTime = 0;
-      audio.play().catch(() => {});
-    }
-
-    function attemptPlay(url){
-      return new Promise(resolve => {
-        ensureAudioContext();
-        let settled = false;
-        const cleanup = () => {
-          audio.oncanplaythrough = null;
-          audio.onerror = null;
-        };
-        audio.oncanplaythrough = () => {
-          if (settled) return;
-          settled = true;
-          cleanup();
-          resolve(true);
-        };
-        audio.onerror = () => {
-          if (settled) return;
-          settled = true;
-          cleanup();
-          resolve(false);
-        };
-        audio.src = url;
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-        window.setTimeout(() => {
-          if (settled) return;
-          settled = true;
-          cleanup();
-          resolve(false);
-        }, 2000);
+    function stopActiveSources(){
+      activeSources.forEach(source => {
+        try{ source.stop(); }catch(e){}
+        try{ source.disconnect(); }catch(e){}
       });
+      activeSources = [];
     }
 
-    function playSnippet(url, durationMs, audioEl){
+    async function loadBuffer(url){
+      if (bufferCache.has(url)) return bufferCache.get(url);
+      const ctx = await ensureAudioContext();
+      if (!ctx) return null;
+      try{
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) return null;
+        const data = await res.arrayBuffer();
+        const buf = await ctx.decodeAudioData(data);
+        bufferCache.set(url, buf);
+        return buf;
+      }catch(e){
+        return null;
+      }
+    }
+
+    async function playSequence(url, durationMs){
+      const ctx = await ensureAudioContext();
+      if (!ctx) return false;
+      stopActiveSources();
+
+      if (!muteBuffer){
+        muteBuffer = await loadBuffer(MUTE_URL);
+        if (!muteBuffer && LOG_ENABLED){
+          console.warn("mute.mp3が取得できませんでした。");
+        }
+      }
+
+      const mainBuffer = await loadBuffer(url);
+      if (!mainBuffer) return false;
+
+      const now = ctx.currentTime;
+      const startTime = now + 0.2;
+
+      if (muteBuffer){
+        const muteSource = ctx.createBufferSource();
+        muteSource.buffer = muteBuffer;
+        muteSource.connect(ctx.destination);
+        muteSource.start(now);
+        activeSources.push(muteSource);
+      }
+
+      const mainSource = ctx.createBufferSource();
+      mainSource.buffer = mainBuffer;
+      mainSource.connect(ctx.destination);
+      mainSource.start(startTime);
+      if (durationMs){
+        mainSource.stop(startTime + durationMs / 1000);
+      }
+      activeSources.push(mainSource);
+      return true;
+    }
+
+    async function playAudio(url){
+      return playSequence(url);
+    }
+
+    async function playSnippet(url, durationMs){
       if(!url) return;
-      ensureAudioContext();
-      audioEl.src = url;
-      audioEl.currentTime = 0;
-      audioEl.play().catch(() => {});
-      stopAudioAfter(audioEl, durationMs);
+      await playSequence(url, durationMs);
     }
 
-    async function playSfx(list, dir, audioEl = sfx){
+    async function playSfx(list, dir){
       if (!list || list.length === 0) return;
-      await ensureAudioContext();
       const f = pickRandom(list);
       const url = dir + f + SFX_BUSTER;
-      audioEl.pause();
-      audioEl.currentTime = 0;
-      audioEl.src = url;
-      try { await audioEl.play(); } catch {}
+      await playSequence(url);
     }
 
-    async function playFixedSfx(file, dir, audioEl, durationMs){
+    async function playFixedSfx(file, dir, durationMs){
       const url = dir + file + SFX_BUSTER;
-      await ensureAudioContext();
-      audioEl.pause();
-      audioEl.currentTime = 0;
-      audioEl.src = url;
-      try { await audioEl.play(); } catch {}
-      if (durationMs){
-        stopAudioAfter(audioEl, durationMs);
-      }
+      await playSequence(url, durationMs);
     }
 
     async function playCorrectSfx(questionUrl){
       if (!sfxEnhanced){
-        await playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR, sfx);
+        await playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR);
         return;
       }
-      playSnippet(questionUrl, 500, sfxChord);
+      await playSnippet(questionUrl, 500);
       if (winStreak === 5){
-        await playSfx(SFX_STREAK5, SFX_STREAK5_DIR, sfxVoice);
+        await playSfx(SFX_STREAK5, SFX_STREAK5_DIR);
       }else if (winStreak % 10 === 0){
-        await playSfx(SFX_STREAK10, SFX_STREAK10_DIR, sfxVoice);
+        await playSfx(SFX_STREAK10, SFX_STREAK10_DIR);
       }
     }
 
     async function playIncorrectSfx(){
       if (!sfxEnhanced){
-        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR, sfx);
+        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR);
         return;
       }
 
       if (missStreak === 1){
-        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR, sfx);
+        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR);
         return;
       }
       if (missStreak === 2){
-        await playFixedSfx(SFX_BUZZER_B, SFX_INCORRECT_DIR, sfx);
+        await playFixedSfx(SFX_BUZZER_B, SFX_INCORRECT_DIR);
         return;
       }
-      await playSfx(SFX_INCORRECT, SFX_INCORRECT_DIR, sfx);
+      await playSfx(SFX_INCORRECT, SFX_INCORRECT_DIR);
     }
 
     async function warmupAudio(){
@@ -937,9 +908,9 @@
 
       const fallbackPath = buildAudioPath(chosenChord.id, 3, 0);
       const fallbackUrl = withCache(fallbackPath);
-      const played = await attemptPlay(selected.url);
+      const played = await playAudio(selected.url);
       if (!played){
-        const fallbackPlayed = await attemptPlay(fallbackUrl);
+        const fallbackPlayed = await playAudio(fallbackUrl);
         if (!fallbackPlayed){
           renderAudioError({
             chordId: chosenChord.id,
