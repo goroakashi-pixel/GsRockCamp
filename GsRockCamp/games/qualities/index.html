@@ -324,6 +324,11 @@
         </div>
       </div>
 
+      <div class="opt-row">
+        <button class="btn" id="devBtn" disabled><span>D</span><small>開発中</small></button>
+        <div></div>
+      </div>
+
       <div class="note">※ 転回形はボイシング差分を含みます。</div>
 
       <div class="btn-row">
@@ -368,6 +373,52 @@
     const AUDIO_BASE = "./audio/";
     const CACHE_BUSTER = "?v=" + encodeURIComponent(VER);
     const LOG_ENABLED = true;
+
+    const SFX_CORRECT_DIR   = "../../assets/sound/correct/";
+    const SFX_INCORRECT_DIR = "../../assets/sound/incorrect/";
+    const SFX_STREAK5_DIR   = "../../assets/sound/streak/streak5/";
+    const SFX_STREAK10_DIR  = "../../assets/sound/streak/streak10/";
+    const SFX_BUSTER = "?v=" + encodeURIComponent(VER);
+
+    const SFX_CORRECT_MANIFEST   = "manifest.json";
+    const SFX_INCORRECT_MANIFEST = "manifest.json";
+    const SFX_STREAK_MANIFEST    = "manifest.json";
+
+    let SFX_CORRECT = [];
+    let SFX_INCORRECT = [];
+    let SFX_STREAK5 = [];
+    let SFX_STREAK10 = [];
+
+    const DEFAULT_SFX_CORRECT = ["correct.mp3"];
+    const DEFAULT_SFX_INCORRECT = [
+      "cheer1.mp3",
+      "cheer2.mp3",
+      "cheer3.mp3",
+      "cheer4.mp3",
+      "cheer5.mp3",
+      "cheer6.mp3"
+    ];
+    const DEFAULT_SFX_STREAK5 = [
+      "streak5_1.mp3",
+      "streak5_2.mp3",
+      "streak5_3.mp3",
+      "streak5_4.mp3",
+      "streak5_5.mp3",
+      "streak5_6.mp3",
+      "streak5_7.mp3",
+      "streak5_8.mp3"
+    ];
+    const DEFAULT_SFX_STREAK10 = [
+      "streak10_1.mp3",
+      "streak10_2.mp3",
+      "streak10_3.mp3",
+      "streak10_4.mp3",
+      "streak10_5.mp3"
+    ];
+    const SFX_BUZZER_A = "buzzerA.mp3";
+    const SFX_BUZZER_B = "buzzerB.mp3";
+    const SFX_CORRECT_FILE = "correct.mp3";
+    const SFX_OPTION_KEY = "qualities_sfx_enhance";
 
     const BLOCKS = {
       basic: {
@@ -420,11 +471,18 @@
     let score = 0;
     let total = 0;
 
+    let winStreak = 0;
+    let missStreak = 0;
+    let sfxEnhanced = true;
+
     let warmupDone = false;
     let warmupContext = null;
 
     const audio = new Audio();
-    const snippetAudio = new Audio();
+    const sfx = new Audio();
+    const sfxChord = new Audio();
+    const sfxVoice = new Audio();
+    let sfxChordStopToken = 0;
 
     const $ = id => document.getElementById(id);
     const opts = $("opts");
@@ -439,6 +497,59 @@
       const acc = total === 0 ? 0 : Math.round(score / total * 100);
       accuracyEl.textContent = "正答率 " + String(acc).padStart(2,"0") + "%";
       accuracyEl.classList.toggle("good", acc >= 80);
+    }
+
+    function pickRandom(arr){
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function loadSfxOption(){
+      const saved = localStorage.getItem(SFX_OPTION_KEY);
+      if (saved === "off") sfxEnhanced = false;
+      if (saved === "on") sfxEnhanced = true;
+    }
+
+    async function loadJsonArray(url){
+      try{
+        const r = await fetch(url, { cache:"no-store" });
+        if (!r.ok) return [];
+        const data = await r.json();
+        if (!Array.isArray(data)) return [];
+        return data.filter(x => typeof x === "string" && x.toLowerCase().endsWith(".mp3"));
+      }catch{
+        return [];
+      }
+    }
+
+    async function loadSfxLists(){
+      const correctUrl = SFX_CORRECT_DIR + SFX_CORRECT_MANIFEST + SFX_BUSTER;
+      const incorrectUrl = SFX_INCORRECT_DIR + SFX_INCORRECT_MANIFEST + SFX_BUSTER;
+      const streak5Url = SFX_STREAK5_DIR + SFX_STREAK_MANIFEST + SFX_BUSTER;
+      const streak10Url = SFX_STREAK10_DIR + SFX_STREAK_MANIFEST + SFX_BUSTER;
+
+      const [c, w, s5, s10] = await Promise.all([
+        loadJsonArray(correctUrl),
+        loadJsonArray(incorrectUrl),
+        loadJsonArray(streak5Url),
+        loadJsonArray(streak10Url)
+      ]);
+
+      SFX_CORRECT = c.length > 0 ? c : DEFAULT_SFX_CORRECT.slice();
+      SFX_INCORRECT = w.length > 0 ? w : DEFAULT_SFX_INCORRECT.slice();
+      SFX_STREAK5 = s5.length > 0 ? s5 : DEFAULT_SFX_STREAK5.slice();
+      SFX_STREAK10 = s10.length > 0 ? s10 : DEFAULT_SFX_STREAK10.slice();
+
+      if (c.length === 0 || w.length === 0 || s5.length === 0 || s10.length === 0){
+        const msg = [
+          "SFX一覧（manifest.json）が見つからない/空です。",
+          "フォールバックのリストで再生します。",
+          "必要なら assets/sound/correct/manifest.json と",
+          "assets/sound/incorrect/manifest.json と",
+          "assets/sound/streak/streak5/manifest.json と",
+          "assets/sound/streak/streak10/manifest.json を用意してください。"
+        ].join("\n");
+        console.warn(msg);
+      }
     }
 
     function getActiveBlocks(){
@@ -536,18 +647,78 @@
       target.currentTime = 0;
     }
 
+    function stopAudioAfter(audioEl, ms){
+      const token = ++sfxChordStopToken;
+      window.setTimeout(() => {
+        if (token !== sfxChordStopToken) return;
+        audioEl.pause();
+        audioEl.currentTime = 0;
+      }, ms);
+    }
+
     function playAudio(url){
       audio.src = url;
       audio.currentTime = 0;
       audio.play().catch(() => {});
     }
 
-    function playSnippet(url, durationMs){
+    function playSnippet(url, durationMs, audioEl){
       if(!url) return;
-      snippetAudio.src = url;
-      snippetAudio.currentTime = 0;
-      snippetAudio.play().catch(() => {});
-      window.setTimeout(() => stopAudio(snippetAudio), durationMs);
+      audioEl.src = url;
+      audioEl.currentTime = 0;
+      audioEl.play().catch(() => {});
+      stopAudioAfter(audioEl, durationMs);
+    }
+
+    async function playSfx(list, dir, audioEl = sfx){
+      if (!list || list.length === 0) return;
+      const f = pickRandom(list);
+      const url = dir + f + SFX_BUSTER;
+      audioEl.pause();
+      audioEl.currentTime = 0;
+      audioEl.src = url;
+      try { await audioEl.play(); } catch {}
+    }
+
+    async function playFixedSfx(file, dir, audioEl, durationMs){
+      const url = dir + file + SFX_BUSTER;
+      audioEl.pause();
+      audioEl.currentTime = 0;
+      audioEl.src = url;
+      try { await audioEl.play(); } catch {}
+      if (durationMs){
+        stopAudioAfter(audioEl, durationMs);
+      }
+    }
+
+    async function playCorrectSfx(questionUrl){
+      if (!sfxEnhanced){
+        await playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR, sfx);
+        return;
+      }
+      playSnippet(questionUrl, 500, sfxChord);
+      if (winStreak === 5){
+        await playSfx(SFX_STREAK5, SFX_STREAK5_DIR, sfxVoice);
+      }else if (winStreak % 10 === 0){
+        await playSfx(SFX_STREAK10, SFX_STREAK10_DIR, sfxVoice);
+      }
+    }
+
+    async function playIncorrectSfx(){
+      if (!sfxEnhanced){
+        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR, sfx);
+        return;
+      }
+
+      if (missStreak === 1){
+        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR, sfx);
+        return;
+      }
+      if (missStreak === 2){
+        await playFixedSfx(SFX_BUZZER_B, SFX_INCORRECT_DIR, sfx);
+        return;
+      }
+      await playSfx(SFX_INCORRECT, SFX_INCORRECT_DIR, sfx);
     }
 
     async function warmupAudio(){
@@ -578,6 +749,36 @@
       console.log("[qualities] octave:", candidate.octave, "chordId:", candidate.chord.id, "url:", candidate.url);
     }
 
+    function formatPath(path){
+      return path.replace(/^\\.\\//, "");
+    }
+
+    function renderAudioError(details){
+      const chordLabel = details.inversion
+        ? `${details.chordId}_inv${details.inversion}`
+        : details.chordId;
+      const tried = details.triedPaths.slice(0, 10).map(path => `<li>${formatPath(path)}</li>`).join("");
+      const triedBlock = tried ? `
+        <details>
+          <summary>試行候補 (${details.triedPaths.length}件)</summary>
+          <ul>${tried}</ul>
+        </details>` : "";
+
+      const fallbackLine = details.fallbackPath
+        ? `<div>フォールバック: ${formatPath(details.fallbackPath)}</div>`
+        : "";
+
+      status.innerHTML = `
+        <div>音源が見つかりません。再試行してください。</div>
+        <div>ChordID: ${chordLabel}</div>
+        <div>Oct: ${details.octave}</div>
+        <div>参照パス: ${formatPath(details.path)}</div>
+        ${fallbackLine}
+        ${triedBlock}
+      `;
+      status.classList.add("warn");
+    }
+
     async function start(){
       const chords = getActiveChords();
       if(chords.length === 0){
@@ -588,6 +789,8 @@
 
       const chosenChord = chords[Math.floor(Math.random() * chords.length)];
       const candidates = buildCandidates(chosenChord);
+      const referenceCandidate = candidates[0];
+      const triedPaths = candidates.map(candidate => candidate.path);
       const available = await filterExistingCandidates(candidates);
 
       let selected = null;
@@ -605,18 +808,22 @@
             path: fallbackPath,
             url: fallbackUrl
           };
+        }else{
+          renderAudioError({
+            chordId: chosenChord.id,
+            inversion: referenceCandidate ? referenceCandidate.inversion : 0,
+            octave: referenceCandidate ? referenceCandidate.octave : 3,
+            path: referenceCandidate ? referenceCandidate.path : fallbackPath,
+            fallbackPath,
+            triedPaths
+          });
+          locked = true;
+          enableOptions(false);
+          $("btnReplay").disabled = true;
+          $("btnHint").disabled = true;
+          $("btnReveal").disabled = true;
+          return;
         }
-      }
-
-      if(!selected){
-        status.textContent = "音源が見つかりません。再試行してください。";
-        status.classList.add("warn");
-        locked = true;
-        enableOptions(false);
-        $("btnReplay").disabled = true;
-        $("btnHint").disabled = true;
-        $("btnReveal").disabled = true;
-        return;
       }
 
       current = {
@@ -650,26 +857,31 @@
       $("btnReveal").disabled = true;
     }
 
-    function answer(choice, btn){
+    async function answer(choice, btn){
       if(locked) return;
 
       if(choice.id === current.chord.id){
         total += 1;
         score += 1;
+        winStreak += 1;
+        missStreak = 0;
         scoreEl.textContent = score;
         totalEl.textContent = total;
         updateAccuracy();
         btn.classList.add("ok");
         status.textContent = "正解！ 次は出題してください。";
         stopAudio(audio);
-        playSnippet(current.audioUrl, 500);
+        await playCorrectSfx(current.audioUrl);
         endQuestion();
       }else{
         btn.classList.add("ng");
         pendingWrong = true;
+        missStreak += 1;
+        winStreak = 0;
         status.textContent = "不正解… 再挑戦しますか？";
         locked = true;
         enableOptions(false);
+        await playIncorrectSfx();
       }
     }
 
@@ -760,6 +972,8 @@
       };
     }
 
+    loadSfxOption();
+    loadSfxLists();
     ORDER.forEach(bindBlockControls);
     buildOptions();
   })();
