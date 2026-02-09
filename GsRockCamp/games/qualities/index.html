@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Chord Qualities Quiz</title>
   <!--
-  ver1.2.4:
-  - 正解演出を出題音のみで再生（Correct音なし）
+  ver1.2.4a:
+  - 正解時に出題音フェード＋Correct音再生
+  - 出題/効果音のバス分離
   - 答え表示をステータス欄に統合
-  - 演出音のON/OFF切替を追加
   -->
 
   <style>
@@ -256,16 +256,16 @@
   <div class="wrap">
     <h1>
       Chord Qualities Quiz
-      <span class="ver" id="verText">ver1.2.4</span>
+      <span class="ver" id="verText">ver1.2.4a</span>
     </h1>
     <div class="muted">C基準で、コードの「品質（キャラ）」を当てます。</div>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.2.4：正解演出は出題音のみ（Correct音なし）</li>
-        <li>ver1.2.4：答え表示をステータス欄へ移動</li>
-        <li>ver1.2.4：演出音のON/OFF切替</li>
+        <li>ver1.2.4a：正解時に出題音フェード＋Correct音</li>
+        <li>ver1.2.4a：出題/効果音のバス分離</li>
+        <li>ver1.2.4a：答え表示をステータス欄へ移動</li>
       </ul>
     </div>
 
@@ -359,7 +359,7 @@
 
   <script>
   (() => {
-    const VER = "1.2.4";
+    const VER = "1.2.4a";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_BASE = "./audio/";
@@ -473,6 +473,9 @@
     let activeSources = [];
     let bufferCache = new Map();
     const MUTE_URL = "../../assets/sound/system/mute.mp3";
+    let masterGain = null;
+    let questionBusGain = null;
+    let sfxBusGain = null;
     const sfxAudio = new Audio();
     const sfxVoiceAudio = new Audio();
     let questionSource = null;
@@ -717,6 +720,21 @@
         if(warmupContext.state === "suspended"){
           await warmupContext.resume();
         }
+        if(!masterGain){
+          masterGain = warmupContext.createGain();
+          masterGain.gain.value = 1;
+          masterGain.connect(warmupContext.destination);
+        }
+        if(!questionBusGain){
+          questionBusGain = warmupContext.createGain();
+          questionBusGain.gain.value = 1;
+          questionBusGain.connect(masterGain);
+        }
+        if(!sfxBusGain){
+          sfxBusGain = warmupContext.createGain();
+          sfxBusGain.gain.value = 1;
+          sfxBusGain.connect(masterGain);
+        }
         return warmupContext;
       }catch(e){
         if (LOG_ENABLED) console.warn("AudioContextの初期化に失敗しました。");
@@ -738,7 +756,7 @@
       questionGain.gain.cancelScheduledValues(now);
       const current = questionGain.gain.getValueAtTime(now);
       questionGain.gain.setValueAtTime(current, now);
-      questionGain.gain.linearRampToValueAtTime(0, now + 0.03);
+      questionGain.gain.linearRampToValueAtTime(0, now + 0.2);
       questionMuted = true;
     }
 
@@ -790,7 +808,11 @@
       const mainSource = ctx.createBufferSource();
       const gainNode = ctx.createGain();
       mainSource.buffer = mainBuffer;
-      mainSource.connect(gainNode).connect(ctx.destination);
+      if (trackQuestion){
+        mainSource.connect(gainNode).connect(questionBusGain);
+      }else{
+        mainSource.connect(gainNode).connect(ctx.destination);
+      }
       gainNode.gain.setValueAtTime(0, now);
       gainNode.gain.linearRampToValueAtTime(1, now + 0.008);
       mainSource.start(startTime);
@@ -844,11 +866,12 @@
     }
 
     async function playCorrectSfx(questionUrl){
-      if (!sfxEnhanced){
+      if (sfxEnhanced){
+        await playSnippet(questionUrl, 500);
+      }else{
         playImmediateSfx(SFX_CORRECT_DIR + SFX_CORRECT_FILE + SFX_BUSTER, sfxAudio);
-        return;
       }
-      await playSnippet(questionUrl, 500);
+      await playCorrectSfxWithEnvelope();
       if (winStreak === 5){
         if (SFX_STREAK5.length > 0){
           playImmediateSfx(SFX_STREAK5_DIR + pickRandom(SFX_STREAK5) + SFX_BUSTER, sfxVoiceAudio);
@@ -875,6 +898,24 @@
         return;
       }
       playImmediateSfx(SFX_INCORRECT_DIR + pickRandom(SFX_INCORRECT) + SFX_BUSTER, sfxAudio);
+    }
+
+    async function playCorrectSfxWithEnvelope(){
+      const ctx = await ensureAudioContext();
+      if (!ctx) return;
+      const buffer = await loadBuffer(SFX_CORRECT_DIR + SFX_CORRECT_FILE + SFX_BUSTER);
+      if (!buffer) return;
+      const source = ctx.createBufferSource();
+      const gainNode = ctx.createGain();
+      source.buffer = buffer;
+      source.connect(gainNode).connect(sfxBusGain);
+      const now = ctx.currentTime;
+      gainNode.gain.setValueAtTime(1, now);
+      gainNode.gain.setValueAtTime(1, now + 0.3);
+      gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
+      source.start(now);
+      source.stop(now + buffer.duration + 0.1);
+      activeSources.push(source);
     }
 
     async function warmupAudio(){
