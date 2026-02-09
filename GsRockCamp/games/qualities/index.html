@@ -475,6 +475,8 @@
     const MUTE_URL = "../../assets/sound/system/mute.mp3";
     const sfxAudio = new Audio();
     const sfxVoiceAudio = new Audio();
+    let questionSource = null;
+    let questionGain = null;
 
     const $ = id => document.getElementById(id);
     const opts = $("opts");
@@ -729,6 +731,17 @@
       activeSources = [];
     }
 
+    function stopQuestionAudio(){
+      if (!questionSource || !questionGain || !warmupContext) return;
+      const now = warmupContext.currentTime;
+      questionGain.gain.cancelScheduledValues(now);
+      questionGain.gain.setValueAtTime(questionGain.gain.value, now);
+      questionGain.gain.linearRampToValueAtTime(0, now + 0.02);
+      questionSource.stop(now + 0.03);
+      questionSource = null;
+      questionGain = null;
+    }
+
     async function loadBuffer(url){
       if (bufferCache.has(url)) return bufferCache.get(url);
       const ctx = await ensureAudioContext();
@@ -745,9 +758,12 @@
       }
     }
 
-    async function playSequence(url, durationMs){
+    async function playSequence(url, durationMs, trackQuestion){
       const ctx = await ensureAudioContext();
       if (!ctx) return false;
+      if (trackQuestion){
+        stopQuestionAudio();
+      }
       stopActiveSources();
 
       if (!muteBuffer){
@@ -772,35 +788,42 @@
       }
 
       const mainSource = ctx.createBufferSource();
+      const gainNode = ctx.createGain();
       mainSource.buffer = mainBuffer;
-      mainSource.connect(ctx.destination);
+      mainSource.connect(gainNode).connect(ctx.destination);
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(1, now + 0.008);
       mainSource.start(startTime);
       if (durationMs){
         mainSource.stop(startTime + durationMs / 1000);
       }
       activeSources.push(mainSource);
+      if (trackQuestion){
+        questionSource = mainSource;
+        questionGain = gainNode;
+      }
       return true;
     }
 
     async function playAudio(url){
-      return playSequence(url);
+      return playSequence(url, null, true);
     }
 
     async function playSnippet(url, durationMs){
       if(!url) return;
-      await playSequence(url, durationMs);
+      await playSequence(url, durationMs, false);
     }
 
     async function playSfx(list, dir){
       if (!list || list.length === 0) return;
       const f = pickRandom(list);
       const url = dir + f + SFX_BUSTER;
-      await playSequence(url);
+      await playSequence(url, null, false);
     }
 
     async function playFixedSfx(file, dir, durationMs){
       const url = dir + file + SFX_BUSTER;
-      await playSequence(url, durationMs);
+      await playSequence(url, durationMs, false);
     }
 
     function playImmediateSfx(url, audioEl){
@@ -812,7 +835,7 @@
 
     async function playCorrectSfx(questionUrl){
       if (!sfxEnhanced){
-        await playSnippet(questionUrl, 500);
+        playImmediateSfx(SFX_CORRECT_DIR + SFX_CORRECT_FILE + SFX_BUSTER, sfxAudio);
         return;
       }
       await playSnippet(questionUrl, 500);
@@ -1006,7 +1029,7 @@
         totalEl.textContent = total;
         updateAccuracy();
         status.textContent = `正解！ 答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
-        stopActiveSources();
+        stopQuestionAudio();
         await playCorrectSfx(current.audioUrl);
         endQuestion();
       }else{
@@ -1014,8 +1037,8 @@
         missStreak += 1;
         winStreak = 0;
         status.textContent = "不正解… 再挑戦しますか？";
-        locked = true;
-        enableOptions(false);
+        locked = false;
+        enableOptions(true);
         await playIncorrectSfx();
       }
     }
