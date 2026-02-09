@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Chord Qualities Quiz</title>
   <!--
-  ver1.2.2:
-  - 出題が止まるケースを再生トライ型に改善
-  - 音源エラーに候補/フォールバック情報を表示
-  - SFXをdiatonic相当の再生仕様に統一
+  ver1.2.3:
+  - Bluetooth音切れ対策のkeep-alive導入
+  - ヒント音を転回形→ルート音へ統一
+  - 答え欄に音名並びを表示
   -->
 
   <style>
@@ -256,16 +256,16 @@
   <div class="wrap">
     <h1>
       Chord Qualities Quiz
-      <span class="ver" id="verText">ver1.2.2</span>
+      <span class="ver" id="verText">ver1.2.3</span>
     </h1>
     <div class="muted">C基準で、コードの「品質（キャラ）」を当てます。</div>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.2.2：出題停止を回避する再生トライ型に改善</li>
-        <li>ver1.2.2：音源エラーに候補/フォールバック情報を表示</li>
-        <li>ver1.2.2：SFXをdiatonic相当の再生仕様に統一</li>
+        <li>ver1.2.3：Bluetooth音切れ対策のkeep-alive導入</li>
+        <li>ver1.2.3：転回形のヒント音をルート音に統一</li>
+        <li>ver1.2.3：答え欄に音名並びを表示</li>
       </ul>
     </div>
 
@@ -321,11 +321,6 @@
         </div>
       </div>
 
-      <div class="opt-row">
-        <button class="btn" id="devBtn" disabled><span>D</span><small>開発中</small></button>
-        <div></div>
-      </div>
-
       <div class="note">※ 転回形はボイシング差分を含みます。</div>
 
       <div class="btn-row">
@@ -364,7 +359,7 @@
 
   <script>
   (() => {
-    const VER = "1.2.2";
+    const VER = "1.2.3";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_BASE = "./audio/";
@@ -474,6 +469,9 @@
 
     let warmupDone = false;
     let warmupContext = null;
+    let keepAliveOsc = null;
+    let keepAliveGain = null;
+    let keepAliveEnabled = true;
 
     const audio = new Audio();
     const sfx = new Audio();
@@ -496,6 +494,41 @@
       accuracyEl.classList.toggle("good", acc >= 80);
     }
 
+    const CHORD_TONES = {
+      C: ["C","E","G"],
+      Cm: ["C","Eb","G"],
+      C7: ["C","E","G","Bb"],
+      Cm7: ["C","Eb","G","Bb"],
+      Cmaj7: ["C","E","G","B"],
+      Csus4: ["C","F","G"],
+      Cadd9: ["C","E","G","D"],
+      Cdim: ["C","Eb","Gb"],
+      Caug: ["C","E","G#"],
+      CmM7: ["C","Eb","G","B"],
+      Csus2: ["C","D","G"],
+      C7sus2: ["C","D","G","Bb"],
+      C6: ["C","E","G","A"],
+      Cm6: ["C","Eb","G","A"],
+      C9: ["C","E","Bb","D"],
+      Cmaj9: ["C","E","B","D"],
+      Cm9: ["C","Eb","Bb","D"],
+      Cdim7: ["C","Eb","Gb","A"]
+    };
+
+    const ANSWER_VOICINGS = {
+      "Cadd9_0": "C-E-G-D",
+      "Cadd9_1": "E-G-C-D",
+      "Cadd9_2": "G-C-D-E",
+      "C9_0": "C-E-Bb-D",
+      "C9_1": "E-Bb-C-D",
+      "C9_2": "Bb-C-D-E",
+      "C9_3": "D-C-E-Bb",
+      "Cmaj9_0": "C-E-B-D",
+      "Cmaj9_1": "E-B-C-D",
+      "Cmaj9_2": "B-C-D-E",
+      "Cmaj9_3": "D-E-B-C"
+    };
+
     function pickRandom(arr){
       return arr[Math.floor(Math.random() * arr.length)];
     }
@@ -508,6 +541,18 @@
       }catch(e){
         if (LOG_ENABLED) console.warn("localStorage利用不可のためSFX設定はデフォルトを使用します。");
       }
+      keepAliveEnabled = sfxEnhanced;
+      if (!keepAliveEnabled) stopKeepAlive();
+    }
+
+    function getVoicingText(chordId, inversion){
+      const key = `${chordId}_${inversion}`;
+      if (ANSWER_VOICINGS[key]) return ANSWER_VOICINGS[key];
+      const tones = CHORD_TONES[chordId];
+      if (!tones) return "";
+      const rot = inversion % tones.length;
+      const ordered = tones.slice(rot).concat(tones.slice(0, rot));
+      return ordered.join("-");
     }
 
     async function loadJsonArray(url){
@@ -662,7 +707,42 @@
       }, ms);
     }
 
+    async function ensureAudioContext(){
+      try{
+        if(!warmupContext){
+          warmupContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if(warmupContext.state === "suspended"){
+          await warmupContext.resume();
+        }
+        if(!keepAliveEnabled) return;
+        if(!keepAliveOsc){
+          keepAliveGain = warmupContext.createGain();
+          keepAliveGain.gain.value = 0.00001;
+          keepAliveOsc = warmupContext.createOscillator();
+          keepAliveOsc.frequency.value = 440;
+          keepAliveOsc.connect(keepAliveGain).connect(warmupContext.destination);
+          keepAliveOsc.start();
+        }
+      }catch(e){
+        if (LOG_ENABLED) console.warn("AudioContextの初期化に失敗しました。");
+      }
+    }
+
+    function stopKeepAlive(){
+      if(keepAliveOsc){
+        try{ keepAliveOsc.stop(); }catch(e){}
+        keepAliveOsc.disconnect();
+        keepAliveOsc = null;
+      }
+      if(keepAliveGain){
+        keepAliveGain.disconnect();
+        keepAliveGain = null;
+      }
+    }
+
     function playAudio(url){
+      ensureAudioContext();
       audio.src = url;
       audio.currentTime = 0;
       audio.play().catch(() => {});
@@ -670,6 +750,7 @@
 
     function attemptPlay(url){
       return new Promise(resolve => {
+        ensureAudioContext();
         let settled = false;
         const cleanup = () => {
           audio.oncanplaythrough = null;
@@ -701,6 +782,7 @@
 
     function playSnippet(url, durationMs, audioEl){
       if(!url) return;
+      ensureAudioContext();
       audioEl.src = url;
       audioEl.currentTime = 0;
       audioEl.play().catch(() => {});
@@ -709,6 +791,7 @@
 
     async function playSfx(list, dir, audioEl = sfx){
       if (!list || list.length === 0) return;
+      await ensureAudioContext();
       const f = pickRandom(list);
       const url = dir + f + SFX_BUSTER;
       audioEl.pause();
@@ -719,6 +802,7 @@
 
     async function playFixedSfx(file, dir, audioEl, durationMs){
       const url = dir + file + SFX_BUSTER;
+      await ensureAudioContext();
       audioEl.pause();
       audioEl.currentTime = 0;
       audioEl.src = url;
@@ -761,24 +845,7 @@
     async function warmupAudio(){
       if(warmupDone) return;
       warmupDone = true;
-      try{
-        if(!warmupContext){
-          warmupContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if(warmupContext.state === "suspended"){
-          await warmupContext.resume();
-        }
-        const osc = warmupContext.createOscillator();
-        const gain = warmupContext.createGain();
-        gain.gain.value = 0;
-        osc.frequency.value = 440;
-        osc.connect(gain).connect(warmupContext.destination);
-        osc.start();
-        osc.stop(warmupContext.currentTime + 0.05);
-        await new Promise(resolve => setTimeout(resolve, 60));
-      }catch(e){
-        warmupDone = true;
-      }
+      await ensureAudioContext();
     }
 
     function logSelection(candidate){
@@ -939,6 +1006,7 @@
         updateAccuracy();
         btn.classList.add("ok");
         status.textContent = "正解！ 次は出題してください。";
+        answerText.textContent = `答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
         stopAudio(audio);
         await playCorrectSfx(current.audioUrl);
         endQuestion();
@@ -981,7 +1049,7 @@
       totalEl.textContent = total;
       updateAccuracy();
       pendingWrong = false;
-      answerText.textContent = "答え：" + current.chord.label;
+      answerText.textContent = `答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
       status.textContent = "答えを表示しました";
       endQuestion();
     };
@@ -990,6 +1058,12 @@
       if(!current) return;
       hintArea.textContent = current.chord.hint;
       hintArea.style.display = "block";
+      if (current.inversion > 0){
+        const rootPath = buildAudioPath(current.chord.id, 3, 0);
+        playAudio(withCache(rootPath));
+      }else{
+        playAudio(current.audioUrl);
+      }
     };
 
     $("btnC").onclick = () => {
