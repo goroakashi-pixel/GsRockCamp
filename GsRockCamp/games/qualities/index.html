@@ -473,6 +473,8 @@
     let activeSources = [];
     let bufferCache = new Map();
     const MUTE_URL = "../../assets/sound/system/mute.mp3";
+    const sfxAudio = new Audio();
+    const sfxVoiceAudio = new Audio();
 
     const $ = id => document.getElementById(id);
     const opts = $("opts");
@@ -783,34 +785,45 @@
       await playSequence(url, durationMs);
     }
 
+    function playImmediateSfx(url, audioEl){
+      audioEl.pause();
+      audioEl.currentTime = 0;
+      audioEl.src = url;
+      audioEl.play().catch(() => {});
+    }
+
     async function playCorrectSfx(questionUrl){
+      playImmediateSfx(SFX_CORRECT_DIR + SFX_CORRECT_FILE + SFX_BUSTER, sfxAudio);
       if (!sfxEnhanced){
-        await playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR);
         return;
       }
       await playSnippet(questionUrl, 500);
       if (winStreak === 5){
-        await playSfx(SFX_STREAK5, SFX_STREAK5_DIR);
+        if (SFX_STREAK5.length > 0){
+          playImmediateSfx(SFX_STREAK5_DIR + pickRandom(SFX_STREAK5) + SFX_BUSTER, sfxVoiceAudio);
+        }
       }else if (winStreak % 10 === 0){
-        await playSfx(SFX_STREAK10, SFX_STREAK10_DIR);
+        if (SFX_STREAK10.length > 0){
+          playImmediateSfx(SFX_STREAK10_DIR + pickRandom(SFX_STREAK10) + SFX_BUSTER, sfxVoiceAudio);
+        }
       }
     }
 
     async function playIncorrectSfx(){
       if (!sfxEnhanced){
-        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR);
+        playImmediateSfx(SFX_INCORRECT_DIR + SFX_BUZZER_A + SFX_BUSTER, sfxAudio);
         return;
       }
 
       if (missStreak === 1){
-        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR);
+        playImmediateSfx(SFX_INCORRECT_DIR + SFX_BUZZER_A + SFX_BUSTER, sfxAudio);
         return;
       }
       if (missStreak === 2){
-        await playFixedSfx(SFX_BUZZER_B, SFX_INCORRECT_DIR);
+        playImmediateSfx(SFX_INCORRECT_DIR + SFX_BUZZER_B + SFX_BUSTER, sfxAudio);
         return;
       }
-      await playSfx(SFX_INCORRECT, SFX_INCORRECT_DIR);
+      playImmediateSfx(SFX_INCORRECT_DIR + pickRandom(SFX_INCORRECT) + SFX_BUSTER, sfxAudio);
     }
 
     async function warmupAudio(){
@@ -975,14 +988,12 @@
         scoreEl.textContent = score;
         totalEl.textContent = total;
         updateAccuracy();
-        btn.classList.add("ok");
         status.textContent = "正解！ 次は出題してください。";
         answerText.textContent = `答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
-        stopAudio(audio);
+        stopActiveSources();
         await playCorrectSfx(current.audioUrl);
         endQuestion();
       }else{
-        btn.classList.add("ng");
         pendingWrong = true;
         missStreak += 1;
         winStreak = 0;
