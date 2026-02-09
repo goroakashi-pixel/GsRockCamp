@@ -783,7 +783,7 @@
     }
 
     function formatPath(path){
-      return path.replace(/^\\.\\//, "");
+      return path.startsWith("./") ? path.slice(2) : path;
     }
 
     function renderAudioError(details){
