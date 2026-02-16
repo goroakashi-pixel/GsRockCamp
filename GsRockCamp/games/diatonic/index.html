@@ -241,12 +241,16 @@
   <div class="wrap">
     <h1>
       Diatonic Chord Quiz
-      <span class="ver" id="verText">ver1.2.18</span>
+      <span class="ver" id="verText">ver1.2.19</span>
     </h1>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
+        <li>ver1.2.19：正解演出仕様をQualitiesと統一</li>
+        <li>スニペット500ms＋streak同時再生実装</li>
+        <li>correctは即再生（エンベロープ削除）</li>
+        <li>streakは自然終了まで停止しない設計</li>
         <li>ver1.2.18：WebAudio統一再生・mp3デコードキャッシュ・Bluetoothスリープ対策を実装</li>
         <li>ver1.2.17：Bluetooth向けに極小ホワイトノイズのオーディオキープアライブを追加</li>
         <li>ver1.2.16：EasyのBm-5除外トグル、選択肢表示のコード/ディグリー切替、不正解後も回答継続</li>
@@ -390,7 +394,7 @@
     // -------------------------
     // Version / Cache buster
     // -------------------------
-    const VER = "1.2.18";
+    const VER = "1.2.19";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_DIR = "audio/";
@@ -544,8 +548,10 @@
     let appAudioContext = null;
     let keepAliveNoiseSource = null;
     let keepAliveGainNode = null;
+    let questionBus = null;
+    let sfxBus = null;
     const decodedAudioCache = new Map();
-    const activeAudioSources = { player:null, sfx:null, sfxChord:null, sfxVoice:null };
+    const activeAudioSources = { player:null, sfx:null, sfxChord:null };
 
     function getChannelName(audioEl){
       if (audioEl === sfx) return "sfx";
@@ -554,12 +560,43 @@
       return "player";
     }
 
-    function stopChannel(channelName){
-      const src = activeAudioSources[channelName];
-      if (!src) return;
-      try{ src.stop(0); }catch{}
-      try{ src.disconnect(); }catch{}
-      activeAudioSources[channelName] = null;
+    function getChannelBus(channelName){
+      return channelName === "player" || channelName === "sfxChord" ? questionBus : sfxBus;
+    }
+
+    async function stopChannel(channelName, fadeSec = 0){
+      const active = activeAudioSources[channelName];
+      if (!active) return;
+      const ctx = appAudioContext;
+      if (!ctx){
+        activeAudioSources[channelName] = null;
+        return;
+      }
+
+      const now = ctx.currentTime;
+      if (fadeSec > 0){
+        try{
+          active.gain.gain.cancelScheduledValues(now);
+          active.gain.gain.setValueAtTime(active.gain.gain.value, now);
+          active.gain.gain.linearRampToValueAtTime(0, now + fadeSec);
+        }catch{}
+        window.setTimeout(() => {
+          try{ active.source.stop(0); }catch{}
+          try{ active.source.disconnect(); }catch{}
+          try{ active.gain.disconnect(); }catch{}
+          if (activeAudioSources[channelName] === active) activeAudioSources[channelName] = null;
+        }, Math.ceil(fadeSec * 1000) + 20);
+        return;
+      }
+
+      try{ active.source.stop(0); }catch{}
+      try{ active.source.disconnect(); }catch{}
+      try{ active.gain.disconnect(); }catch{}
+      if (activeAudioSources[channelName] === active) activeAudioSources[channelName] = null;
+    }
+
+    async function stopQuestionAudio(){
+      await stopChannel("player", 0.2);
     }
 
     async function initKeepAliveAudio(){
@@ -582,8 +619,15 @@
           keepAliveGainNode = appAudioContext.createGain();
           keepAliveGainNode.gain.value = 0.0002; // 約-74dB
 
+          questionBus = appAudioContext.createGain();
+          questionBus.gain.value = 1;
+          sfxBus = appAudioContext.createGain();
+          sfxBus.gain.value = 1;
+
           keepAliveNoiseSource.connect(keepAliveGainNode);
           keepAliveGainNode.connect(appAudioContext.destination);
+          questionBus.connect(appAudioContext.destination);
+          sfxBus.connect(appAudioContext.destination);
           keepAliveNoiseSource.start();
         }
 
@@ -614,7 +658,7 @@
       }
     }
 
-    async function playDecodedUrl(url, channelName, durationMs){
+    async function playDecodedUrl(url, channelName, opts = {}){
       try{
         const ctx = await initKeepAliveAudio();
         if (!ctx) return false;
@@ -622,20 +666,36 @@
         const buffer = await getDecodedAudioBuffer(url);
         if (!buffer) return false;
 
-        stopChannel(channelName);
+        const trackActive = opts.trackActive !== false;
+        if (trackActive) await stopChannel(channelName);
+
+        const offsetSec = Math.max(0, (opts.offsetSec || 0));
+        const durationSec = opts.durationMs ? Math.max(0.01, opts.durationMs / 1000) : Math.max(0.01, buffer.duration - offsetSec);
+        const fadeOutSec = opts.fadeOutMs ? Math.max(0, opts.fadeOutMs / 1000) : 0;
+        const endAt = ctx.currentTime + durationSec;
 
         const src = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        gain.gain.value = 1;
         src.buffer = buffer;
-        src.connect(ctx.destination);
-        activeAudioSources[channelName] = src;
+        src.connect(gain);
+        gain.connect(getChannelBus(channelName) || ctx.destination);
+        if (trackActive) activeAudioSources[channelName] = { source:src, gain };
 
         src.onended = () => {
-          if (activeAudioSources[channelName] === src) activeAudioSources[channelName] = null;
+          if (trackActive && activeAudioSources[channelName]?.source === src) activeAudioSources[channelName] = null;
           try{ src.disconnect(); }catch{}
+          try{ gain.disconnect(); }catch{}
         };
 
-        src.start();
-        if (durationMs) src.stop(ctx.currentTime + (durationMs / 1000));
+        src.start(ctx.currentTime, offsetSec, durationSec);
+        if (fadeOutSec > 0){
+          const fadeStart = Math.max(ctx.currentTime, endAt - fadeOutSec);
+          gain.gain.setValueAtTime(1, ctx.currentTime);
+          gain.gain.setValueAtTime(1, fadeStart);
+          gain.gain.linearRampToValueAtTime(0, endAt);
+        }
+        src.stop(endAt + 0.01);
         return true;
       }catch{
         return false;
@@ -1078,34 +1138,38 @@
       return await playDecodedUrl(url, "player");
     }
 
-    async function playSfx(list, dir, audioEl = sfx){
+    async function playSfx(list, dir, audioEl = sfx, keepNaturalEnd = false){
       if (!list || list.length === 0) return;
       const f = pickRandom(list);
       const url = dir + f + SFX_BUSTER;
-      await playDecodedUrl(url, getChannelName(audioEl));
+      const channel = keepNaturalEnd ? "streak" : getChannelName(audioEl);
+      await playDecodedUrl(url, channel, { trackActive: !keepNaturalEnd });
     }
 
     async function playFixedSfx(file, dir, audioEl, durationMs){
       const url = dir + file + SFX_BUSTER;
-      await playDecodedUrl(url, getChannelName(audioEl), durationMs);
+      await playDecodedUrl(url, getChannelName(audioEl), { durationMs });
     }
 
     async function playSnippet(file, dir, audioEl){
       const url = dir + file + CACHE_BUSTER;
-      await playDecodedUrl(url, getChannelName(audioEl), 500);
+      await playDecodedUrl(url, getChannelName(audioEl), { offsetSec:0, durationMs:500, fadeOutMs:100, trackActive:false });
     }
 
     async function playCorrectSfx(questionFile){
+      await stopQuestionAudio();
       if (!sfxEnhanced){
         await playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR, sfx);
         return;
       }
-      await playSnippet(questionFile, AUDIO_DIR, sfxChord);
+
+      const tasks = [playSnippet(questionFile, AUDIO_DIR, sfxChord)];
       if (winStreak === 5){
-        await playSfx(SFX_STREAK5, SFX_STREAK5_DIR, sfxVoice);
+        tasks.push(playSfx(SFX_STREAK5, SFX_STREAK5_DIR, sfxVoice, true));
       }else if (winStreak % 10 === 0){
-        await playSfx(SFX_STREAK10, SFX_STREAK10_DIR, sfxVoice);
+        tasks.push(playSfx(SFX_STREAK10, SFX_STREAK10_DIR, sfxVoice, true));
       }
+      await Promise.all(tasks);
     }
 
     async function playIncorrectSfx(){
@@ -1272,7 +1336,6 @@
 
             winStreak += 1;
             missStreak = 0;
-            stopChannel("player");
             await playCorrectSfx(current.file);
             replayIsRetry = false;
 
