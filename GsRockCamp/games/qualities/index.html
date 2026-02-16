@@ -951,13 +951,15 @@
         }
         lastTried = candidate;
         const played = await playAudio(candidate.url);
+        if (ticket !== questionTicket || phase !== "answering" || !current || current.chord.id !== chosenChord.id){
+          if (played) stopChannel("player", 0);
+          return;
+        }
         if (played){
-          if (ticket === questionTicket && current && current.chord.id === chosenChord.id){
-            current.audioUrl = candidate.url;
-            current.octave = candidate.octave;
-            current.inversion = candidate.inversion;
-            logSelection(candidate);
-          }
+          current.audioUrl = candidate.url;
+          current.octave = candidate.octave;
+          current.inversion = candidate.inversion;
+          logSelection(candidate);
           return;
         }
       }
@@ -1009,9 +1011,9 @@
 
       current = {
         chord: selected.chord,
-        audioUrl: selected.url,
-        octave: selected.octave,
-        inversion: selected.inversion
+        audioUrl: fallbackCandidate.url,
+        octave: fallbackCandidate.octave,
+        inversion: fallbackCandidate.inversion
       };
 
       phase = "answering";
@@ -1053,6 +1055,7 @@
         scoreEl.textContent = score;
         updateAccuracy();
         status.textContent = `正解！ 答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
+        questionTicket += 1;
         stopChannel("player", 0.2);
         playCorrectBySetting(current.audioUrl);
         endQuestion();
@@ -1087,12 +1090,6 @@
       if(!current || phase !== "answering") return;
       hintArea.textContent = current.chord.hint;
       hintArea.style.display = "block";
-      if (current.inversion > 0){
-        const rootPath = buildAudioPath(current.chord.id, 3, 0);
-        playHintAudio(withCache(rootPath));
-      }else{
-        playHintAudio(current.audioUrl);
-      }
     };
 
     $("btnC").onclick = () => {
