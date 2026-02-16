@@ -463,6 +463,7 @@
     // phase: idle | answering
     let phase = "idle";
     let current = null;
+    let questionTicket = 0;
 
     let score = 0;
     let total = 0;
@@ -646,26 +647,13 @@
       return `${path}${CACHE_BUSTER}`;
     }
 
-    async function checkUrl(url){
-      try{
-        const res = await fetch(url, { method: "HEAD" });
-        return res.ok;
-      }catch(e){
-        return null;
+    function shuffleCandidates(candidates){
+      const arr = candidates.slice();
+      for(let i = arr.length - 1; i > 0; i -= 1){
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
       }
-    }
-
-    async function filterExistingCandidates(candidates){
-      let hadError = false;
-      const checks = await Promise.all(candidates.map(async candidate => {
-        const ok = await checkUrl(candidate.url);
-        if (ok === null) hadError = true;
-        return ok ? candidate : null;
-      }));
-      return {
-        available: checks.filter(Boolean),
-        hadError
-      };
+      return arr;
     }
 
     function buildCandidates(chord){
@@ -955,7 +943,46 @@
       status.classList.add("warn");
     }
 
-    async function start(){
+    async function tryPlayQuestionCandidates(chosenChord, candidates, ticket, triedPaths, fallbackPath){
+      let lastTried = candidates[0] || null;
+      for (const candidate of candidates){
+        if (ticket !== questionTicket || phase !== "answering" || !current || current.chord.id !== chosenChord.id){
+          return;
+        }
+        lastTried = candidate;
+        const played = await playAudio(candidate.url);
+        if (played){
+          if (ticket === questionTicket && current && current.chord.id === chosenChord.id){
+            current.audioUrl = candidate.url;
+            current.octave = candidate.octave;
+            current.inversion = candidate.inversion;
+            logSelection(candidate);
+          }
+          return;
+        }
+      }
+
+      if (ticket !== questionTicket || phase !== "answering" || !current || current.chord.id !== chosenChord.id){
+        return;
+      }
+
+      renderAudioError({
+        chordId: chosenChord.id,
+        inversion: lastTried ? lastTried.inversion : 0,
+        octave: lastTried ? lastTried.octave : 3,
+        path: lastTried ? lastTried.path : fallbackPath,
+        fallbackPath,
+        triedPaths
+      });
+      phase = "idle";
+      current = null;
+      enableOptions(false);
+      $("btnReplay").disabled = true;
+      $("btnHint").disabled = true;
+      $("btnReveal").disabled = true;
+    }
+
+    function start(){
       const chords = getActiveChords();
       if(chords.length === 0){
         status.textContent = "アクティブなセットがありません。";
@@ -964,78 +991,21 @@
       }
 
       const chosenChord = chords[Math.floor(Math.random() * chords.length)];
-      const candidates = buildCandidates(chosenChord);
-      const referenceCandidate = candidates[0];
-      const triedPaths = candidates.map(candidate => candidate.path);
-      const { available, hadError } = await filterExistingCandidates(candidates);
-
-      status.textContent = "出題中";
-      status.classList.remove("warn");
-
-      let selected = null;
-      if(available.length > 0){
-        selected = available[Math.floor(Math.random() * available.length)];
-      }else if (hadError && candidates.length > 0){
-        selected = candidates[Math.floor(Math.random() * candidates.length)];
-      }else{
-        const fallbackPath = buildAudioPath(chosenChord.id, 3, 0);
-        const fallbackUrl = withCache(fallbackPath);
-        const exists = await checkUrl(fallbackUrl);
-        if(exists){
-          selected = {
-            chord: chosenChord,
-            octave: 3,
-            inversion: 0,
-            path: fallbackPath,
-            url: fallbackUrl
-          };
-        }else{
-          renderAudioError({
-            chordId: chosenChord.id,
-            inversion: referenceCandidate ? referenceCandidate.inversion : 0,
-            octave: referenceCandidate ? referenceCandidate.octave : 3,
-            path: referenceCandidate ? referenceCandidate.path : fallbackPath,
-            fallbackPath,
-            triedPaths
-          });
-          phase = "idle";
-          enableOptions(false);
-          $("btnReplay").disabled = true;
-          $("btnHint").disabled = true;
-          $("btnReveal").disabled = true;
-          return;
-        }
-      }
-
+      const baseCandidates = buildCandidates(chosenChord);
       const fallbackPath = buildAudioPath(chosenChord.id, 3, 0);
-      const fallbackUrl = withCache(fallbackPath);
-      const played = await playAudio(selected.url);
-      if (!played){
-        const fallbackPlayed = await playAudio(fallbackUrl);
-        if (!fallbackPlayed){
-          renderAudioError({
-            chordId: chosenChord.id,
-            inversion: selected.inversion,
-            octave: selected.octave,
-            path: selected.path,
-            fallbackPath,
-            triedPaths
-          });
-          phase = "idle";
-          enableOptions(false);
-          $("btnReplay").disabled = true;
-          $("btnHint").disabled = true;
-          $("btnReveal").disabled = true;
-          return;
-        }
-        selected = {
-          chord: chosenChord,
-          octave: 3,
-          inversion: 0,
-          path: fallbackPath,
-          url: fallbackUrl
-        };
-      }
+      const fallbackCandidate = {
+        chord: chosenChord,
+        octave: 3,
+        inversion: 0,
+        path: fallbackPath,
+        url: withCache(fallbackPath)
+      };
+      const allCandidates = baseCandidates.some(c => c.url === fallbackCandidate.url)
+        ? baseCandidates.slice()
+        : baseCandidates.concat([fallbackCandidate]);
+      const orderedCandidates = shuffleCandidates(allCandidates);
+      const selected = orderedCandidates[0] || fallbackCandidate;
+      const triedPaths = orderedCandidates.map(candidate => candidate.path);
 
       current = {
         chord: selected.chord,
@@ -1045,14 +1015,20 @@
       };
 
       phase = "answering";
+      questionTicket += 1;
+      const ticket = questionTicket;
+
+      status.textContent = "出題中";
+      status.classList.remove("warn");
       hintArea.style.display = "none";
       hintArea.textContent = "";
       [...opts.children].forEach(b => b.classList.remove("ok", "ng"));
       enableOptions(true);
-      logSelection(selected);
       $("btnReplay").disabled = false;
       $("btnHint").disabled = false;
       $("btnReveal").disabled = false;
+
+      tryPlayQuestionCandidates(chosenChord, orderedCandidates, ticket, triedPaths, fallbackPath).catch(() => {});
     }
 
     function endQuestion(){
