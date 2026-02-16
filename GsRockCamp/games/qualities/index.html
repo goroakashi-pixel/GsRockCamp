@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Chord Qualities Quiz</title>
   <!--
-  ver1.2.6:
-  - Diatonicと正解演出仕様を統一
-  - correct即再生へ変更
-  - スニペット＋streak同時再生方式
-  - streakは自然終了まで停止しない設計
+  ver1.2.7:
+  - 正解時挙動をDiatonicと完全一致
+  - phase管理方式へ統一
+  - streak自然終了方式へ変更
+  - 正解演出フローを統一
+  - 不要ロック処理削除
   -->
 
   <style>
@@ -257,17 +258,18 @@
   <div class="wrap">
     <h1>
       Chord Qualities Quiz
-      <span class="ver" id="verText">ver1.2.6</span>
+      <span class="ver" id="verText">ver1.2.7</span>
     </h1>
     <div class="muted">C基準で、コードの「品質（キャラ）」を当てます。</div>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.2.6：Diatonicと正解演出仕様を統一</li>
-        <li>ver1.2.6：correct即再生へ変更</li>
-        <li>ver1.2.6：スニペット＋streak同時再生方式</li>
-        <li>ver1.2.6：streakは自然終了まで停止しない設計</li>
+        <li>ver1.2.7：正解時挙動をDiatonicと完全一致</li>
+        <li>ver1.2.7：phase管理方式へ統一</li>
+        <li>ver1.2.7：streak自然終了方式へ変更</li>
+        <li>ver1.2.7：正解演出フローを統一</li>
+        <li>ver1.2.7：不要ロック処理削除</li>
       </ul>
     </div>
 
@@ -361,7 +363,7 @@
 
   <script>
   (() => {
-    const VER = "1.2.6";
+    const VER = "1.2.7";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_BASE = "./audio/";
@@ -458,9 +460,9 @@
 
     const ORDER = ["basic", "plus", "hard"];
 
+    // phase: idle | answering
+    let phase = "idle";
     let current = null;
-    let locked = true;
-    let pendingWrong = false;
 
     let score = 0;
     let total = 0;
@@ -477,8 +479,6 @@
     let sfxBusGain = null;
     let keepAliveSource = null;
     let keepAliveGain = null;
-    const sfxAudio = new Audio();
-    const sfxVoiceAudio = new Audio();
     let questionSource = null;
     let questionGain = null;
     let questionMuted = false;
@@ -758,14 +758,22 @@
       }
     }
 
-    function stopQuestionAudio(){
-      if (!questionSource || !questionGain || !warmupContext || questionMuted) return;
+    function stopChannel(channelName, fadeSec = 0){
+      if (channelName !== "player" || !questionSource || !questionGain || !warmupContext) return;
       const now = warmupContext.currentTime;
       questionGain.gain.cancelScheduledValues(now);
-      const current = questionGain.gain.getValueAtTime(now);
-      questionGain.gain.setValueAtTime(current, now);
-      questionGain.gain.linearRampToValueAtTime(0, now + 0.2);
-      questionMuted = true;
+      if (fadeSec > 0){
+        const current = questionGain.gain.getValueAtTime(now);
+        questionGain.gain.setValueAtTime(current, now);
+        questionGain.gain.linearRampToValueAtTime(0, now + fadeSec);
+        try{ questionSource.stop(now + fadeSec + 0.02); }catch(e){}
+      }else{
+        try{ questionSource.stop(); }catch(e){}
+      }
+      try{ questionSource.disconnect(); }catch(e){}
+      questionSource = null;
+      questionGain = null;
+      questionMuted = false;
     }
 
     async function loadBuffer(url){
@@ -788,14 +796,7 @@
       const ctx = await ensureAudioContext();
       if (!ctx) return false;
       if (trackQuestion){
-        stopQuestionAudio();
-        if (questionSource){
-          try{ questionSource.stop(); }catch(e){}
-          try{ questionSource.disconnect(); }catch(e){}
-          questionSource = null;
-          questionGain = null;
-          questionMuted = false;
-        }
+        stopChannel("player", 0);
         if (questionBusGain){
           const now = ctx.currentTime;
           questionBusGain.gain.cancelScheduledValues(now);
@@ -881,16 +882,9 @@
       return playSequence(url, durationMs, false);
     }
 
-    function playImmediateSfx(url, audioEl){
-      audioEl.pause();
-      audioEl.currentTime = 0;
-      audioEl.src = url;
-      audioEl.play().catch(() => {});
-    }
-
     async function playCorrectBySetting(questionUrl){
       if (!sfxEnhanced){
-        playImmediateSfx(SFX_CORRECT_DIR + SFX_CORRECT_FILE + SFX_BUSTER, sfxAudio);
+        await playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR);
         return;
       }
 
@@ -908,19 +902,19 @@
 
     async function playIncorrectSfx(){
       if (!sfxEnhanced){
-        playImmediateSfx(SFX_INCORRECT_DIR + SFX_BUZZER_A + SFX_BUSTER, sfxAudio);
+        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR);
         return;
       }
 
       if (missStreak === 1){
-        playImmediateSfx(SFX_INCORRECT_DIR + SFX_BUZZER_A + SFX_BUSTER, sfxAudio);
+        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR);
         return;
       }
       if (missStreak === 2){
-        playImmediateSfx(SFX_INCORRECT_DIR + SFX_BUZZER_B + SFX_BUSTER, sfxAudio);
+        await playFixedSfx(SFX_BUZZER_B, SFX_INCORRECT_DIR);
         return;
       }
-      playImmediateSfx(SFX_INCORRECT_DIR + pickRandom(SFX_INCORRECT) + SFX_BUSTER, sfxAudio);
+      await playSfx(SFX_INCORRECT, SFX_INCORRECT_DIR);
     }
 
     async function warmupAudio(){
@@ -1007,7 +1001,7 @@
             fallbackPath,
             triedPaths
           });
-          locked = true;
+          phase = "idle";
           enableOptions(false);
           $("btnReplay").disabled = true;
           $("btnHint").disabled = true;
@@ -1030,7 +1024,7 @@
             fallbackPath,
             triedPaths
           });
-          locked = true;
+          phase = "idle";
           enableOptions(false);
           $("btnReplay").disabled = true;
           $("btnHint").disabled = true;
@@ -1053,8 +1047,7 @@
         inversion: selected.inversion
       };
 
-      locked = false;
-      pendingWrong = false;
+      phase = "answering";
       hintArea.style.display = "none";
       hintArea.textContent = "";
       [...opts.children].forEach(b => b.classList.remove("ok", "ng"));
@@ -1066,7 +1059,8 @@
     }
 
     function endQuestion(){
-      locked = true;
+      phase = "idle";
+      current = null;
       enableOptions(false);
       $("btnReplay").disabled = true;
       $("btnHint").disabled = true;
@@ -1074,65 +1068,50 @@
     }
 
     async function answer(choice, btn){
-      if(locked) return;
+      if(phase !== "answering" || !current) return;
+
+      total += 1;
+      totalEl.textContent = total;
 
       if(choice.id === current.chord.id){
-        total += 1;
         score += 1;
         winStreak += 1;
         missStreak = 0;
         scoreEl.textContent = score;
-        totalEl.textContent = total;
         updateAccuracy();
         status.textContent = `正解！ 答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
-        await ensureAudioContext();
-        stopQuestionAudio();
+        stopChannel("player", 0.2);
         await playCorrectBySetting(current.audioUrl);
         endQuestion();
       }else{
-        pendingWrong = true;
         missStreak += 1;
         winStreak = 0;
+        updateAccuracy();
         status.textContent = "不正解… 再挑戦しますか？";
-        locked = false;
         enableOptions(true);
         await playIncorrectSfx();
       }
     }
 
     $("btnStart").onclick = async () => {
-      if(pendingWrong){
-        total += 1;
-        totalEl.textContent = total;
-        updateAccuracy();
-        pendingWrong = false;
-      }
+      if (phase !== "idle") return;
       await warmupAudio();
       start();
     };
 
     $("btnReplay").onclick = () => {
-      if(!current) return;
+      if(!current || phase !== "answering") return;
       playAudio(current.audioUrl);
-      if(pendingWrong){
-        locked = false;
-        enableOptions(true);
-        status.textContent = "再挑戦どうぞ";
-      }
     };
 
     $("btnReveal").onclick = () => {
-      if(!current) return;
-      total += 1;
-      totalEl.textContent = total;
-      updateAccuracy();
-      pendingWrong = false;
+      if(!current || phase !== "answering") return;
       status.textContent = `答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
       endQuestion();
     };
 
     $("btnHint").onclick = () => {
-      if(!current) return;
+      if(!current || phase !== "answering") return;
       hintArea.textContent = current.chord.hint;
       hintArea.style.display = "block";
       if (current.inversion > 0){
