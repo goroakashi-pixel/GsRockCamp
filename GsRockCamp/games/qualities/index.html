@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Chord Qualities Quiz</title>
   <!--
-  ver1.2.5:
-  - WebAudio常時キープアライブ方式へ統一
-  - mute差し込みロジック削除
-  - Bluetooth音切れ対策の構造改善
+  ver1.2.6:
+  - Diatonicと正解演出仕様を統一
+  - correct即再生へ変更
+  - スニペット＋streak同時再生方式
+  - streakは自然終了まで停止しない設計
   -->
 
   <style>
@@ -256,16 +257,17 @@
   <div class="wrap">
     <h1>
       Chord Qualities Quiz
-      <span class="ver" id="verText">ver1.2.5</span>
+      <span class="ver" id="verText">ver1.2.6</span>
     </h1>
     <div class="muted">C基準で、コードの「品質（キャラ）」を当てます。</div>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.2.5：WebAudio常時キープアライブ方式へ統一</li>
-        <li>ver1.2.5：mute差し込みロジック削除</li>
-        <li>ver1.2.5：Bluetooth音切れ対策の構造改善</li>
+        <li>ver1.2.6：Diatonicと正解演出仕様を統一</li>
+        <li>ver1.2.6：correct即再生へ変更</li>
+        <li>ver1.2.6：スニペット＋streak同時再生方式</li>
+        <li>ver1.2.6：streakは自然終了まで停止しない設計</li>
       </ul>
     </div>
 
@@ -359,7 +361,7 @@
 
   <script>
   (() => {
-    const VER = "1.2.5";
+    const VER = "1.2.6";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_BASE = "./audio/";
@@ -812,7 +814,7 @@
       if (trackQuestion){
         mainSource.connect(gainNode).connect(questionBusGain);
       }else{
-        mainSource.connect(gainNode).connect(ctx.destination);
+        mainSource.connect(gainNode).connect(sfxBusGain);
       }
       gainNode.gain.setValueAtTime(0, now);
       gainNode.gain.linearRampToValueAtTime(1, now + 0.008);
@@ -844,20 +846,39 @@
     }
 
     async function playSnippet(url, durationMs){
-      if(!url) return;
-      await playSequence(url, durationMs, false);
+      if(!url) return false;
+      const ctx = await ensureAudioContext();
+      if (!ctx) return false;
+      const buffer = await loadBuffer(url);
+      if (!buffer) return false;
+      const source = ctx.createBufferSource();
+      const gainNode = ctx.createGain();
+      const now = ctx.currentTime;
+      source.buffer = buffer;
+      source.connect(gainNode).connect(sfxBusGain);
+      gainNode.gain.setValueAtTime(1, now);
+      if (durationMs && durationMs > 100){
+        const fadeStart = now + (durationMs - 100) / 1000;
+        gainNode.gain.setValueAtTime(1, fadeStart);
+        gainNode.gain.linearRampToValueAtTime(0, now + durationMs / 1000);
+      }
+      source.start(now);
+      if (durationMs){
+        source.stop(now + durationMs / 1000);
+      }
+      return true;
     }
 
     async function playSfx(list, dir){
-      if (!list || list.length === 0) return;
+      if (!list || list.length === 0) return false;
       const f = pickRandom(list);
       const url = dir + f + SFX_BUSTER;
-      await playSequence(url, null, false);
+      return playSequence(url, null, false);
     }
 
     async function playFixedSfx(file, dir, durationMs){
       const url = dir + file + SFX_BUSTER;
-      await playSequence(url, durationMs, false);
+      return playSequence(url, durationMs, false);
     }
 
     function playImmediateSfx(url, audioEl){
@@ -867,20 +888,22 @@
       audioEl.play().catch(() => {});
     }
 
-    async function playCorrectSfx(){
+    async function playCorrectBySetting(questionUrl){
       if (!sfxEnhanced){
         playImmediateSfx(SFX_CORRECT_DIR + SFX_CORRECT_FILE + SFX_BUSTER, sfxAudio);
+        return;
       }
-      await playCorrectSfxWithEnvelope();
-      if (winStreak === 5){
-        if (SFX_STREAK5.length > 0){
-          playImmediateSfx(SFX_STREAK5_DIR + pickRandom(SFX_STREAK5) + SFX_BUSTER, sfxVoiceAudio);
+
+      const streakPromise = (async () => {
+        if (winStreak === 5){
+          await playSfx(SFX_STREAK5, SFX_STREAK5_DIR);
+        }else if (winStreak % 10 === 0){
+          await playSfx(SFX_STREAK10, SFX_STREAK10_DIR);
         }
-      }else if (winStreak % 10 === 0){
-        if (SFX_STREAK10.length > 0){
-          playImmediateSfx(SFX_STREAK10_DIR + pickRandom(SFX_STREAK10) + SFX_BUSTER, sfxVoiceAudio);
-        }
-      }
+      })();
+
+      const snippetPromise = playSnippet(questionUrl, 500);
+      await Promise.all([snippetPromise, streakPromise]);
     }
 
     async function playIncorrectSfx(){
@@ -898,23 +921,6 @@
         return;
       }
       playImmediateSfx(SFX_INCORRECT_DIR + pickRandom(SFX_INCORRECT) + SFX_BUSTER, sfxAudio);
-    }
-
-    async function playCorrectSfxWithEnvelope(){
-      const ctx = await ensureAudioContext();
-      if (!ctx) return;
-      const buffer = await loadBuffer(SFX_CORRECT_DIR + SFX_CORRECT_FILE + SFX_BUSTER);
-      if (!buffer) return;
-      const source = ctx.createBufferSource();
-      const gainNode = ctx.createGain();
-      source.buffer = buffer;
-      source.connect(gainNode).connect(sfxBusGain);
-      const now = ctx.currentTime;
-      gainNode.gain.setValueAtTime(1, now);
-      gainNode.gain.setValueAtTime(1, now + 0.3);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
-      source.start(now);
-      source.stop(now + buffer.duration + 0.1);
     }
 
     async function warmupAudio(){
@@ -1081,7 +1087,7 @@
         status.textContent = `正解！ 答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
         await ensureAudioContext();
         stopQuestionAudio();
-        await playCorrectSfx();
+        await playCorrectBySetting(current.audioUrl);
         endQuestion();
       }else{
         pendingWrong = true;
