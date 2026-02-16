@@ -241,12 +241,13 @@
   <div class="wrap">
     <h1>
       Diatonic Chord Quiz
-      <span class="ver" id="verText">ver1.2.17</span>
+      <span class="ver" id="verText">ver1.2.18</span>
     </h1>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
+        <li>ver1.2.18：WebAudio統一再生・mp3デコードキャッシュ・Bluetoothスリープ対策を実装</li>
         <li>ver1.2.17：Bluetooth向けに極小ホワイトノイズのオーディオキープアライブを追加</li>
         <li>ver1.2.16：EasyのBm-5除外トグル、選択肢表示のコード/ディグリー切替、不正解後も回答継続</li>
         <li>ver1.2.15：正解時は問題音0.5秒＋連続正解ボイス、正解時に問題音を停止</li>
@@ -389,7 +390,7 @@
     // -------------------------
     // Version / Cache buster
     // -------------------------
-    const VER = "1.2.17";
+    const VER = "1.2.18";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_DIR = "audio/";
@@ -537,36 +538,107 @@
     const choiceToggleBtn = document.getElementById("choiceToggleBtn");
     const choiceToggleStat = document.getElementById("choiceToggleStat");
 
-    // Bluetooth接続時の先頭音欠け対策: 極小ノイズでAudioContextを維持
-    let keepAliveAudioContext = null;
-    function initKeepAliveAudio(){
+    // 修正要点: WebAudio 統一再生方式 (Bluetooth スリープ対策)
+    // 修正要点: mp3 デコードキャッシュ実装
+    // 修正要点: AudioContext 一本化、AudioElement を直接使わない再生
+    let appAudioContext = null;
+    let keepAliveNoiseSource = null;
+    let keepAliveGainNode = null;
+    const decodedAudioCache = new Map();
+    const activeAudioSources = { player:null, sfx:null, sfxChord:null, sfxVoice:null };
+
+    function getChannelName(audioEl){
+      if (audioEl === sfx) return "sfx";
+      if (audioEl === sfxChord) return "sfxChord";
+      if (audioEl === sfxVoice) return "sfxVoice";
+      return "player";
+    }
+
+    function stopChannel(channelName){
+      const src = activeAudioSources[channelName];
+      if (!src) return;
+      try{ src.stop(0); }catch{}
+      try{ src.disconnect(); }catch{}
+      activeAudioSources[channelName] = null;
+    }
+
+    async function initKeepAliveAudio(){
       try{
         const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
+        if (!AC) return null;
 
-        if (!keepAliveAudioContext){
-          keepAliveAudioContext = new AC();
+        if (!appAudioContext){
+          appAudioContext = new AC();
 
-          const bufferSize = keepAliveAudioContext.sampleRate * 2;
-          const noiseBuffer = keepAliveAudioContext.createBuffer(1, bufferSize, keepAliveAudioContext.sampleRate);
+          const bufferSize = appAudioContext.sampleRate * 2;
+          const noiseBuffer = appAudioContext.createBuffer(1, bufferSize, appAudioContext.sampleRate);
           const data = noiseBuffer.getChannelData(0);
           for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
 
-          const noiseSource = keepAliveAudioContext.createBufferSource();
-          noiseSource.buffer = noiseBuffer;
-          noiseSource.loop = true;
+          keepAliveNoiseSource = appAudioContext.createBufferSource();
+          keepAliveNoiseSource.buffer = noiseBuffer;
+          keepAliveNoiseSource.loop = true;
 
-          const gain = keepAliveAudioContext.createGain();
-          gain.gain.value = 0.0002; // 約-74dB
+          keepAliveGainNode = appAudioContext.createGain();
+          keepAliveGainNode.gain.value = 0.0002; // 約-74dB
 
-          noiseSource.connect(gain);
-          gain.connect(keepAliveAudioContext.destination);
-          noiseSource.start();
+          keepAliveNoiseSource.connect(keepAliveGainNode);
+          keepAliveGainNode.connect(appAudioContext.destination);
+          keepAliveNoiseSource.start();
         }
 
-        if (keepAliveAudioContext.state === "suspended") keepAliveAudioContext.resume();
+        if (appAudioContext.state === "suspended") await appAudioContext.resume();
+        return appAudioContext;
       }catch(_e){
         // KeepAliveは補助機能のため失敗しても既存再生は継続
+        return null;
+      }
+    }
+
+    async function getDecodedAudioBuffer(url){
+      if (decodedAudioCache.has(url)) return decodedAudioCache.get(url);
+      const p = (async () => {
+        const ctx = await initKeepAliveAudio();
+        if (!ctx) return null;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`audio fetch failed: ${url}`);
+        const arr = await res.arrayBuffer();
+        return await ctx.decodeAudioData(arr.slice(0));
+      })();
+      decodedAudioCache.set(url, p);
+      try{
+        return await p;
+      }catch(err){
+        decodedAudioCache.delete(url);
+        throw err;
+      }
+    }
+
+    async function playDecodedUrl(url, channelName, durationMs){
+      try{
+        const ctx = await initKeepAliveAudio();
+        if (!ctx) return false;
+
+        const buffer = await getDecodedAudioBuffer(url);
+        if (!buffer) return false;
+
+        stopChannel(channelName);
+
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(ctx.destination);
+        activeAudioSources[channelName] = src;
+
+        src.onended = () => {
+          if (activeAudioSources[channelName] === src) activeAudioSources[channelName] = null;
+          try{ src.disconnect(); }catch{}
+        };
+
+        src.start();
+        if (durationMs) src.stop(ctx.currentTime + (durationMs / 1000));
+        return true;
+      }catch{
+        return false;
       }
     }
 
@@ -588,7 +660,6 @@
     let easyIncludeBm5 = true;
     let choiceLabelMode = "code";
     let replayIsRetry = false;
-    let sfxChordStopToken = 0;
 
     // 起動デフォルト：①のみアクティブ
     const state = {
@@ -1004,52 +1075,24 @@
 
     async function playFile(file){
       const url = AUDIO_DIR + file + CACHE_BUSTER;
-      player.src = url;
-      try{
-        await player.play();
-        return true;
-      }catch{
-        return false;
-      }
-    }
-
-    function stopAudioAfter(audioEl, ms){
-      const token = ++sfxChordStopToken;
-      window.setTimeout(() => {
-        if (token !== sfxChordStopToken) return;
-        audioEl.pause();
-        audioEl.currentTime = 0;
-      }, ms);
+      return await playDecodedUrl(url, "player");
     }
 
     async function playSfx(list, dir, audioEl = sfx){
       if (!list || list.length === 0) return;
       const f = pickRandom(list);
       const url = dir + f + SFX_BUSTER;
-      audioEl.pause();
-      audioEl.currentTime = 0;
-      audioEl.src = url;
-      try { await audioEl.play(); } catch {}
+      await playDecodedUrl(url, getChannelName(audioEl));
     }
 
     async function playFixedSfx(file, dir, audioEl, durationMs){
       const url = dir + file + SFX_BUSTER;
-      audioEl.pause();
-      audioEl.currentTime = 0;
-      audioEl.src = url;
-      try { await audioEl.play(); } catch {}
-      if (durationMs){
-        stopAudioAfter(audioEl, durationMs);
-      }
+      await playDecodedUrl(url, getChannelName(audioEl), durationMs);
     }
 
     async function playSnippet(file, dir, audioEl){
       const url = dir + file + CACHE_BUSTER;
-      audioEl.pause();
-      audioEl.currentTime = 0;
-      audioEl.src = url;
-      try { await audioEl.play(); } catch {}
-      stopAudioAfter(audioEl, 500);
+      await playDecodedUrl(url, getChannelName(audioEl), 500);
     }
 
     async function playCorrectSfx(questionFile){
@@ -1229,8 +1272,7 @@
 
             winStreak += 1;
             missStreak = 0;
-            player.pause();
-            player.currentTime = 0;
+            stopChannel("player");
             await playCorrectSfx(current.file);
             replayIsRetry = false;
 
@@ -1323,7 +1365,7 @@
     }
 
     btnStart.addEventListener("click", async () => {
-      initKeepAliveAudio();
+      await initKeepAliveAudio();
       if (phase !== "idle") return;
       await startNewQuestion();
     });
@@ -1363,7 +1405,7 @@
     });
 
     btnC.addEventListener("click", async () => {
-      initKeepAliveAudio();
+      await initKeepAliveAudio();
       await playFile("C_3.mp3");
     });
 
