@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Chord Qualities Quiz</title>
   <!--
-  ver1.2.4a:
-  - 正解時に出題音フェード＋Correct音再生
-  - 出題/効果音のバス分離
-  - 答え表示をステータス欄に統合
+  ver1.2.7:
+  - 正解時挙動をDiatonicと完全一致
+  - phase管理方式へ統一
+  - streak自然終了方式へ変更
+  - 正解演出フローを統一
+  - 不要ロック処理削除
   -->
 
   <style>
@@ -256,16 +258,18 @@
   <div class="wrap">
     <h1>
       Chord Qualities Quiz
-      <span class="ver" id="verText">ver1.2.4a</span>
+      <span class="ver" id="verText">ver1.2.7</span>
     </h1>
     <div class="muted">C基準で、コードの「品質（キャラ）」を当てます。</div>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.2.4a：正解時に出題音フェード＋Correct音</li>
-        <li>ver1.2.4a：出題/効果音のバス分離</li>
-        <li>ver1.2.4a：答え表示をステータス欄へ移動</li>
+        <li>ver1.2.7：正解時挙動をDiatonicと完全一致</li>
+        <li>ver1.2.7：phase管理方式へ統一</li>
+        <li>ver1.2.7：streak自然終了方式へ変更</li>
+        <li>ver1.2.7：正解演出フローを統一</li>
+        <li>ver1.2.7：不要ロック処理削除</li>
       </ul>
     </div>
 
@@ -359,7 +363,7 @@
 
   <script>
   (() => {
-    const VER = "1.2.4a";
+    const VER = "1.2.7";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_BASE = "./audio/";
@@ -456,9 +460,9 @@
 
     const ORDER = ["basic", "plus", "hard"];
 
+    // phase: idle | answering
+    let phase = "idle";
     let current = null;
-    let locked = true;
-    let pendingWrong = false;
 
     let score = 0;
     let total = 0;
@@ -469,15 +473,12 @@
 
     let warmupDone = false;
     let warmupContext = null;
-    let muteBuffer = null;
-    let activeSources = [];
     let bufferCache = new Map();
-    const MUTE_URL = "../../assets/sound/system/mute.mp3";
     let masterGain = null;
     let questionBusGain = null;
     let sfxBusGain = null;
-    const sfxAudio = new Audio();
-    const sfxVoiceAudio = new Audio();
+    let keepAliveSource = null;
+    let keepAliveGain = null;
     let questionSource = null;
     let questionGain = null;
     let questionMuted = false;
@@ -735,6 +736,21 @@
           sfxBusGain.gain.value = 1;
           sfxBusGain.connect(masterGain);
         }
+        if(!keepAliveSource){
+          const noiseBuffer = warmupContext.createBuffer(1, warmupContext.sampleRate * 2, warmupContext.sampleRate);
+          const channelData = noiseBuffer.getChannelData(0);
+          for(let i = 0; i < channelData.length; i += 1){
+            channelData[i] = Math.random() * 2 - 1;
+          }
+          keepAliveGain = warmupContext.createGain();
+          keepAliveGain.gain.value = Math.pow(10, -75 / 20);
+          keepAliveGain.connect(masterGain);
+          keepAliveSource = warmupContext.createBufferSource();
+          keepAliveSource.buffer = noiseBuffer;
+          keepAliveSource.loop = true;
+          keepAliveSource.connect(keepAliveGain);
+          keepAliveSource.start();
+        }
         return warmupContext;
       }catch(e){
         if (LOG_ENABLED) console.warn("AudioContextの初期化に失敗しました。");
@@ -742,22 +758,22 @@
       }
     }
 
-    function stopActiveSources(){
-      activeSources.forEach(source => {
-        try{ source.stop(); }catch(e){}
-        try{ source.disconnect(); }catch(e){}
-      });
-      activeSources = [];
-    }
-
-    function stopQuestionAudio(){
-      if (!questionSource || !questionGain || !warmupContext || questionMuted) return;
+    function stopChannel(channelName, fadeSec = 0){
+      if (channelName !== "player" || !questionSource || !questionGain || !warmupContext) return;
       const now = warmupContext.currentTime;
       questionGain.gain.cancelScheduledValues(now);
-      const current = questionGain.gain.getValueAtTime(now);
-      questionGain.gain.setValueAtTime(current, now);
-      questionGain.gain.linearRampToValueAtTime(0, now + 0.2);
-      questionMuted = true;
+      if (fadeSec > 0){
+        const current = questionGain.gain.getValueAtTime(now);
+        questionGain.gain.setValueAtTime(current, now);
+        questionGain.gain.linearRampToValueAtTime(0, now + fadeSec);
+        try{ questionSource.stop(now + fadeSec + 0.02); }catch(e){}
+      }else{
+        try{ questionSource.stop(); }catch(e){}
+      }
+      try{ questionSource.disconnect(); }catch(e){}
+      questionSource = null;
+      questionGain = null;
+      questionMuted = false;
     }
 
     async function loadBuffer(url){
@@ -780,19 +796,11 @@
       const ctx = await ensureAudioContext();
       if (!ctx) return false;
       if (trackQuestion){
-        stopQuestionAudio();
+        stopChannel("player", 0);
         if (questionBusGain){
           const now = ctx.currentTime;
           questionBusGain.gain.cancelScheduledValues(now);
           questionBusGain.gain.setValueAtTime(1, now);
-        }
-      }
-      stopActiveSources();
-
-      if (!muteBuffer){
-        muteBuffer = await loadBuffer(MUTE_URL);
-        if (!muteBuffer && LOG_ENABLED){
-          console.warn("mute.mp3が取得できませんでした。");
         }
       }
 
@@ -800,15 +808,6 @@
       if (!mainBuffer) return false;
 
       const now = ctx.currentTime;
-      const startTime = now + 0.2;
-
-      if (muteBuffer){
-        const muteSource = ctx.createBufferSource();
-        muteSource.buffer = muteBuffer;
-        muteSource.connect(ctx.destination);
-        muteSource.start(now);
-        activeSources.push(muteSource);
-      }
 
       const mainSource = ctx.createBufferSource();
       const gainNode = ctx.createGain();
@@ -816,16 +815,13 @@
       if (trackQuestion){
         mainSource.connect(gainNode).connect(questionBusGain);
       }else{
-        mainSource.connect(gainNode).connect(ctx.destination);
+        mainSource.connect(gainNode).connect(sfxBusGain);
       }
       gainNode.gain.setValueAtTime(0, now);
       gainNode.gain.linearRampToValueAtTime(1, now + 0.008);
-      mainSource.start(startTime);
+      mainSource.start(now);
       if (durationMs){
-        mainSource.stop(startTime + durationMs / 1000);
-      }
-      if (!trackQuestion){
-        activeSources.push(mainSource);
+        mainSource.stop(now + durationMs / 1000);
       }
       if (trackQuestion){
         questionSource = mainSource;
@@ -851,77 +847,71 @@
     }
 
     async function playSnippet(url, durationMs){
-      if(!url) return;
-      await playSequence(url, durationMs, false);
+      if(!url) return false;
+      const ctx = await ensureAudioContext();
+      if (!ctx) return false;
+      const buffer = await loadBuffer(url);
+      if (!buffer) return false;
+      const source = ctx.createBufferSource();
+      const gainNode = ctx.createGain();
+      const now = ctx.currentTime;
+      source.buffer = buffer;
+      source.connect(gainNode).connect(sfxBusGain);
+      gainNode.gain.setValueAtTime(1, now);
+      if (durationMs && durationMs > 100){
+        const fadeStart = now + (durationMs - 100) / 1000;
+        gainNode.gain.setValueAtTime(1, fadeStart);
+        gainNode.gain.linearRampToValueAtTime(0, now + durationMs / 1000);
+      }
+      source.start(now);
+      if (durationMs){
+        source.stop(now + durationMs / 1000);
+      }
+      return true;
     }
 
     async function playSfx(list, dir){
-      if (!list || list.length === 0) return;
+      if (!list || list.length === 0) return false;
       const f = pickRandom(list);
       const url = dir + f + SFX_BUSTER;
-      await playSequence(url, null, false);
+      return playSequence(url, null, false);
     }
 
     async function playFixedSfx(file, dir, durationMs){
       const url = dir + file + SFX_BUSTER;
-      await playSequence(url, durationMs, false);
+      return playSequence(url, durationMs, false);
     }
 
-    function playImmediateSfx(url, audioEl){
-      audioEl.pause();
-      audioEl.currentTime = 0;
-      audioEl.src = url;
-      audioEl.play().catch(() => {});
-    }
-
-    async function playCorrectSfx(){
+    function playCorrectBySetting(questionUrl){
       if (!sfxEnhanced){
-        playImmediateSfx(SFX_CORRECT_DIR + SFX_CORRECT_FILE + SFX_BUSTER, sfxAudio);
+        playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR).catch(() => {});
+        return;
       }
-      await playCorrectSfxWithEnvelope();
+
       if (winStreak === 5){
-        if (SFX_STREAK5.length > 0){
-          playImmediateSfx(SFX_STREAK5_DIR + pickRandom(SFX_STREAK5) + SFX_BUSTER, sfxVoiceAudio);
-        }
+        playSfx(SFX_STREAK5, SFX_STREAK5_DIR).catch(() => {});
       }else if (winStreak % 10 === 0){
-        if (SFX_STREAK10.length > 0){
-          playImmediateSfx(SFX_STREAK10_DIR + pickRandom(SFX_STREAK10) + SFX_BUSTER, sfxVoiceAudio);
-        }
+        playSfx(SFX_STREAK10, SFX_STREAK10_DIR).catch(() => {});
       }
+
+      playSnippet(questionUrl, 500).catch(() => {});
     }
 
     async function playIncorrectSfx(){
       if (!sfxEnhanced){
-        playImmediateSfx(SFX_INCORRECT_DIR + SFX_BUZZER_A + SFX_BUSTER, sfxAudio);
+        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR);
         return;
       }
 
       if (missStreak === 1){
-        playImmediateSfx(SFX_INCORRECT_DIR + SFX_BUZZER_A + SFX_BUSTER, sfxAudio);
+        await playFixedSfx(SFX_BUZZER_A, SFX_INCORRECT_DIR);
         return;
       }
       if (missStreak === 2){
-        playImmediateSfx(SFX_INCORRECT_DIR + SFX_BUZZER_B + SFX_BUSTER, sfxAudio);
+        await playFixedSfx(SFX_BUZZER_B, SFX_INCORRECT_DIR);
         return;
       }
-      playImmediateSfx(SFX_INCORRECT_DIR + pickRandom(SFX_INCORRECT) + SFX_BUSTER, sfxAudio);
-    }
-
-    async function playCorrectSfxWithEnvelope(){
-      const ctx = await ensureAudioContext();
-      if (!ctx) return;
-      const buffer = await loadBuffer(SFX_CORRECT_DIR + SFX_CORRECT_FILE + SFX_BUSTER);
-      if (!buffer) return;
-      const source = ctx.createBufferSource();
-      const gainNode = ctx.createGain();
-      source.buffer = buffer;
-      source.connect(gainNode).connect(sfxBusGain);
-      const now = ctx.currentTime;
-      gainNode.gain.setValueAtTime(1, now);
-      gainNode.gain.setValueAtTime(1, now + 0.3);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
-      source.start(now);
-      source.stop(now + buffer.duration + 0.1);
+      await playSfx(SFX_INCORRECT, SFX_INCORRECT_DIR);
     }
 
     async function warmupAudio(){
@@ -1008,7 +998,7 @@
             fallbackPath,
             triedPaths
           });
-          locked = true;
+          phase = "idle";
           enableOptions(false);
           $("btnReplay").disabled = true;
           $("btnHint").disabled = true;
@@ -1031,7 +1021,7 @@
             fallbackPath,
             triedPaths
           });
-          locked = true;
+          phase = "idle";
           enableOptions(false);
           $("btnReplay").disabled = true;
           $("btnHint").disabled = true;
@@ -1054,8 +1044,7 @@
         inversion: selected.inversion
       };
 
-      locked = false;
-      pendingWrong = false;
+      phase = "answering";
       hintArea.style.display = "none";
       hintArea.textContent = "";
       [...opts.children].forEach(b => b.classList.remove("ok", "ng"));
@@ -1067,7 +1056,8 @@
     }
 
     function endQuestion(){
-      locked = true;
+      phase = "idle";
+      current = null;
       enableOptions(false);
       $("btnReplay").disabled = true;
       $("btnHint").disabled = true;
@@ -1075,65 +1065,50 @@
     }
 
     async function answer(choice, btn){
-      if(locked) return;
+      if(phase !== "answering" || !current) return;
+
+      total += 1;
+      totalEl.textContent = total;
 
       if(choice.id === current.chord.id){
-        total += 1;
         score += 1;
         winStreak += 1;
         missStreak = 0;
         scoreEl.textContent = score;
-        totalEl.textContent = total;
         updateAccuracy();
         status.textContent = `正解！ 答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
-        await ensureAudioContext();
-        stopQuestionAudio();
-        await playCorrectSfx();
+        stopChannel("player", 0.2);
+        playCorrectBySetting(current.audioUrl);
         endQuestion();
       }else{
-        pendingWrong = true;
         missStreak += 1;
         winStreak = 0;
+        updateAccuracy();
         status.textContent = "不正解… 再挑戦しますか？";
-        locked = false;
         enableOptions(true);
         await playIncorrectSfx();
       }
     }
 
     $("btnStart").onclick = async () => {
-      if(pendingWrong){
-        total += 1;
-        totalEl.textContent = total;
-        updateAccuracy();
-        pendingWrong = false;
-      }
+      if (phase !== "idle") return;
       await warmupAudio();
       start();
     };
 
     $("btnReplay").onclick = () => {
-      if(!current) return;
+      if(!current || phase !== "answering") return;
       playAudio(current.audioUrl);
-      if(pendingWrong){
-        locked = false;
-        enableOptions(true);
-        status.textContent = "再挑戦どうぞ";
-      }
     };
 
     $("btnReveal").onclick = () => {
-      if(!current) return;
-      total += 1;
-      totalEl.textContent = total;
-      updateAccuracy();
-      pendingWrong = false;
+      if(!current || phase !== "answering") return;
       status.textContent = `答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
       endQuestion();
     };
 
     $("btnHint").onclick = () => {
-      if(!current) return;
+      if(!current || phase !== "answering") return;
       hintArea.textContent = current.chord.hint;
       hintArea.style.display = "block";
       if (current.inversion > 0){
