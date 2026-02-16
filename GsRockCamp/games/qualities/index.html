@@ -882,22 +882,19 @@
       return playSequence(url, durationMs, false);
     }
 
-    async function playCorrectBySetting(questionUrl){
+    function playCorrectBySetting(questionUrl){
       if (!sfxEnhanced){
-        await playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR);
+        playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR).catch(() => {});
         return;
       }
 
-      const streakPromise = (async () => {
-        if (winStreak === 5){
-          await playSfx(SFX_STREAK5, SFX_STREAK5_DIR);
-        }else if (winStreak % 10 === 0){
-          await playSfx(SFX_STREAK10, SFX_STREAK10_DIR);
-        }
-      })();
+      if (winStreak === 5){
+        playSfx(SFX_STREAK5, SFX_STREAK5_DIR).catch(() => {});
+      }else if (winStreak % 10 === 0){
+        playSfx(SFX_STREAK10, SFX_STREAK10_DIR).catch(() => {});
+      }
 
-      const snippetPromise = playSnippet(questionUrl, 500);
-      await Promise.all([snippetPromise, streakPromise]);
+      playSnippet(questionUrl, 500).catch(() => {});
     }
 
     async function playIncorrectSfx(){
@@ -1081,7 +1078,7 @@
         updateAccuracy();
         status.textContent = `正解！ 答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
         stopChannel("player", 0.2);
-        await playCorrectBySetting(current.audioUrl);
+        playCorrectBySetting(current.audioUrl);
         endQuestion();
       }else{
         missStreak += 1;
