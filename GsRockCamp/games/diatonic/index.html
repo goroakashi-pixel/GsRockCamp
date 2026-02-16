@@ -1365,7 +1365,7 @@
     }
 
     btnStart.addEventListener("click", async () => {
-      initKeepAliveAudio();
+      await initKeepAliveAudio();
       if (phase !== "idle") return;
       await startNewQuestion();
     });
@@ -1405,7 +1405,7 @@
     });
 
     btnC.addEventListener("click", async () => {
-      initKeepAliveAudio();
+      await initKeepAliveAudio();
       await playFile("C_3.mp3");
     });
 
