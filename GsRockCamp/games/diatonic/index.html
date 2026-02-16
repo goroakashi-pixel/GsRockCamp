@@ -241,12 +241,13 @@
   <div class="wrap">
     <h1>
       Diatonic Chord Quiz
-      <span class="ver" id="verText">ver1.2.16</span>
+      <span class="ver" id="verText">ver1.2.17</span>
     </h1>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
+        <li>ver1.2.17：Bluetooth向けに極小ホワイトノイズのオーディオキープアライブを追加</li>
         <li>ver1.2.16：EasyのBm-5除外トグル、選択肢表示のコード/ディグリー切替、不正解後も回答継続</li>
         <li>ver1.2.15：正解時は問題音0.5秒＋連続正解ボイス、正解時に問題音を停止</li>
         <li>ver1.2.14：不正解は連続回数で音を変化</li>
@@ -388,7 +389,7 @@
     // -------------------------
     // Version / Cache buster
     // -------------------------
-    const VER = "1.2.16";
+    const VER = "1.2.17";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_DIR = "audio/";
@@ -535,6 +536,39 @@
     const sfxToggleStat = document.getElementById("sfxToggleStat");
     const choiceToggleBtn = document.getElementById("choiceToggleBtn");
     const choiceToggleStat = document.getElementById("choiceToggleStat");
+
+    // Bluetooth接続時の先頭音欠け対策: 極小ノイズでAudioContextを維持
+    let keepAliveAudioContext = null;
+    function initKeepAliveAudio(){
+      try{
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+
+        if (!keepAliveAudioContext){
+          keepAliveAudioContext = new AC();
+
+          const bufferSize = keepAliveAudioContext.sampleRate * 2;
+          const noiseBuffer = keepAliveAudioContext.createBuffer(1, bufferSize, keepAliveAudioContext.sampleRate);
+          const data = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+          const noiseSource = keepAliveAudioContext.createBufferSource();
+          noiseSource.buffer = noiseBuffer;
+          noiseSource.loop = true;
+
+          const gain = keepAliveAudioContext.createGain();
+          gain.gain.value = 0.0002; // 約-74dB
+
+          noiseSource.connect(gain);
+          gain.connect(keepAliveAudioContext.destination);
+          noiseSource.start();
+        }
+
+        if (keepAliveAudioContext.state === "suspended") keepAliveAudioContext.resume();
+      }catch(_e){
+        // KeepAliveは補助機能のため失敗しても既存再生は継続
+      }
+    }
 
     const scoreEl = document.getElementById("score");
     const totalEl = document.getElementById("total");
@@ -1289,6 +1323,7 @@
     }
 
     btnStart.addEventListener("click", async () => {
+      initKeepAliveAudio();
       if (phase !== "idle") return;
       await startNewQuestion();
     });
@@ -1328,6 +1363,7 @@
     });
 
     btnC.addEventListener("click", async () => {
+      initKeepAliveAudio();
       await playFile("C_3.mp3");
     });
 
