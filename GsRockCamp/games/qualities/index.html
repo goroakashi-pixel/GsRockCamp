@@ -897,6 +897,8 @@
       }else if (winStreak % 10 === 0){
         playSfx(SFX_STREAK10, SFX_STREAK10_DIR).catch(() => {});
       }
+
+      playSnippet(questionUrl, 500).catch(() => {});
     }
 
     async function playIncorrectSfx(){
