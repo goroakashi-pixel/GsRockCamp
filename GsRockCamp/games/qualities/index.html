@@ -748,20 +748,35 @@
 
     function stopChannel(channelName, fadeSec = 0){
       if (channelName !== "player" || !questionSource || !questionGain || !warmupContext) return;
+      const src = questionSource;
+      const gain = questionGain;
       const now = warmupContext.currentTime;
-      questionGain.gain.cancelScheduledValues(now);
+      gain.gain.cancelScheduledValues(now);
+
       if (fadeSec > 0){
-        const current = questionGain.gain.getValueAtTime(now);
-        questionGain.gain.setValueAtTime(current, now);
-        questionGain.gain.linearRampToValueAtTime(0, now + fadeSec);
-        try{ questionSource.stop(now + fadeSec + 0.02); }catch(e){}
+        try{
+          const current = (typeof gain.gain.value === "number") ? gain.gain.value : 1;
+          gain.gain.setValueAtTime(current, now);
+          gain.gain.linearRampToValueAtTime(0, now + fadeSec);
+        }catch(e){
+          try{ gain.gain.value = 0; }catch(_e){}
+        }
+        try{ src.stop(now + fadeSec + 0.02); }catch(e){}
+        window.setTimeout(() => {
+          try{ src.disconnect(); }catch(e){}
+          try{ gain.disconnect(); }catch(e){}
+        }, Math.ceil(fadeSec * 1000) + 40);
       }else{
-        try{ questionSource.stop(); }catch(e){}
+        try{ src.stop(); }catch(e){}
+        try{ src.disconnect(); }catch(e){}
+        try{ gain.disconnect(); }catch(e){}
       }
-      try{ questionSource.disconnect(); }catch(e){}
-      questionSource = null;
-      questionGain = null;
-      questionMuted = false;
+
+      if (questionSource === src){
+        questionSource = null;
+        questionGain = null;
+        questionMuted = false;
+      }
     }
 
     async function loadBuffer(url){
@@ -870,12 +885,13 @@
       return playSequence(url, durationMs, false);
     }
 
-    function playCorrectBySetting(questionUrl){
+    function playCorrectSfx(questionUrl){
       if (!sfxEnhanced){
         playFixedSfx(SFX_CORRECT_FILE, SFX_CORRECT_DIR).catch(() => {});
         return;
       }
 
+      playSnippet(questionUrl, 500).catch(() => {});
       if (winStreak === 5){
         playSfx(SFX_STREAK5, SFX_STREAK5_DIR).catch(() => {});
       }else if (winStreak % 10 === 0){
@@ -979,6 +995,7 @@
       phase = "idle";
       current = null;
       enableOptions(false);
+      $("btnStart").disabled = false;
       $("btnReplay").disabled = true;
       $("btnHint").disabled = true;
       $("btnReveal").disabled = true;
@@ -1026,6 +1043,7 @@
       hintArea.textContent = "";
       [...opts.children].forEach(b => b.classList.remove("ok", "ng"));
       enableOptions(true);
+      $("btnStart").disabled = true;
       $("btnReplay").disabled = false;
       $("btnHint").disabled = false;
       $("btnReveal").disabled = false;
@@ -1037,6 +1055,7 @@
       phase = "idle";
       current = null;
       enableOptions(false);
+      $("btnStart").disabled = false;
       $("btnReplay").disabled = true;
       $("btnHint").disabled = true;
       $("btnReveal").disabled = true;
@@ -1057,13 +1076,14 @@
         status.textContent = `正解！ 答え：${current.chord.label} (${getVoicingText(current.chord.id, current.inversion)})`;
         questionTicket += 1;
         stopChannel("player", 0.2);
-        playCorrectBySetting(current.audioUrl);
+        playCorrectSfx(current.audioUrl);
         endQuestion();
       }else{
         missStreak += 1;
         winStreak = 0;
         updateAccuracy();
         status.textContent = "不正解… 再挑戦しますか？";
+        $("btnStart").disabled = true;
         enableOptions(true);
         await playIncorrectSfx();
       }
