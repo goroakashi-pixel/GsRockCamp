@@ -46,7 +46,7 @@
 
 <header>
   <h1>Kadenz Drill Player <small style="font-size:10px; opacity:0.6;">Gapless Web Audio Engine</small></h1>
-  <div class="sub">ごろうさん専用・高精度練習機。音が完璧にループし、指板が先行してガイドします。</div>
+  <div class="sub">ごろうさん専用・階段状赤枠（3弦5F先行対応）版。</div>
 </header>
 
 <div class="wrap">
@@ -89,10 +89,18 @@
 
   // --- Data Definitions ---
   const BLOCKS = [
-    { id:'b5_3', label:'5弦3F', range:[0,8,3,6] }, { id:'b6_8', label:'6弦8F', range:[5,12,4,6] },
-    { id:'b3_5', label:'3弦5F', range:[3,12,1,4] }, { id:'b4_10', label:'4弦10F', range:[8,15,2,5] },
-    { id:'b2_13', label:'2弦13F', range:[10,18,1,4] }, { id:'b3_17', label:'3弦17F', range:[15,23,1,4] }
+    { id:'b5_3', label:'5弦3F', range:[0,8,3,6] }, 
+    { id:'b6_8', label:'6弦8F', range:[5,12,4,6] },
+    { id:'b3_5', label:'3弦5F', isComplex:true, rects:[
+        { s:[0,0], f:[5,8] }, // 1弦 5-8F
+        { s:[1,1], f:[3,8] }, // 2弦 3-8F
+        { s:[2,2], f:[5,7] }  // 3弦 5-7F
+      ], range:[3,12,1,4] }, 
+    { id:'b4_10', label:'4弦10F', range:[8,15,2,5] },
+    { id:'b2_13', label:'2弦13F', range:[10,18,1,4] }, 
+    { id:'b3_17', label:'3弦17F', range:[15,23,1,4] }
   ];
+
   const MODE_MAP = {
     'イオニアン': [0,2,4,5,7,9,11], 'ミクソリディアン': [0,2,4,5,7,9,10], 'リディアン': [0,2,4,6,7,9,11],
     'フリジアン': [0,1,3,5,7,8,10], 'エオリアン': [0,2,3,5,7,8,10], 'ナチュラルマイナー': [0,2,3,5,7,8,10],
@@ -161,19 +169,14 @@
     if (!currentBuffer) return;
     isPlaying = true; startTime = audioCtx.currentTime + 0.05;
     const playStart = startTime + BAR_SEC;
-
     for (let i = 0; i < 4; i++) playClick(startTime + i * (60/BPM), i === 0);
-
     sourceNode = audioCtx.createBufferSource();
     sourceNode.buffer = currentBuffer;
     sourceNode.loop = true;
     sourceNode.loopStart = BAR_SEC;
     sourceNode.loopEnd = BAR_SEC * 9;
-
-    // --- ノイズレス・フェード処理 ---
     gainNode = audioCtx.createGain();
     sourceNode.connect(gainNode); gainNode.connect(audioCtx.destination);
-
     sourceNode.start(playStart, BAR_SEC);
     document.getElementById('statusText').textContent = 'PLAY';
     document.getElementById('statusPill').className = 'pill ok';
@@ -197,41 +200,33 @@
     if (!isPlaying) return;
     const now = audioCtx.currentTime;
     const elapsed = now - (startTime + BAR_SEC);
-    
-    // ループ内での相対時間 (2小節目〜9小節目の8小節間をループ)
     const loopDuration = BAR_SEC * 8;
-    const currentLoopTime = elapsed < 0 ? elapsed : (elapsed % loopDuration);
-    const barIdx = Math.floor(currentLoopTime / BAR_SEC); // 0〜7 (2小節目〜9小節目)
-    const timeInBar = currentLoopTime - (barIdx * BAR_SEC);
-
-    // ハイライト更新
-    document.querySelectorAll('.cell').forEach(c => c.classList.toggle('activeBar', c.dataset.bar == barIdx));
-
-    // --- 指板切り替えロジック (0.7s / 0.2s) ---
     const d = drills[document.getElementById('drillSelect').value];
-    const currentBarMode = d.modes[barIdx] === R ? d.modes[0] : d.modes[barIdx];
-    const nextIdx = (barIdx + 1) % 8;
-    const nextBarMode = d.modes[nextIdx] === R ? d.modes[0] : d.modes[nextIdx];
 
-    // イオニアンに戻る時だけ0.2秒前、それ以外は0.7秒前
-    const threshold = (nextBarMode === 'イオニアン') ? (BAR_SEC - 0.2) : (BAR_SEC - 0.7);
-    const displayMode = (timeInBar > threshold) ? nextBarMode : currentBarMode;
+    let displayMode;
+    if (elapsed < 0) {
+      // カウント中: 最初のモードを表示
+      displayMode = d.modes[0];
+    } else {
+      const currentLoopTime = elapsed % loopDuration;
+      const barIdx = Math.floor(currentLoopTime / BAR_SEC);
+      const timeInBar = currentLoopTime - (barIdx * BAR_SEC);
+      document.querySelectorAll('.cell').forEach(c => c.classList.toggle('activeBar', c.dataset.bar == barIdx));
+      const currentBarMode = d.modes[barIdx] === R ? d.modes[0] : d.modes[barIdx];
+      const nextIdx = (barIdx + 1) % 8;
+      const nextBarMode = d.modes[nextIdx] === R ? d.modes[0] : d.modes[nextIdx];
+      const threshold = (nextBarMode === 'イオニアン') ? (BAR_SEC - 0.2) : (BAR_SEC - 0.7);
+      displayMode = (timeInBar > threshold) ? nextBarMode : currentBarMode;
+      
+      if (currentLoopTime > loopDuration - FADE_TIME) gainNode.gain.setTargetAtTime(0, now, 0.001);
+      else if (currentLoopTime < FADE_TIME) gainNode.gain.setTargetAtTime(1, now, 0.001);
+      else gainNode.gain.setValueAtTime(1, now);
+    }
 
     if (displayMode !== lastDrawnMode) {
       drawFretboard(displayMode, d.caution);
       lastDrawnMode = displayMode;
     }
-    
-    // --- ループ繋ぎ目のノイズ対策フェード ---
-    // 9小節目の終わり(loopDuration)の前後でフェード
-    if (currentLoopTime > loopDuration - FADE_TIME) {
-      gainNode.gain.setTargetAtTime(0, now, 0.001);
-    } else if (currentLoopTime < FADE_TIME) {
-      gainNode.gain.setTargetAtTime(1, now, 0.001);
-    } else {
-      gainNode.gain.setValueAtTime(1, now);
-    }
-
     animId = requestAnimationFrame(updateFrame);
   }
 
@@ -241,7 +236,7 @@
     const offsetTop = 60, boardH = h - offsetTop - 20, stringH = boardH / 5;
     ctx.clearRect(0, 0, w, h);
     
-    // 指板
+    // 指板背景
     ctx.fillStyle = '#f3d9a2'; ctx.fillRect(margin, offsetTop, boardW, boardH);
     ctx.strokeStyle = '#888'; ctx.lineWidth = 2; ctx.fillStyle = '#aaa'; ctx.font = 'bold 15px Arial';
     for (let f = 0; f <= fretCount + 1; f++) {
@@ -255,14 +250,40 @@
       ctx.beginPath(); ctx.moveTo(margin, y); ctx.lineTo(margin + boardW, y); ctx.stroke();
     }
 
-    // --- 指板左上のモード名表示を追加 ---
+    // 左上のモード表示
     ctx.fillStyle = '#7dd3fc'; ctx.font = '900 24px system-ui';
     ctx.fillText(modeName, margin + 5, offsetTop - 12);
 
     const checkedIds = Array.from(document.querySelectorAll('.blockCheck:checked')).map(el => el.value);
     const allChecked = document.getElementById('allCheck')?.checked;
-    const isVisible = (s, f) => (allChecked || checkedIds.length === 0) || BLOCKS.some(b => checkedIds.includes(b.id) && f >= b.range[0] && f <= b.range[1] && (s+1) >= b.range[2] && (s+1) <= b.range[3]);
     
+    // --- 階段状/四角状の赤枠描画 ---
+    BLOCKS.forEach(b => {
+      if (checkedIds.includes(b.id)) {
+        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
+        if (b.isComplex) {
+          // 階段状描画
+          b.rects.forEach(r => {
+            const fStart = r.f[0], fEnd = r.f[1], sStart = r.s[0], sEnd = r.s[1];
+            const x = margin + fStart * fretW - (fStart === 0 ? 0 : fretW);
+            const width = (fEnd - fStart + (fStart === 0 ? 0.5 : 1)) * fretW;
+            const y = offsetTop + sStart * stringH - 12;
+            const height = (sEnd - sStart) * stringH + 24;
+            ctx.strokeRect(x + 2, y, width - 4, height);
+          });
+        } else {
+          // 従来の四角描画
+          const fStart = b.range[0], fEnd = b.range[1], sStart = b.range[2] - 1, sEnd = b.range[3] - 1;
+          const x = margin + fStart * fretW - (fStart === 0 ? 0 : fretW);
+          const y = offsetTop + sStart * stringH - 12;
+          const width = (fEnd - fStart + (fStart === 0 ? 0.5 : 1)) * fretW;
+          const height = (sEnd - sStart) * stringH + 24;
+          ctx.strokeRect(x + 2, y, width - 4, height);
+        }
+      }
+    });
+
+    const isVisible = (s, f) => (allChecked || checkedIds.length === 0) || BLOCKS.some(b => checkedIds.includes(b.id) && f >= b.range[0] && f <= b.range[1] && (s+1) >= b.range[2] && (s+1) <= b.range[3]);
     let mData = MODE_MAP[modeName], root = mData?.root ?? 0, intervals = Array.isArray(mData) ? mData : (mData?.intervals ?? []);
     const scaleNotes = intervals.map(i => (root + i) % 12), cautions = (cautionList || []).map(n => NOTE_INT[n]);
     
@@ -288,13 +309,11 @@
     const tags = document.getElementById('cautionTags');
     tags.innerHTML = '';
     if (document.getElementById('toggleCaution').checked) d.caution.forEach(c => tags.innerHTML += `<span class="tag">${c}</span>`);
-    
     document.getElementById('rowDegree').innerHTML = `<div class="rowLabel">ディグリー</div>` + d.degree.map((v, i) => `<div class="cell degreeCell" data-bar="${i}">${v === R ? '〃' : v}</div>`).join('');
     document.getElementById('rowChord').innerHTML = `<div class="rowLabel">コード進行</div>` + d.chords.map((v, i) => `<div class="cell chordCell" data-bar="${i}">${v === R ? '〃' : v}</div>`).join('');
     document.getElementById('rowMode').innerHTML = `<div class="rowLabel">使用モード</div>` + d.modes.map((v, i) => `<div class="cell modeCell" data-bar="${i}">${v === R ? '〃' : v}</div>`).join('');
-    
     document.getElementById('rowMode').style.display = document.getElementById('toggleModes').checked ? 'grid' : 'none';
-    drawFretboard(d.modes[0], d.caution);
+    drawFretboard(lastDrawnMode || d.modes[0], d.caution);
   }
 
   const ds = document.getElementById('drillSelect');
@@ -302,13 +321,11 @@
   const bp = document.getElementById('blockPanel');
   BLOCKS.forEach(b => bp.innerHTML += `<label><input type="checkbox" value="${b.id}" class="blockCheck"> ${b.label}</label>`);
   bp.innerHTML += `<label style="color:#fff;"><input type="checkbox" id="allCheck"> ALL</label>`;
-
-  ds.onchange = async () => { stop(); currentBuffer = null; renderSelected(); if(audioCtx) await loadBuffer(drills[ds.value].file); };
+  ds.onchange = async () => { stop(); currentBuffer = null; lastDrawnMode = ""; renderSelected(); if(audioCtx) await loadBuffer(drills[ds.value].file); };
   document.getElementById('btnToggle').onclick = toggle;
   bp.onchange = () => drawFretboard(lastDrawnMode || drills[ds.value].modes[0], drills[ds.value].caution);
   document.getElementById('toggleCaution').onchange = renderSelected;
   document.getElementById('toggleModes').onchange = renderSelected;
-
   window.onkeydown = (e) => { if (e.code === 'Space' && !['INPUT', 'SELECT'].includes(e.target.tagName)) { e.preventDefault(); document.getElementById('btnToggle').click(); } };
   renderSelected();
 })();
