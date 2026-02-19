@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kadenz Drill Player - Standard Stability</title>
+  <title>Kadenz Drill Player - Gapless Engine</title>
   <style>
     :root{
       --bg:#0f1220; --text:#e8e8f0; --muted:#a9adc4;
@@ -21,8 +21,9 @@
     .bar{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:12px; padding:12px; }
     .selectWrap{ flex: 1 1 500px; }
     select{ width:100%; padding:12px 14px; border-radius:14px; border:1px solid var(--line); background:#f2f2f7; color:#000; font-weight:900; font-size:26px; outline:none; }
-    button{ cursor:pointer; border:1px solid var(--line); background:linear-gradient(180deg, rgba(125,211,252,.25), rgba(125,211,252,.12)); color:var(--text); padding:14px 22px; border-radius:14px; font-weight:900; font-size:20px; min-width:120px; }
+    button{ cursor:pointer; border:1px solid var(--line); background:linear-gradient(180deg, rgba(125,211,252,.25), rgba(125,211,252,.12)); color:var(--text); padding:14px 22px; border-radius:14px; font-weight:900; font-size:20px; min-width:150px; transition: all 0.2s; }
     button.stop{ background:linear-gradient(180deg, rgba(251,113,133,.28), rgba(251,113,133,.14)); }
+    button:disabled{ opacity: 0.5; cursor: wait; }
     .toggles{ display:flex; gap:14px; align-items:center; }
     .now{ margin-left:auto; display:flex; gap:10px; align-items:center; color:var(--muted); font-size:14px; }
     .pill{ display:inline-flex; gap:6px; align-items:center; border:1px solid var(--line); border-radius:999px; padding:6px 12px; background:rgba(255,255,255,.03); color:var(--text); font-size:12px; }
@@ -34,7 +35,7 @@
     .gridWrap{ margin-top:14px; border-radius:16px; border:1px solid var(--line); background:rgba(255,255,255,.03); overflow:hidden; }
     .gridRow{ display:grid; grid-template-columns: 200px repeat(8, minmax(0, 1fr)); border-bottom:1px solid rgba(42,47,74,.55); }
     .rowLabel{ width:200px; color:var(--muted); font-size:16px; padding:24px 14px; border-right:1px solid var(--line); background:rgba(0,0,0,.18); display:flex; align-items:center; }
-    .cell{ padding:35px 10px; text-align:center; border-right:1px solid rgba(42,47,74,.55); background: var(--cell); font-family: ui-monospace, monospace; font-weight:900; }
+    .cell{ padding:35px 10px; text-align:center; border-right:1px solid rgba(42,47,74,.55); background: var(--cell); font-family: ui-monospace, monospace; font-weight:900; transition: background 0.1s; }
     .degreeCell, .chordCell{ font-size:52px; }
     .modeCell{ font-size:24px; line-height:1.15; }
     .activeBar{ background: var(--hl) !important; box-shadow: inset 0 0 20px rgba(125,211,252,0.2); }
@@ -44,20 +45,20 @@
 <body>
 
 <header>
-  <h1>Kadenz Drill Player <small style="font-size:10px; opacity:0.6;">Standard Mode</small></h1>
-  <div class="sub">ファイル読み込みの安定性を優先したモードです。</div>
+  <h1>Kadenz Drill Player <small style="font-size:10px; opacity:0.6;">Gapless Web Audio Engine</small></h1>
+  <div class="sub">GitHub Pages 環境用。1回目はカウント、2回目以降は2-9小節（実質8小節）が完璧にループします。</div>
 </header>
 
 <div class="wrap">
   <div class="bar">
     <div class="selectWrap"><select id="drillSelect"></select></div>
-    <button id="btnToggle">Start</button>
+    <button id="btnToggle">Init & Start</button>
     <div class="toggles">
       <label><input id="toggleCaution" type="checkbox" checked /> 要注意音</label>
       <label><input id="toggleModes" type="checkbox" checked /> モード</label>
     </div>
     <div class="now">
-      <span id="statusPill" class="pill stop"><span id="statusText">STOP</span></span>
+      <span id="statusPill" class="pill stop"><span id="statusText">READY</span></span>
       <span class="pill">BPM<span id="bpmText">100</span></span>
       <span id="nowID" class="pill">—</span>
     </div>
@@ -85,7 +86,7 @@
   const BAR_SEC = (60 / BPM) * 4;
   const R = 'R';
 
-  // --- Data ---
+  // --- Data Definitions ---
   const BLOCKS = [
     { id:'b5_3', label:'5弦3F', range:[0,8,3,6] }, { id:'b6_8', label:'6弦8F', range:[5,12,4,6] },
     { id:'b3_5', label:'3弦5F', range:[3,12,1,4] }, { id:'b4_10', label:'4弦10F', range:[8,15,2,5] },
@@ -118,10 +119,10 @@
     { id:'M03', file:'audio/M03_CmCmFFGGCm6Cm.mp3', title:'Cメロディックマイナードリル', degree:['Ⅰm','Ⅰm','Ⅳ','Ⅳ','Ⅴ','Ⅴ','Ⅰm6','Ⅰm'], chords:['Cm','Cm','F','F','G','G','Cm6','Cm'], modes:['メロディックマイナー',R,R,R,R,R,R,R], caution:['A','B','Eb'] }
   ];
 
-  // --- Logic ---
-  let audio = new Audio();
-  audio.loop = true;
+  // --- Audio Engine ---
   let audioCtx = null;
+  let currentBuffer = null;
+  let sourceNode = null;
   let isPlaying = false;
   let startTime = 0;
   let animId = null;
@@ -130,8 +131,25 @@
   const canvas = document.getElementById('fretboardCanvas');
   const ctx = canvas.getContext('2d');
 
+  async function loadBuffer(url) {
+    const btn = document.getElementById('btnToggle');
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = "Loading...";
+    try {
+      const res = await fetch(url);
+      if(!res.ok) throw new Error("File not found");
+      const arrayBuffer = await res.arrayBuffer();
+      currentBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      btn.disabled = false;
+      btn.textContent = isPlaying ? "Stop" : "Start";
+    } catch (e) {
+      console.error("Audio Load Error:", e);
+      btn.textContent = "Load Error";
+    }
+  }
+
   function playClick(time, isFirst) {
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = audioCtx.createOscillator();
     const g = audioCtx.createGain();
     osc.frequency.setValueAtTime(isFirst ? 880 : 440, time);
@@ -141,26 +159,44 @@
     osc.start(time); osc.stop(time + 0.1);
   }
 
-  function start() {
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if(audioCtx.state === 'suspended') audioCtx.resume();
+  async function toggle() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
 
+    if (isPlaying) {
+      stop();
+    } else {
+      if (!currentBuffer) {
+        await loadBuffer(drills[document.getElementById('drillSelect').value].file);
+      }
+      start();
+    }
+  }
+
+  function start() {
+    if (!currentBuffer) return;
     isPlaying = true;
     lastDrawnBar = -1;
-    startTime = audioCtx.currentTime + 0.1;
-    
-    // カウント予約
+    startTime = audioCtx.currentTime + 0.05;
+    const playStart = startTime + BAR_SEC;
+
+    // カウント音（最初の4拍）
     for (let i = 0; i < 4; i++) {
       playClick(startTime + i * (60/BPM), i === 0);
     }
 
-    // 本編はBAR_SEC後に再生開始
-    setTimeout(() => {
-      if(isPlaying) {
-        audio.currentTime = 0;
-        audio.play();
-      }
-    }, BAR_SEC * 1000);
+    sourceNode = audioCtx.createBufferSource();
+    sourceNode.buffer = currentBuffer;
+    sourceNode.loop = true;
+    // 2小節目(BAR_SEC)から9小節目(BAR_SEC*9)までをループ範囲に指定
+    sourceNode.loopStart = BAR_SEC;
+    sourceNode.loopEnd = BAR_SEC * 9;
+    
+    sourceNode.connect(audioCtx.destination);
+    // カウントが終わるタイミング(playStart)から、音源の2小節目(BAR_SEC)を再生開始
+    sourceNode.start(playStart, BAR_SEC);
 
     document.getElementById('statusText').textContent = 'PLAY';
     document.getElementById('statusPill').className = 'pill ok';
@@ -171,9 +207,12 @@
 
   function stop() {
     isPlaying = false;
-    audio.pause();
+    if (sourceNode) { 
+      try { sourceNode.stop(); } catch(e) {} 
+      sourceNode = null; 
+    }
     cancelAnimationFrame(animId);
-    document.getElementById('statusText').textContent = 'STOP';
+    document.getElementById('statusText').textContent = 'READY';
     document.getElementById('statusPill').className = 'pill stop';
     document.getElementById('btnToggle').textContent = 'Start';
     document.getElementById('btnToggle').classList.remove('stop');
@@ -198,7 +237,7 @@
     animId = requestAnimationFrame(updateFrame);
   }
 
-  // --- Drawing Logic ---
+  // --- Rendering & UI ---
   function drawFretboard(modeName, cautionList) {
     const margin = 40, w = canvas.width, h = canvas.height, boardW = w - margin * 2;
     const fretCount = 23, fretW = boardW / (fretCount + 1);
@@ -238,7 +277,6 @@
   function renderSelected() {
     const idx = document.getElementById('drillSelect').value;
     const d = drills[idx];
-    audio.src = d.file;
     document.getElementById('bigTitleText').textContent = d.title;
     document.getElementById('nowID').textContent = d.id;
     const tags = document.getElementById('cautionTags');
@@ -253,7 +291,7 @@
     drawFretboard(d.modes[0], d.caution);
   }
 
-  // --- Initial ---
+  // --- Initializing ---
   const ds = document.getElementById('drillSelect');
   drills.forEach((d, i) => ds.innerHTML += `<option value="${i}">${d.id}: ${d.title}</option>`);
   
@@ -261,13 +299,23 @@
   BLOCKS.forEach(b => bp.innerHTML += `<label><input type="checkbox" value="${b.id}" class="blockCheck"> ${b.label}</label>`);
   bp.innerHTML += `<label style="color:#fff;"><input type="checkbox" id="allCheck"> ALL</label>`;
 
-  ds.onchange = () => { stop(); renderSelected(); };
-  document.getElementById('btnToggle').onclick = () => isPlaying ? stop() : start();
+  ds.onchange = async () => { 
+    stop(); 
+    currentBuffer = null; 
+    renderSelected(); 
+    if(audioCtx) await loadBuffer(drills[ds.value].file); 
+  };
+  document.getElementById('btnToggle').onclick = toggle;
   bp.onchange = () => drawFretboard(drills[ds.value].modes[0], drills[ds.value].caution);
   document.getElementById('toggleCaution').onchange = renderSelected;
   document.getElementById('toggleModes').onchange = renderSelected;
 
-  window.onkeydown = (e) => { if (e.code === 'Space' && !['INPUT', 'SELECT'].includes(e.target.tagName)) { e.preventDefault(); document.getElementById('btnToggle').click(); } };
+  window.onkeydown = (e) => { 
+    if (e.code === 'Space' && !['INPUT', 'SELECT'].includes(e.target.tagName)) { 
+      e.preventDefault(); 
+      document.getElementById('btnToggle').click(); 
+    } 
+  };
 
   renderSelected();
 })();
