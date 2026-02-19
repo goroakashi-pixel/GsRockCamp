@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kadenz Drill Player</title>
+  <style>
+    :root{
+      --bg:#0f1220; --text:#e8e8f0; --muted:#a9adc4;
+      --accent:#7dd3fc; --danger:#fb7185; --ok:#34d399;
+      --line:#2a2f4a;
+      --cell:#11152a; --cell2:#10142a;
+      --hl: rgba(125,211,252,.22);
+    }
+
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+      background:linear-gradient(180deg,var(--bg),#0b0d18);
+      color:var(--text);
+    }
+
+    header{ padding:18px 18px 10px; }
+    h1{ margin:0; font-size:18px; letter-spacing:.4px; }
+    .sub{ margin:6px 0 0; color:var(--muted); font-size:12px; }
+
+    .wrap{ padding:0 18px 28px; max-width: 1400px; margin: 0 auto; }
+
+    .bar{
+      display:flex; gap:12px; flex-wrap:wrap; align-items:center;
+      background:rgba(255,255,255,.04); border:1px solid var(--line);
+      border-radius:12px; padding:12px;
+    }
+
+    .selectWrap{
+      flex: 1 1 560px;
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .label{ color:var(--muted); font-size:12px; letter-spacing:.2px; }
+
+    /* dropdown: readable (black), not too huge */
+    select{
+      width:min(980px, 100%);
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#f2f2f7;
+      color:#000;
+      font-weight:900;
+      font-size:26px;
+      letter-spacing:.2px;
+      outline:none;
+    }
+    option{ color:#000; background:#fff; }
+
+    button{
+      cursor:pointer; border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(125,211,252,.25), rgba(125,211,252,.12));
+      color:var(--text); padding:14px 18px; border-radius:14px;
+      font-weight:900; letter-spacing:.2px;
+      font-size:20px;
+    }
+    button.stop{
+      background:linear-gradient(180deg, rgba(251,113,133,.28), rgba(251,113,133,.14));
+    }
+
+    .toggles{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+    label{ display:flex; gap:8px; align-items:center; color:var(--muted); font-size:14px; }
+    input[type="checkbox"]{ transform:scale(1.2); accent-color: var(--accent); }
+
+    .now{
+      margin-left:auto;
+      color:var(--muted); font-size:14px;
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .pill{
+      display:inline-flex; gap:6px; align-items:center;
+      border:1px solid var(--line); border-radius:999px;
+      padding:6px 12px; background:rgba(255,255,255,.03);
+      color:var(--text); font-size:12px;
+    }
+    .pill.ok{ border-color: rgba(52,211,153,.35); }
+    .pill.stop{ border-color: rgba(251,113,133,.35); }
+    .pill small{ color:var(--muted); font-weight:700; }
+
+    .err{
+      margin-top:10px;
+      padding:12px 14px; border-radius:12px;
+      border:1px solid rgba(251,113,133,.35);
+      background:rgba(251,113,133,.10);
+      color:var(--text);
+      display:none;
+      font-size:14px;
+    }
+    .hint{ margin-top:10px; color:var(--muted); font-size:12px; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    /* big title block */
+    .bigTitle{
+      margin-top:14px;
+      padding:18px 18px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .bigTitle h2{
+      margin:0;
+      font-size:34px;
+      letter-spacing:.2px;
+    }
+    .meta{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      color:var(--muted); font-size:13px;
+    }
+    .tag{
+      font-size:12px; padding:4px 10px; border-radius:999px;
+      border:1px solid rgba(251,113,133,.35);
+      background:rgba(251,113,133,.10);
+      color:var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    /* ===== GRID (cells 1.5x) ===== */
+    .gridWrap{
+      margin-top:14px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      overflow:hidden;
+    }
+
+    .gridRow{
+      display:grid;
+      grid-template-columns: 200px repeat(8, minmax(0, 1fr));
+      border-bottom:1px solid rgba(42,47,74,.55);
+    }
+    .gridRow:last-child{ border-bottom:none; }
+
+    .rowLabel{
+      width:200px;
+      color:var(--muted);
+      font-size:16px;
+      letter-spacing:.3px;
+      padding:24px 14px;          /* a bit bigger */
+      border-right:1px solid var(--line);
+      background:rgba(0,0,0,.18);
+      display:flex; align-items:center;
+      white-space:nowrap;
+    }
+
+    /* base cells (1.5x area) */
+    .cell{
+      padding:39px 14px;          /* ← 26px 10px から 1.5倍 */
+      text-align:center;
+      border-right:1px solid rgba(42,47,74,.55);
+      background: var(--cell);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight:900;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .gridRow .cell:nth-child(2n+2){ background: var(--cell2); }
+    .gridRow .cell:last-child{ border-right:none; }
+
+    /* ①②: font is “good as is” */
+    .degreeCell{ font-size:58px; }
+    .chordCell{  font-size:58px; }
+
+    /* ③: smaller + wrap so it never disappears */
+    .modeCell{
+      font-size:26px;
+      letter-spacing:.15px;
+      font-weight:900;
+    }
+    #rowMode .cell{
+      padding:22px 12px;          /* ③ row slightly thinner */
+      white-space:normal;         /* wrap */
+      overflow:visible;           /* reduce clipping */
+      text-overflow:clip;         /* no ellipsis */
+      line-height:1.15;
+    }
+
+    .activeBar{ background: var(--hl) !important; }
+
+    kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background:rgba(255,255,255,.06);
+      border:1px solid var(--line);
+      border-bottom-width:2px;
+      border-radius:8px;
+      padding:2px 8px;
+      color:var(--text);
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <h1>Kadenz Drill Player</h1>
+  <div class="sub">プルダウンでドリル選択 → <b>Start/Stop</b>（<kbd>Space</kbd>）でループ。BPM=100固定。先頭1小節はカウント。</div>
+</header>
+
+<div class="wrap">
+  <div class="bar">
+    <div class="selectWrap">
+      <div class="label">DRILL</div>
+      <select id="drillSelect"></select>
+    </div>
+
+    <button id="btnToggle">Start</button>
+
+    <div class="toggles">
+      <label><input id="toggleCaution" type="checkbox" checked /> 要注意音 表示</label>
+      <label><input id="toggleModes" type="checkbox" checked /> 使用モード 表示</label>
+    </div>
+
+    <div class="now">
+      <span id="statusPill" class="pill stop"><small>Status</small><span id="statusText">STOP</span></span>
+      <span class="pill"><small>BPM</small><span class="mono">100</span></span>
+      <span class="pill"><small>Now</small><span id="nowText">—</span></span>
+    </div>
+  </div>
+
+  <div id="errBox" class="err"></div>
+  <div class="hint">※繰り返し記号は <span class="mono">𝄎</span>（表示できない環境では <span class="mono">〃</span> に置換します）</div>
+
+  <div class="bigTitle">
+    <h2 id="bigTitleText">—</h2>
+    <div class="meta">
+      <span class="mono" id="fileText">—</span>
+      <span id="cautionTags"></span>
+    </div>
+  </div>
+
+  <div class="gridWrap">
+    <div class="gridRow" id="rowDegree"></div>
+    <div class="gridRow" id="rowChord"></div>
+    <div class="gridRow" id="rowMode"></div>
+  </div>
+</div>
+<div class="gridWrap" style="margin-top:14px; padding:20px; background:rgba(0,0,0,0.2); text-align:center;">
+  <div class="label" style="margin-bottom:10px; text-align:left;">FRETBOARD (C Ionian / Major Scale)</div>
+  <canvas id="fretboardCanvas" width="1200" height="220" style="width:100%; height:auto; border-radius:8px;"></canvas>
+</div>
+<script>
+(() => {
+  // ===== Timing =====
+  const BPM = 100;
+  const BEATS_PER_BAR = 4;
+
+  const DISPLAY_BARS = 8;   // 表示は8小節
+  const COUNTIN_BARS = 1;   // 先頭1小節カウント
+  const TOTAL_BARS_AUDIO = DISPLAY_BARS + COUNTIN_BARS;
+
+  const BAR_SEC = (60 / BPM) * BEATS_PER_BAR; // 2.4s
+  const LOOP_SEC = BAR_SEC * TOTAL_BARS_AUDIO;
+
+  // data repeat token
+  const R = 'R';
+
+  // ---- Repeat symbol ----
+  function pickRepeatSymbol() {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = '16px system-ui, -apple-system, Segoe UI, Roboto, Noto Sans JP, sans-serif';
+    const wRepeat = ctx.measureText('𝄎').width;
+    const wTofu = ctx.measureText('□').width;
+    if (Math.abs(wRepeat - wTofu) < 0.05) return '〃';
+    return '𝄎';
+  }
+  const REPEAT = pickRepeatSymbol();
+
+  // ===== Drills =====
+  const drills = [
+    { id:'A01', file:'A01_CFGCCFGC.mp3', title:'Cイオニアンドリル　王道進行（Ⅰ-Ⅳ-Ⅴ-Ⅰ）',
+      degree:['Ⅰ','Ⅳ','Ⅴ','Ⅰ','Ⅰ','Ⅳ','Ⅴ','Ⅰ'],
+      chords:['C','F','G','C','C','F','G','C'],
+      modes:['イオニアン',R,R,R,R,R,R,R], caution:[] },
+
+    { id:'A02', file:'A02_Dm7G7Cmaj7Am7Dm7G7Cmaj7Cmaj7.mp3', title:'Cイオニアンドリル　ツーファイブワン反復（Ⅱm7-Ⅴ7-Ⅰmaj7）',
+      degree:['Ⅱm7','Ⅴ7','Ⅰmaj7','Ⅵm7','Ⅱm7','Ⅴ7','Ⅰmaj7','Ⅰmaj7'],
+      chords:['Dm7','G7','Cmaj7','Am7','Dm7','G7','Cmaj7','Cmaj7'],
+      modes:['イオニアン',R,R,R,R,R,R,R], caution:[] },
+
+    { id:'A03', file:'A03_CBbCBbCDm7FC.mp3', title:'Cミクソリディアンドリル　♭Ⅶ→Ⅰ（アーメン終止）',
+      degree:['Ⅰ','♭Ⅶ','Ⅰ','♭Ⅶ','Ⅰ','Ⅱm7','Ⅳ','Ⅰ'],
+      chords:['C','Bb','C','Bb','C','Dm7','F','C'],
+      modes:['イオニアン','ミクソリディアン','イオニアン','ミクソリディアン','イオニアン',R,R,R], caution:['Bb'] },
+
+    { id:'A04', file:'A04_CE7AmD7Dm7G7CC.mp3', title:'Cイオニアンドリル　セカンダリ2連（E7→Am／D7→G）',
+      degree:['Ⅰ','Ⅴ/Ⅵ','Ⅵm','Ⅴ/Ⅴ','Ⅱm7','Ⅴ7','Ⅰ','Ⅰ'],
+      chords:['C','E7','Am','D7','Dm7','G7','C','C'],
+      modes:['イオニアン','Aハーモニックマイナー','イオニアン','Gイオニアン','イオニアン',R,R,R], caution:['G#','F#'] },
+
+    { id:'A05', file:'A05_Dm7G7CDbCDm7G7C.mp3', title:'Cフリジアンドリル　♭Ⅱ→Ⅰ（Db→C）',
+      degree:['Ⅱm7','Ⅴ7','Ⅰ','♭Ⅱ','Ⅰ','Ⅱm7','Ⅴ7','Ⅰ'],
+      chords:['Dm7','G7','C','Db','C','Dm7','G7','C'],
+      modes:['イオニアン',R,R,'フリジアン','イオニアン',R,R,R], caution:['Db'] },
+
+    { id:'A06', file:'A06_CCFmCDm7G7CC.mp3', title:'Cエオリアンドリル　Ⅳm→Ⅰ（Fm→C）',
+      degree:['Ⅰ','Ⅰ','Ⅳm','Ⅰ','Ⅱm7','Ⅴ7','Ⅰ','Ⅰ'],
+      chords:['C','C','Fm','C','Dm7','G7','C','C'],
+      modes:['イオニアン',R,'エオリアン','イオニアン',R,R,R,R], caution:['Ab'] },
+
+    { id:'A07', file:'A07_CA7Dm7G7CA7Dm7C.mp3', title:'Cイオニアンドリル　A7ドリル（Ⅴ/Ⅱ→Ⅱm）',
+      degree:['Ⅰ','Ⅴ/Ⅱ','Ⅱm7','Ⅴ7','Ⅰ','Ⅴ/Ⅱ','Ⅱm7','Ⅰ'],
+      chords:['C','A7','Dm7','G7','C','A7','Dm7','C'],
+      modes:['イオニアン','Dハーモニックマイナー','イオニアン',R,'イオニアン','Dハーモニックマイナー','イオニアン',R], caution:['C#'] },
+
+    { id:'A08', file:'A08_CD7G7CCD7G7C.mp3', title:'Cイオニアンドリル　D7ドリル（Ⅴ/Ⅴ→Ⅴ）',
+      degree:['Ⅰ','Ⅴ/Ⅴ','Ⅴ7','Ⅰ','Ⅰ','Ⅴ/Ⅴ','Ⅴ7','Ⅰ'],
+      chords:['C','D7','G7','C','C','D7','G7','C'],
+      modes:['イオニアン','Gイオニアン','イオニアン',R,R,'Gイオニアン','イオニアン',R], caution:['F#'] },
+
+    { id:'A09', file:'A09_CE7AmCCE7AmC.mp3', title:'Cイオニアンドリル　E7ドリル（Ⅴ/Ⅵ→Ⅵm）',
+      degree:['Ⅰ','Ⅴ/Ⅵ','Ⅵm','Ⅰ','Ⅰ','Ⅴ/Ⅵ','Ⅵm','Ⅰ'],
+      chords:['C','E7','Am','C','C','E7','Am','C'],
+      modes:['イオニアン','Aハーモニックマイナー','イオニアン',R,R,'Aハーモニックマイナー','イオニアン',R], caution:['G#'] },
+
+    { id:'A10', file:'A10_CCDDCDGC.mp3', title:'Cリディアンドリル　#4固定（C–D反復）',
+      degree:['Ⅰ','Ⅰ','Ⅱ','Ⅱ','Ⅰ','Ⅱ','Ⅴ','Ⅰ'],
+      chords:['C','C','D','D','C','D','G','C'],
+      modes:['リディアン',R,R,R,R,R,R,R], caution:['F#'] },
+
+    { id:'M01', file:'M01_CmCmBbBbAbAbGmCm.mp3', title:'Cナチュラルマイナードリル　暗さの基準（♭6/♭7）',
+      degree:['Ⅰm','Ⅰm','♭Ⅶ','♭Ⅶ','♭Ⅵ','♭Ⅵ','Ⅴm','Ⅰm'],
+      chords:['Cm','Cm','Bb','Bb','Ab','Ab','Gm','Cm'],
+      modes:['ナチュラルマイナー',R,R,R,R,R,R,R], caution:['Eb','Ab','Bb'] },
+
+    { id:'M02', file:'M02_CmCmAbAbGGCmCm.mp3', title:'Cハーモニックマイナードリル　導音の刺さり（ナチュラル7）',
+      degree:['Ⅰm','Ⅰm','♭Ⅵ','♭Ⅵ','Ⅴ','Ⅴ','Ⅰm','Ⅰm'],
+      chords:['Cm','Cm','Ab','Ab','G','G','Cm','Cm'],
+      modes:['ハーモニックマイナー',R,R,R,R,R,R,R], caution:['B','Eb','Ab'] },
+
+    { id:'M03', file:'M03_CmCmFFGGCm6Cm.mp3', title:'Cメロディックマイナードリル　6/7上げ（Cm6で確認）',
+      degree:['Ⅰm','Ⅰm','Ⅳ','Ⅳ','Ⅴ','Ⅴ','Ⅰm6','Ⅰm'],
+      chords:['Cm','Cm','F','F','G','G','Cm6','Cm'],
+      modes:['メロディックマイナー',R,R,R,R,R,R,R], caution:['A','B','Eb'] },
+  ];
+
+  // ===== DOM =====
+  const drillSelect = document.getElementById('drillSelect');
+  const btnToggle = document.getElementById('btnToggle');
+  const toggleCaution = document.getElementById('toggleCaution');
+  const toggleModes = document.getElementById('toggleModes');
+  const statusText = document.getElementById('statusText');
+  const statusPill = document.getElementById('statusPill');
+  const nowText = document.getElementById('nowText');
+  const bigTitleText = document.getElementById('bigTitleText');
+  const fileText = document.getElementById('fileText');
+  const cautionTags = document.getElementById('cautionTags');
+  const errBox = document.getElementById('errBox');
+
+  const rowDegree = document.getElementById('rowDegree');
+  const rowChord  = document.getElementById('rowChord');
+  const rowMode   = document.getElementById('rowMode');
+
+  // ===== Audio =====
+  const audio = new Audio();
+  audio.loop = true;
+
+  let isPlaying = false;
+  let activeIndex = 0;
+  let hlTimer = null;
+
+  function showError(msg){
+    errBox.style.display = 'block';
+    errBox.textContent = msg;
+  }
+  function clearError(){
+    errBox.style.display = 'none';
+    errBox.textContent = '';
+  }
+
+  function setStatus(play){
+    isPlaying = play;
+    statusText.textContent = play ? 'PLAY' : 'STOP';
+    statusPill.classList.toggle('ok', play);
+    statusPill.classList.toggle('stop', !play);
+    btnToggle.textContent = play ? 'Stop' : 'Start';
+    btnToggle.classList.toggle('stop', play);
+  }
+
+  function renderRow(container, labelText, values, className){
+    container.innerHTML = '';
+    const label = document.createElement('div');
+    label.className = 'rowLabel';
+    label.textContent = labelText;
+    container.appendChild(label);
+
+    for (let i=0; i<DISPLAY_BARS; i++){
+      const cell = document.createElement('div');
+      cell.className = `cell ${className}`;
+      cell.dataset.bar = String(i);
+      cell.textContent = values[i] ?? '';
+      container.appendChild(cell);
+    }
+  }
+
+  function applyModeVisibility(){
+    rowMode.style.display = toggleModes.checked ? 'grid' : 'none';
+  }
+
+  function clearBarHighlight(){
+    document.querySelectorAll('.cell').forEach(c => c.classList.remove('activeBar'));
+  }
+
+  function highlightBar(barIndex){
+    clearBarHighlight();
+    [rowDegree, rowChord, rowMode].forEach(row => {
+      row.querySelectorAll(`.cell[data-bar="${barIndex}"]`).forEach(c => c.classList.add('activeBar'));
+    });
+  }
+
+  function startHighlight(){
+    stopHighlight();
+    hlTimer = window.setInterval(() => {
+      if (!isPlaying) return;
+
+      const t = audio.currentTime || 0;
+      const tLoop = t % LOOP_SEC;
+
+      // count-in 1 bar: no highlight
+      const countInSec = COUNTIN_BARS * BAR_SEC;
+      if (tLoop < countInSec){
+        clearBarHighlight();
+        return;
+      }
+
+      const tAfter = tLoop - countInSec;
+      const bar = Math.min(DISPLAY_BARS - 1, Math.floor(tAfter / BAR_SEC));
+      highlightBar(bar);
+    }, 80);
+  }
+
+  function stopHighlight(){
+    if (hlTimer){ clearInterval(hlTimer); hlTimer = null; }
+    clearBarHighlight();
+  }
+
+  function renderSelected(){
+    const d = drills[activeIndex];
+
+    bigTitleText.textContent = d.title;
+    fileText.textContent = `(${d.id})  audio/${d.file}`;
+
+    cautionTags.innerHTML = '';
+    if (toggleCaution.checked && d.caution && d.caution.length){
+      d.caution.forEach(t => {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = t;
+        cautionTags.appendChild(tag);
+      });
+    }
+
+    renderRow(rowDegree, '①ディグリー', d.degree, 'degreeCell');
+    renderRow(rowChord,  '②コード進行', d.chords, 'chordCell');
+
+    const modeDisp = d.modes.map(v => v === R ? REPEAT : v);
+    renderRow(rowMode,   '③使用モード', modeDisp, 'modeCell');
+
+    applyModeVisibility();
+    clearBarHighlight();
+  }
+
+  function fillSelect(){
+    drillSelect.innerHTML = '';
+    drills.forEach((d, i) => {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = d.title;
+      drillSelect.appendChild(opt);
+    });
+    drillSelect.value = String(activeIndex);
+  }
+
+  async function start(){
+    clearError();
+    const d = drills[activeIndex];
+    nowText.textContent = `${d.id}`;
+
+    try{
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = `audio/${encodeURIComponent(d.file)}`;
+      audio.load();
+
+      const p = audio.play();
+      if (p && typeof p.then === 'function') await p;
+
+      setStatus(true);
+      startHighlight();
+    } catch(e){
+      setStatus(false);
+      stopHighlight();
+      showError(`再生できません: ${e && e.message ? e.message : e}`);
+    }
+  }
+
+  function stop(){
+    audio.pause();
+    audio.currentTime = 0;
+    setStatus(false);
+    stopHighlight();
+  }
+
+  // ===== Events =====
+  drillSelect.addEventListener('change', () => {
+    activeIndex = Number(drillSelect.value);
+    renderSelected();
+    if (isPlaying) start();
+  });
+
+  btnToggle.addEventListener('click', async () => {
+    if (!isPlaying) await start();
+    else stop();
+  });
+
+  toggleCaution.addEventListener('change', renderSelected);
+  toggleModes.addEventListener('change', applyModeVisibility);
+
+  window.addEventListener('keydown', async (ev) => {
+    if (ev.code !== 'Space') return;
+    const tag = (ev.target && ev.target.tagName) ? ev.target.tagName.toLowerCase() : '';
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    ev.preventDefault();
+    if (!isPlaying) await start();
+    else stop();
+  });
+
+  audio.addEventListener('error', () => {
+    setStatus(false);
+    stopHighlight();
+    const err = audio.error;
+    showError(`音源エラー: ${err ? err.message : 'unknown'}`);
+  });
+// ===== Fretboard Drawing =====
+  const canvas = document.getElementById('fretboardCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // 音名と指板上の位置定義（C=0, C#=1...）
+  // 弦の開放音：1弦:E(4), 2弦:B(11), 3弦:G(7), 4弦:D(2), 5弦:A(9), 6弦:E(4)
+  const strings = [4, 11, 7, 2, 9, 4]; 
+  const scaleC = [0, 2, 4, 5, 7, 9, 11]; // C Ionian (C, D, E, F, G, A, B)
+  const fretCount = 23; // 0〜23フレット
+
+  function drawFretboard() {
+    const w = canvas.width;
+    const h = canvas.height;
+    const margin = 30;
+    const boardW = w - margin * 2;
+    const boardH = h - margin * 2;
+    const fretW = boardW / (fretCount + 1);
+    const stringH = boardH / 5;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // 1. ネック（メイプル色）を描く
+    ctx.fillStyle = '#f3d9a2'; // Maple color
+    ctx.fillRect(margin, margin, boardW, boardH);
+
+    // 2. フレット線とポジション番号
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 2;
+    ctx.font = '12px Arial';
+    ctx.fillStyle = '#aaa';
+    
+    const markers = [5, 7, 9, 12, 15, 17, 19, 21];
+
+    for (let f = 0; f <= fretCount + 1; f++) {
+      const x = margin + f * fretW;
+      ctx.beginPath();
+      ctx.moveTo(x, margin);
+      ctx.lineTo(x, margin + boardH);
+      ctx.stroke();
+
+      // フレット番号表示
+      if (markers.includes(f)) {
+        ctx.fillText(f.toString(), x - fretW/2 - 4, margin - 10);
+      }
+    }
+
+    // 3. 弦を描く
+    ctx.strokeStyle = '#777';
+    ctx.lineWidth = 1;
+    for (let s = 0; s < 6; s++) {
+      const y = margin + s * stringH;
+      ctx.beginPath();
+      ctx.moveTo(margin, y);
+      ctx.lineTo(margin + boardW, y);
+      ctx.stroke();
+    }
+
+    // 4. 音（ドット）を配置
+    for (let s = 0; s < 6; s++) {
+      const openNote = strings[s];
+      for (let f = 0; f <= fretCount; f++) {
+        const currentNote = (openNote + f) % 12;
+        
+        if (scaleC.includes(currentNote)) {
+          const x = margin + f * fretW - (f === 0 ? 0 : fretW / 2);
+          const y = margin + s * stringH;
+
+          ctx.beginPath();
+          ctx.arc(x, y, 10, 0, Math.PI * 2);
+          
+          // ルート音(C=0)は赤、その他は白
+          ctx.fillStyle = (currentNote === 0) ? '#fb7185' : '#ffffff';
+          ctx.fill();
+          
+          // 枠線
+          ctx.strokeStyle = '#333';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // 初期描画
+  drawFretboard();
+  // ===== Init =====
+  fillSelect();
+  renderSelected();
+  setStatus(false);
+})();
+</script>
+</body>
+</html>
