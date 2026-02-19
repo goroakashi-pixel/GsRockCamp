@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>GoRockCamp</title>
 
-  <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#ffffff">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
@@ -94,7 +93,6 @@
 </head>
 
 <body>
-  <!-- Top Banner -->
   <div class="grc-banner">
     <img src="assets/img/banner.png" alt="GoRockCamp">
   </div>
@@ -103,7 +101,6 @@
     <h1>GoRockCamp</h1>
   </header>
 
-  <!-- Cards: 指定順（上→下） -->
   <div class="grc-grid">
     <a class="grc-card" href="games/diatonic/index.html">
       <div class="grc-card-title">Diatonic Quiz</div>
@@ -119,13 +116,17 @@
       <div class="grc-card-title">Mode Quiz</div>
       <p class="grc-card-desc">Cの各モードを聴いて当てる（Ionian〜Locrian）</p>
     </a>
+
+    <a class="grc-card" href="GsRockCamp/games/Kadenz/index4.html">
+      <div class="grc-card-title">Kadenz Drill Player</div>
+      <p class="grc-card-desc">【宅練専用】実戦的なコード進行とモードを確認しながらの指板トレーニング</p>
+    </a>
   </div>
 
   <div class="grc-footer">
     ※Kadenzは自宅専用プロジェクト
   </div>
 
-  <!-- Service Worker register -->
   <script src="assets/sw-register.js"></script>
 </body>
 </html>
