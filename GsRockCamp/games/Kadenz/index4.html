@@ -13,67 +13,50 @@
       --cell:#11152a;
       --hl: rgba(125,211,252,.35);
     }
-    body{ margin:0; font-family: "Helvetica Neue", Arial, sans-serif; background:linear-gradient(180deg,var(--bg),#0b0d18); color:var(--text); padding-bottom: 40px; }
-    
-    header{ padding:18px 18px 10px; display: flex; justify-content: space-between; align-items: flex-start; }
-    h1{ margin:0; font-size:18px; letter-spacing:.4px; color: var(--accent); }
-    
-    /* バージョン情報エリア */
-    .version-info { text-align: right; font-size: 11px; line-height: 1.4; color: var(--muted); }
-    .version-number { font-size: 16px; font-weight: bold; color: var(--text); margin-bottom: 4px; }
-    .changelog { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); padding-top: 5px; }
-
-    .sub{ margin:6px 0 0; color:var(--muted); font-size:12px; }
+    body{ margin:0; font-family: system-ui, -apple-system, sans-serif; background:linear-gradient(180deg,var(--bg),#0b0d18); color:var(--text); }
+    header{ padding:18px 18px 10px; }
+    h1{ margin:0; font-size:20px; letter-spacing:.4px; }
+    .version{ font-size:14px; color:var(--accent); margin-left: 8px; font-weight: normal; }
+    .history{ margin:10px 0 0; padding:10px 14px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px solid var(--line); font-size:12px; color:var(--muted); line-height:1.6; }
+    .history strong { color: var(--accent); display: block; margin-bottom: 4px; }
+    .sub{ margin:12px 0 0; color:var(--muted); font-size:12px; }
     .wrap{ padding:0 18px 28px; max-width: 1400px; margin: 0 auto; }
-    
     .bar{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:12px; padding:12px; }
     .selectWrap{ flex: 1 1 500px; }
     select{ width:100%; padding:12px 14px; border-radius:14px; border:1px solid var(--line); background:#f2f2f7; color:#000; font-weight:900; font-size:26px; outline:none; }
-    
     button{ cursor:pointer; border:1px solid var(--line); background:linear-gradient(180deg, rgba(125,211,252,.25), rgba(125,211,252,.12)); color:var(--text); padding:14px 22px; border-radius:14px; font-weight:900; font-size:20px; min-width:150px; transition: all 0.2s; }
     button.stop{ background:linear-gradient(180deg, rgba(251,113,133,.28), rgba(251,113,133,.14)); }
-    
+    button:disabled{ opacity: 0.5; cursor: wait; }
+    .toggles{ display:flex; gap:14px; align-items:center; }
     .now{ margin-left:auto; display:flex; gap:10px; align-items:center; color:var(--muted); font-size:14px; }
     .pill{ display:inline-flex; gap:6px; align-items:center; border:1px solid var(--line); border-radius:999px; padding:6px 12px; background:rgba(255,255,255,.03); color:var(--text); font-size:12px; }
-    
-    /* グリッド表の最適化（赤枠撤廃・最小化） */
-    .gridWrap{ margin-top:14px; border-radius:16px; border:1px solid var(--line); background:rgba(255,255,255,.03); overflow:hidden; }
-    .gridRow{ display:grid; grid-template-columns: 160px repeat(8, minmax(0, 1fr)); border-bottom:1px solid var(--line); }
-    .rowLabel{ color:var(--muted); font-size:14px; padding:15px; border-right:1px solid var(--line); background:rgba(0,0,0,.18); display:flex; align-items:center; text-transform: uppercase; letter-spacing: 1px; }
-    
-    /* セル余白をPC最適化（最小化） */
-    .cell{ padding:20px 10px; text-align:center; border-right:1px solid var(--line); background: var(--cell); font-family: ui-monospace, monospace; font-weight:900; transition: background 0.1s; white-space: nowrap; }
-    .degreeCell, .chordCell{ font-size:42px; color: var(--text); }
-    .modeCell{ font-size:20px; color: var(--accent); }
-    
-    .delta { font-family: serif; font-size: 0.8em; margin-left: 2px; vertical-align: baseline; }
-    .activeBar{ background: var(--hl) !important; }
-
-    canvas { width:100%; border-radius:12px; background:#000; margin-top: 20px; border: 1px solid var(--line); }
-    
-    /* ほか、既存のblockSelector等のスタイルを維持 */
     .blockSelector { margin-top: 14px; padding: 12px 18px; background: rgba(125,211,252,0.05); border-radius: 12px; border: 1px solid var(--line); display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
     .blockSelector label { color: var(--accent); font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
     .bigTitle{ margin-top:14px; padding:18px; border-radius:16px; border:1px solid var(--line); background:rgba(255,255,255,.03); display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; }
     .bigTitle h2{ margin:0; font-size:34px; }
     .tag{ font-size:22px; padding:6px 16px; border-radius:999px; border:1px solid rgba(251,113,133,0.5); background:rgba(251,113,133,0.15); color:var(--text); font-family: ui-monospace, monospace; font-weight: bold; }
+    .gridWrap{ margin-top:14px; border-radius:16px; border:1px solid var(--line); background:rgba(255,255,255,.03); overflow:hidden; }
+    .gridRow{ display:grid; grid-template-columns: 180px repeat(8, minmax(0, 1fr)); border-bottom:1px solid rgba(42,47,74,.55); }
+    .rowLabel{ width:180px; color:var(--muted); font-size:14px; padding:20px 14px; border-right:1px solid var(--line); background:rgba(0,0,0,.18); display:flex; align-items:center; font-weight: 600; }
+    .cell{ padding:30px 10px; text-align:center; border-right:1px solid rgba(42,47,74,.55); background: var(--cell); font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; font-weight:800; transition: background 0.1s; }
+    .degreeCell{ font-size:46px; color: var(--accent); }
+    .chordCell{ font-size:52px; color: #fff; }
+    .modeCell{ font-size:20px; line-height:1.2; color: var(--muted); }
+    .activeBar{ background: var(--hl) !important; box-shadow: inset 0 0 20px rgba(125,211,252,0.2); }
+    canvas { width:100%; border-radius:8px; background:#000; margin-top: 20px; }
   </style>
 </head>
 <body>
 
 <header>
-  <div>
-    <h1>Kadenz Drill Player</h1>
-    <div class="sub">ごろうさん専用・PC特化型 UI v1.2.1</div>
+  <h1>Kadenz Drill Player <span class="version">ver 1.2.1</span></h1>
+  <div class="history">
+    <strong>主な修正点:</strong>
+    ・指板上のポジションガイド（赤枠）を削除し、視認性を整理<br>
+    ・中央表内のフォントサイズ、カラー、ウェイトを演奏中に判別しやすいよう最適化<br>
+    ・バージョン管理（ver 1.2.1）の導入およびヘッダーレイアウトの変更
   </div>
-  <div class="version-info">
-    <div class="version-number">ver 1.2.1</div>
-    <ul class="changelog">
-      <li><strong>1.2.1:</strong> 表の赤枠撤廃、最小化、Δ表記採用</li>
-      <li><strong>1.2.0:</strong> 階段状赤枠（3弦5F）先行対応</li>
-      <li><strong>1.1.9:</strong> 再生エンジンのループ精度向上</li>
-    </ul>
-  </div>
+  <div class="sub">ごろうさん専用・伴走用カスタマイズ版</div>
 </header>
 
 <div class="wrap">
@@ -109,7 +92,6 @@
 
 <script>
 (() => {
-  // --- 内部ロジックは index4 (1).html の全機能を完備 ---
   const BPM = 100;
   const BAR_SEC = (60 / BPM) * 4;
   const FADE_TIME = 0.003; 
@@ -118,9 +100,7 @@
   const BLOCKS = [
     { id:'b5_3', label:'5弦3F', range:[0,8,3,6] }, 
     { id:'b6_8', label:'6弦8F', range:[5,12,4,6] },
-    { id:'b3_5', label:'3弦5F', isComplex:true, rects:[
-        { s:[0,0], f:[5,8] }, { s:[1,1], f:[3,8] }, { s:[2,2], f:[5,7] }
-      ], range:[3,12,1,4] }, 
+    { id:'b3_5', label:'3弦5F', range:[3,12,1,4] }, 
     { id:'b4_10', label:'4弦10F', range:[8,15,2,5] },
     { id:'b2_13', label:'2弦13F', range:[10,18,1,4] }, 
     { id:'b3_17', label:'3弦17F', range:[15,23,1,4] }
@@ -137,15 +117,20 @@
   const NOTE_INT = { 'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11 };
   const strings = [4, 11, 7, 2, 9, 4];
 
-  // ドリルデータ（index4継承）
   const drills = [
     { id:'A01', file:'audio/A01_CFGCCFGC.mp3', title:'Cイオニアンドリル　王道進行', degree:['Ⅰ','Ⅳ','Ⅴ','Ⅰ','Ⅰ','Ⅳ','Ⅴ','Ⅰ'], chords:['C','F','G','C','C','F','G','C'], modes:['イオニアン',R,R,R,R,R,R,R], caution:[] },
     { id:'A02', file:'audio/A02_Dm7G7Cmaj7Am7Dm7G7Cmaj7Cmaj7.mp3', title:'Cイオニアンドリル　ツーファイブワン', degree:['Ⅱm7','Ⅴ7','Ⅰmaj7','Ⅵm7','Ⅱm7','Ⅴ7','Ⅰmaj7','Ⅰmaj7'], chords:['Dm7','G7','Cmaj7','Am7','Dm7','G7','Cmaj7','Cmaj7'], modes:['イオニアン',R,R,R,R,R,R,R], caution:[] },
     { id:'A03', file:'audio/A03_CBbCBbCDm7FC.mp3', title:'Cミクソリディアンドリル　♭Ⅶ→Ⅰ', degree:['Ⅰ','♭Ⅶ','Ⅰ','♭Ⅶ','Ⅰ','Ⅱm7','Ⅳ','Ⅰ'], chords:['C','Bb','C','Bb','C','Dm7','F','C'], modes:['イオニアン','ミクソリディアン','イオニアン','ミクソリディアン','イオニアン',R,R,R], caution:['Bb'] },
-    // ... (A04-A10, M01-M03も同様に保持)
     { id:'A04', file:'audio/A04_CE7AmD7Dm7G7CC.mp3', title:'Cイオニアンドリル　セカンダリ2連', degree:['Ⅰ','Ⅴ/Ⅵ','Ⅵm','Ⅴ/Ⅴ','Ⅱm7','Ⅴ7','Ⅰ','Ⅰ'], chords:['C','E7','Am','D7','Dm7','G7','C','C'], modes:['イオニアン','Aハーモニックマイナー','イオニアン','Gイオニアン','イオニアン',R,R,R], caution:['G#','F#'] },
+    { id:'A05', file:'audio/A05_Dm7G7CDbCDm7G7C.mp3', title:'Cフリジアンドリル　♭Ⅱ→Ⅰ', degree:['Ⅱm7','Ⅴ7','Ⅰ','♭Ⅱ','Ⅰ','Ⅱm7','Ⅴ7','Ⅰ'], chords:['Dm7','G7','C','Db','C','Dm7','G7','C'], modes:['イオニアン',R,R,'フリジアン','イオニアン',R,R,R], caution:['Db'] },
+    { id:'A06', file:'audio/A06_CCFmCDm7G7CC.mp3', title:'Cエオリアンドリル　Ⅳm→Ⅰ', degree:['Ⅰ','Ⅰ','Ⅳm','Ⅰ','Ⅱm7','Ⅴ7','Ⅰ','Ⅰ'], chords:['C','C','Fm','C','Dm7','G7','C','C'], modes:['イオニアン',R,'エオリアン','イオニアン',R,R,R,R], caution:['Ab'] },
     { id:'A07', file:'audio/A07_CA7Dm7G7CA7Dm7C.mp3', title:'Cイオニアンドリル　A7ドリル', degree:['Ⅰ','Ⅴ/Ⅱ','Ⅱm7','Ⅴ7','Ⅰ','Ⅴ/Ⅱ','Ⅱm7','Ⅰ'], chords:['C','A7','Dm7','G7','C','A7','Dm7','C'], modes:['イオニアン','Dハーモニックマイナー','イオニアン',R,'イオニアン','Dハーモニックマイナー','イオニアン',R], caution:['C#'] },
-    { id:'M02', file:'audio/M02_CmCmAbAbGGCmCm.mp3', title:'Cハーモニックマイナードリル', degree:['Ⅰm','Ⅰm','♭Ⅵ','♭Ⅵ','Ⅴ','Ⅴ','Ⅰm','Ⅰm'], chords:['Cm','Cm','Ab','Ab','G','G','Cm','Cm'], modes:['ハーモニックマイナー',R,R,R,R,R,R,R], caution:['B','Eb','Ab'] }
+    { id:'A08', file:'audio/A08_CD7G7CCD7G7C.mp3', title:'Cイオニアンドリル　D7ドリル', degree:['Ⅰ','Ⅴ/Ⅴ','Ⅴ7','Ⅰ','Ⅰ','Ⅴ/Ⅴ','Ⅴ7','Ⅰ'], chords:['C','D7','G7','C','C','D7','G7','C'], modes:['イオニアン','Gイオニアン','イオニアン',R,R,'Gイオニアン','イオニアン',R], caution:['F#'] },
+    { id:'A09', file:'audio/A09_CE7AmCCE7AmC.mp3', title:'Cイオニアンドリル　E7ドリル', degree:['Ⅰ','Ⅴ/Ⅵ','Ⅵm','Ⅰ','Ⅰ','Ⅴ/Ⅵ','Ⅵm','Ⅰ'], chords:['C','E7','Am','C','C','E7','Am','C'], modes:['イオニアン','Aハーモニックマイナー','イオニアン',R,R,'Aハーモニックマイナー','イオニアン',R], caution:['G#'] },
+    { id:'A10', file:'audio/A10_CCDDCDGC.mp3', title:'Cリディアンドリル　#4固定', degree:['Ⅰ','Ⅰ','Ⅱ','Ⅱ','Ⅰ','Ⅱ','Ⅴ','Ⅰ'], chords:['C','C','D','D','C','D','G','C'], modes:['リディアン',R,R,R,R,R,R,R], caution:['F#'] },
+    { id:'M01', file:'audio/M01_CmCmBbBbAbAbGmCm.mp3', title:'Cナチュラルマイナードリル', degree:['Ⅰm','Ⅰm','♭Ⅶ','♭Ⅶ','♭Ⅵ','♭Ⅵ','Ⅴm','Ⅰm'], chords:['Cm','Cm','Bb','Bb','Ab','Ab','Gm','Cm'], modes:['ナチュラルマイナー',R,R,R,R,R,R,R], caution:['Eb','Ab','Bb'] },
+    { id:'M02', file:'audio/M02_CmCmAbAbGGCmCm.mp3', title:'Cハーモニックマイナードリル', degree:['Ⅰm','Ⅰm','♭Ⅵ','♭Ⅵ','Ⅴ','Ⅴ','Ⅰm','Ⅰm'], chords:['Cm','Cm','Ab','Ab','G','G','Cm','Cm'], modes:['ハーモニックマイナー',R,R,R,R,R,R,R], caution:['B','Eb','Ab'] },
+    { id:'M03', file:'audio/M03_CmCmFFGGCm6Cm.mp3', title:'Cメロディックマイナードリル', degree:['Ⅰm','Ⅰm','Ⅳ','Ⅳ','Ⅴ','Ⅴ','Ⅰm6','Ⅰm'], chords:['Cm','Cm','F','F','G','G','Cm6','Cm'], modes:['メロディックマイナー',R,R,R,R,R,R,R], caution:['A','B','Eb'] }
   ];
 
   let audioCtx = null, currentBuffer = null, sourceNode = null, gainNode = null;
@@ -153,12 +138,6 @@
 
   const canvas = document.getElementById('fretboardCanvas');
   const ctx = canvas.getContext('2d');
-
-  // Δ表記への変換関数
-  function formatChord(chord) {
-    if (chord === R) return '〃';
-    return chord.replace(/maj7|Maj7|M7/g, '<span class="delta">Δ7</span>');
-  }
 
   async function loadBuffer(url) {
     const btn = document.getElementById('btnToggle');
@@ -171,10 +150,31 @@
     } catch (e) { btn.textContent = "Load Error"; }
   }
 
+  function playClick(time, isFirst) {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.frequency.setValueAtTime(isFirst ? 880 : 440, time);
+    g.gain.setValueAtTime(0.15, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.start(time); osc.stop(time + 0.1);
+  }
+
+  async function toggle() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    if (isPlaying) stop();
+    else {
+      if (!currentBuffer) await loadBuffer(drills[document.getElementById('drillSelect').value].file);
+      start();
+    }
+  }
+
   function start() {
     if (!currentBuffer) return;
     isPlaying = true; startTime = audioCtx.currentTime + 0.05;
     const playStart = startTime + BAR_SEC;
+    for (let i = 0; i < 4; i++) playClick(startTime + i * (60/BPM), i === 0);
     sourceNode = audioCtx.createBufferSource();
     sourceNode.buffer = currentBuffer;
     sourceNode.loop = true;
@@ -208,21 +208,32 @@
     const loopDuration = BAR_SEC * 8;
     const d = drills[document.getElementById('drillSelect').value];
 
-    if (elapsed >= 0) {
+    let displayMode;
+    if (elapsed < 0) {
+      displayMode = d.modes[0];
+    } else {
       const currentLoopTime = elapsed % loopDuration;
       const barIdx = Math.floor(currentLoopTime / BAR_SEC);
+      const timeInBar = currentLoopTime - (barIdx * BAR_SEC);
       document.querySelectorAll('.cell').forEach(c => c.classList.toggle('activeBar', c.dataset.bar == barIdx));
-      
       const currentBarMode = d.modes[barIdx] === R ? d.modes[0] : d.modes[barIdx];
-      if (currentBarMode !== lastDrawnMode) {
-        drawFretboard(currentBarMode, d.caution);
-        lastDrawnMode = currentBarMode;
-      }
+      const nextIdx = (barIdx + 1) % 8;
+      const nextBarMode = d.modes[nextIdx] === R ? d.modes[0] : d.modes[nextIdx];
+      const threshold = (nextBarMode === 'イオニアン') ? (BAR_SEC - 0.2) : (BAR_SEC - 0.7);
+      displayMode = (timeInBar > threshold) ? nextBarMode : currentBarMode;
+      
+      if (currentLoopTime > loopDuration - FADE_TIME) gainNode.gain.setTargetAtTime(0, now, 0.001);
+      else if (currentLoopTime < FADE_TIME) gainNode.gain.setTargetAtTime(1, now, 0.001);
+      else gainNode.gain.setValueAtTime(1, now);
+    }
+
+    if (displayMode !== lastDrawnMode) {
+      drawFretboard(displayMode, d.caution);
+      lastDrawnMode = displayMode;
     }
     animId = requestAnimationFrame(updateFrame);
   }
 
-  // 描画ロジック（階段状赤枠対応・index4継承）
   function drawFretboard(modeName, cautionList) {
     const margin = 40, w = canvas.width, h = canvas.height, boardW = w - margin * 2;
     const fretCount = 23, fretW = boardW / (fretCount + 1);
@@ -230,58 +241,40 @@
     ctx.clearRect(0, 0, w, h);
     
     ctx.fillStyle = '#f3d9a2'; ctx.fillRect(margin, offsetTop, boardW, boardH);
-    ctx.strokeStyle = '#444'; ctx.lineWidth = 1;
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 2; ctx.fillStyle = '#aaa'; ctx.font = 'bold 15px Arial';
     for (let f = 0; f <= fretCount + 1; f++) {
       const x = margin + f * fretW;
       ctx.beginPath(); ctx.moveTo(x, offsetTop); ctx.lineTo(x, offsetTop + boardH); ctx.stroke();
+      if ([3,5,7,9,12,15,17,19,21,23].includes(f)) ctx.fillText(f.toString(), margin + (f*fretW) - (fretW/2) - 5, offsetTop - 15);
     }
+    ctx.strokeStyle = '#555';
     for (let s = 0; s < 6; s++) {
       const y = offsetTop + s * stringH;
       ctx.beginPath(); ctx.moveTo(margin, y); ctx.lineTo(margin + boardW, y); ctx.stroke();
     }
 
     ctx.fillStyle = '#7dd3fc'; ctx.font = '900 24px system-ui';
-    ctx.fillText(modeName, margin + 5, offsetTop - 15);
+    ctx.fillText(modeName, margin + 5, offsetTop - 12);
 
     const checkedIds = Array.from(document.querySelectorAll('.blockCheck:checked')).map(el => el.value);
+    const allChecked = document.getElementById('allCheck')?.checked;
     
-    BLOCKS.forEach(b => {
-      if (checkedIds.includes(b.id)) {
-        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 3;
-        if (b.isComplex) {
-          b.rects.forEach(r => {
-            const fStart = r.f[0], fEnd = r.f[1], sStart = r.s[0], sEnd = r.s[1];
-            const x = margin + fStart * fretW - (fStart === 0 ? 0 : fretW);
-            const width = (fEnd - fStart + (fStart === 0 ? 0.5 : 1)) * fretW;
-            const y = offsetTop + sStart * stringH - 12;
-            const height = (sEnd - sStart) * stringH + 24;
-            ctx.strokeRect(x + 2, y, width - 4, height);
-          });
-        } else {
-          const fStart = b.range[0], fEnd = b.range[1], sStart = b.range[2] - 1, sEnd = b.range[3] - 1;
-          const x = margin + fStart * fretW - (fStart === 0 ? 0 : fretW);
-          const y = offsetTop + sStart * stringH - 12;
-          const width = (fEnd - fStart + (fStart === 0 ? 0.5 : 1)) * fretW;
-          const height = (sEnd - sStart) * stringH + 24;
-          ctx.strokeRect(x + 2, y, width - 4, height);
-        }
-      }
-    });
-
-    // 音符描画... (省略せず index4 のロジックを完備)
-    const mData = MODE_MAP[modeName], root = mData?.root ?? 0, intervals = Array.isArray(mData) ? mData : (mData?.intervals ?? []);
-    const scaleNotes = intervals.map(i => (root + i) % 12);
+    const isVisible = (s, f) => (allChecked || checkedIds.length === 0) || BLOCKS.some(b => checkedIds.includes(b.id) && f >= b.range[0] && f <= b.range[1] && (s+1) >= b.range[2] && (s+1) <= b.range[3]);
+    let mData = MODE_MAP[modeName], root = mData?.root ?? 0, intervals = Array.isArray(mData) ? mData : (mData?.intervals ?? []);
+    const scaleNotes = intervals.map(i => (root + i) % 12), cautions = (cautionList || []).map(n => NOTE_INT[n]);
     
     for (let s = 0; s < 6; s++) {
       for (let f = 0; f <= fretCount; f++) {
         const note = (strings[s] + f) % 12;
         if (scaleNotes.includes(note)) {
+          ctx.globalAlpha = isVisible(s, f) ? 1.0 : 0.05;
           ctx.beginPath(); ctx.arc(margin + f * fretW - (f === 0 ? 0 : fretW / 2), offsetTop + s * stringH, 11, 0, Math.PI * 2);
-          ctx.fillStyle = (note === root) ? '#fb7185' : '#ffffff';
-          ctx.fill(); ctx.stroke();
+          ctx.fillStyle = (note === root) ? '#fb7185' : (cautions.includes(note) ? '#fb923c' : '#ffffff');
+          ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
         }
       }
     }
+    ctx.globalAlpha = 1.0;
   }
 
   function renderSelected() {
@@ -289,26 +282,27 @@
     const d = drills[idx];
     document.getElementById('bigTitleText').textContent = d.title;
     document.getElementById('nowID').textContent = d.id;
-    
-    // 表の描画（Δ表記を適用）
-    document.getElementById('rowDegree').innerHTML = `<div class="rowLabel">Degree</div>` + d.degree.map((v, i) => `<div class="cell degreeCell" data-bar="${i}">${v === R ? '〃' : v}</div>`).join('');
-    document.getElementById('rowChord').innerHTML = `<div class="rowLabel">Chord</div>` + d.chords.map((v, i) => `<div class="cell chordCell" data-bar="${i}">${formatChord(v)}</div>`).join('');
-    document.getElementById('rowMode').innerHTML = `<div class="rowLabel">Mode</div>` + d.modes.map((v, i) => `<div class="cell modeCell" data-bar="${i}">${v === R ? '〃' : v}</div>`).join('');
-    
-    drawFretboard(d.modes[0], d.caution);
+    const tags = document.getElementById('cautionTags');
+    tags.innerHTML = '';
+    if (document.getElementById('toggleCaution').checked) d.caution.forEach(c => tags.innerHTML += `<span class="tag">${c}</span>`);
+    document.getElementById('rowDegree').innerHTML = `<div class="rowLabel">ディグリー</div>` + d.degree.map((v, i) => `<div class="cell degreeCell" data-bar="${i}">${v === R ? '〃' : v}</div>`).join('');
+    document.getElementById('rowChord').innerHTML = `<div class="rowLabel">コード進行</div>` + d.chords.map((v, i) => `<div class="cell chordCell" data-bar="${i}">${v === R ? '〃' : v}</div>`).join('');
+    document.getElementById('rowMode').innerHTML = `<div class="rowLabel">使用モード</div>` + d.modes.map((v, i) => `<div class="cell modeCell" data-bar="${i}">${v === R ? '〃' : v}</div>`).join('');
+    document.getElementById('rowMode').style.display = document.getElementById('toggleModes').checked ? 'grid' : 'none';
+    drawFretboard(lastDrawnMode || d.modes[0], d.caution);
   }
 
-  // 初期化...
   const ds = document.getElementById('drillSelect');
   drills.forEach((d, i) => ds.innerHTML += `<option value="${i}">${d.id}: ${d.title}</option>`);
   const bp = document.getElementById('blockPanel');
   BLOCKS.forEach(b => bp.innerHTML += `<label><input type="checkbox" value="${b.id}" class="blockCheck"> ${b.label}</label>`);
-  
-  ds.onchange = async () => { stop(); currentBuffer = null; renderSelected(); if(audioCtx) await loadBuffer(drills[ds.value].file); };
-  document.getElementById('btnToggle').onclick = () => {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    isPlaying ? stop() : start();
-  };
+  bp.innerHTML += `<label style="color:#fff;"><input type="checkbox" id="allCheck"> ALL</label>`;
+  ds.onchange = async () => { stop(); currentBuffer = null; lastDrawnMode = ""; renderSelected(); if(audioCtx) await loadBuffer(drills[ds.value].file); };
+  document.getElementById('btnToggle').onclick = toggle;
+  bp.onchange = () => drawFretboard(lastDrawnMode || drills[ds.value].modes[0], drills[ds.value].caution);
+  document.getElementById('toggleCaution').onchange = renderSelected;
+  document.getElementById('toggleModes').onchange = renderSelected;
+  window.onkeydown = (e) => { if (e.code === 'Space' && !['INPUT', 'SELECT'].includes(e.target.tagName)) { e.preventDefault(); document.getElementById('btnToggle').click(); } };
   renderSelected();
 })();
 </script>
