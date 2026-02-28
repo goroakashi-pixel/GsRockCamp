@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Chord Qualities Quiz</title>
   <!--
-  ver1.2.7:
+  ver1.2.8:
   - 正解時挙動をDiatonicと完全一致
   - phase管理方式へ統一
   - streak自然終了方式へ変更
@@ -258,18 +258,18 @@
   <div class="wrap">
     <h1>
       Chord Qualities Quiz
-      <span class="ver" id="verText">ver1.2.7</span>
+      <span class="ver" id="verText">ver1.2.8</span>
     </h1>
     <div class="muted">C基準で、コードの「品質（キャラ）」を当てます。</div>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.2.7：正解時挙動をDiatonicと完全一致</li>
-        <li>ver1.2.7：phase管理方式へ統一</li>
-        <li>ver1.2.7：streak自然終了方式へ変更</li>
-        <li>ver1.2.7：正解演出フローを統一</li>
-        <li>ver1.2.7：不要ロック処理削除</li>
+        <li>ver1.2.8：正解時挙動をDiatonicと完全一致</li>
+        <li>ver1.2.8：phase管理方式へ統一</li>
+        <li>ver1.2.8：streak自然終了方式へ変更</li>
+        <li>ver1.2.8：正解演出フローを統一</li>
+        <li>ver1.2.8：不要ロック処理削除</li>
       </ul>
     </div>
 
@@ -363,7 +363,7 @@
 
   <script>
   (() => {
-    const VER = "1.2.7";
+    const VER = "1.2.8";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_BASE = "./audio/";
@@ -700,7 +700,7 @@
       [...opts.children].forEach(b => b.disabled = !on);
     }
 
-    async function ensureAudioContext(){
+    function ensureAudioContext(){
       try{
         if(!warmupContext){
           warmupContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -801,7 +801,7 @@
 
     async function loadBuffer(url){
       if (bufferCache.has(url)) return bufferCache.get(url);
-      const ctx = await ensureAudioContext();
+      const ctx = ensureAudioContext();
       if (!ctx) return null;
       try{
         const res = await fetch(url, { cache: "no-store" });
@@ -816,7 +816,7 @@
     }
 
     async function playSequence(url, durationMs, trackQuestion){
-      const ctx = await ensureAudioContext();
+      const ctx = ensureAudioContext();
       if (!ctx) return false;
       if (trackQuestion){
         stopChannel("player", 0);
@@ -871,7 +871,7 @@
 
     async function playSnippet(url, durationMs){
       if(!url) return false;
-      const ctx = await ensureAudioContext();
+      const ctx = ensureAudioContext();
       if (!ctx) return false;
       const buffer = await loadBuffer(url);
       if (!buffer) return false;
