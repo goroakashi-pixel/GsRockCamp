@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Chord Qualities Quiz</title>
   <!--
-  ver1.2.7:
+  ver1.2.8:
   - 正解時挙動をDiatonicと完全一致
   - phase管理方式へ統一
   - streak自然終了方式へ変更
@@ -258,18 +258,18 @@
   <div class="wrap">
     <h1>
       Chord Qualities Quiz
-      <span class="ver" id="verText">ver1.2.7</span>
+      <span class="ver" id="verText">ver1.2.8</span>
     </h1>
     <div class="muted">C基準で、コードの「品質（キャラ）」を当てます。</div>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.2.7：正解時挙動をDiatonicと完全一致</li>
-        <li>ver1.2.7：phase管理方式へ統一</li>
-        <li>ver1.2.7：streak自然終了方式へ変更</li>
-        <li>ver1.2.7：正解演出フローを統一</li>
-        <li>ver1.2.7：不要ロック処理削除</li>
+        <li>ver1.2.8：正解時挙動をDiatonicと完全一致</li>
+        <li>ver1.2.8：phase管理方式へ統一</li>
+        <li>ver1.2.8：streak自然終了方式へ変更</li>
+        <li>ver1.2.8：正解演出フローを統一</li>
+        <li>ver1.2.8：不要ロック処理削除</li>
       </ul>
     </div>
 
@@ -363,7 +363,7 @@
 
   <script>
   (() => {
-    const VER = "1.2.7";
+    const VER = "1.2.8";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_BASE = "./audio/";
@@ -472,7 +472,6 @@
     let missStreak = 0;
     let sfxEnhanced = true;
 
-    let warmupDone = false;
     let warmupContext = null;
     let bufferCache = new Map();
     let masterGain = null;
@@ -701,13 +700,10 @@
       [...opts.children].forEach(b => b.disabled = !on);
     }
 
-    async function ensureAudioContext(){
+    function ensureAudioContext(){
       try{
         if(!warmupContext){
           warmupContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if(warmupContext.state === "suspended"){
-          await warmupContext.resume();
         }
         if(!masterGain){
           masterGain = warmupContext.createGain();
@@ -746,6 +742,30 @@
       }
     }
 
+    function unlockAudio(){
+      try{
+        if(!warmupContext){
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if(!AC) return;
+          warmupContext = new AC();
+        }
+
+        ensureAudioContext();
+
+        if(warmupContext.state === "suspended"){
+          warmupContext.resume();
+        }
+
+        const buffer = warmupContext.createBuffer(1, 1, 22050);
+        const src = warmupContext.createBufferSource();
+        src.buffer = buffer;
+        src.connect(warmupContext.destination);
+        src.start(0);
+      }catch(e){
+        if (LOG_ENABLED) console.warn("Audio unlockに失敗しました。", e);
+      }
+    }
+
     function stopChannel(channelName, fadeSec = 0){
       if (channelName !== "player" || !questionSource || !questionGain || !warmupContext) return;
       const src = questionSource;
@@ -781,7 +801,7 @@
 
     async function loadBuffer(url){
       if (bufferCache.has(url)) return bufferCache.get(url);
-      const ctx = await ensureAudioContext();
+      const ctx = ensureAudioContext();
       if (!ctx) return null;
       try{
         const res = await fetch(url, { cache: "no-store" });
@@ -796,7 +816,7 @@
     }
 
     async function playSequence(url, durationMs, trackQuestion){
-      const ctx = await ensureAudioContext();
+      const ctx = ensureAudioContext();
       if (!ctx) return false;
       if (trackQuestion){
         stopChannel("player", 0);
@@ -851,7 +871,7 @@
 
     async function playSnippet(url, durationMs){
       if(!url) return false;
-      const ctx = await ensureAudioContext();
+      const ctx = ensureAudioContext();
       if (!ctx) return false;
       const buffer = await loadBuffer(url);
       if (!buffer) return false;
@@ -916,12 +936,6 @@
         return;
       }
       await playSfx(SFX_INCORRECT, SFX_INCORRECT_DIR);
-    }
-
-    async function warmupAudio(){
-      if(warmupDone) return;
-      warmupDone = true;
-      await ensureAudioContext();
     }
 
     function logSelection(candidate){
@@ -1089,9 +1103,9 @@
       }
     }
 
-    $("btnStart").onclick = async () => {
+    $("btnStart").onclick = () => {
       if (phase !== "idle") return;
-      await warmupAudio();
+      unlockAudio();
       start();
     };
 
@@ -1113,6 +1127,7 @@
     };
 
     $("btnC").onclick = () => {
+      unlockAudio();
       const basePath = buildAudioPath("C", 3, 0);
       playAudio(withCache(basePath));
     };
@@ -1170,6 +1185,11 @@
       saveSfxOption();
       syncSfxOption();
     });
+    document.body.addEventListener("touchstart", unlockAudio, { once: true });
+    document.body.addEventListener("touchend", unlockAudio, { once: true });
+    document.body.addEventListener("mousedown", unlockAudio, { once: true });
+    document.body.addEventListener("pointerdown", unlockAudio, { once: true });
+    document.body.addEventListener("click", unlockAudio, { once: true });
     buildOptions();
   })();
   </script>
