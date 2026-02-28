@@ -606,7 +606,9 @@
 
         if (!appAudioContext){
           appAudioContext = new AC();
+        }
 
+        if (!keepAliveNoiseSource || !keepAliveGainNode){
           const bufferSize = appAudioContext.sampleRate * 2;
           const noiseBuffer = appAudioContext.createBuffer(1, bufferSize, appAudioContext.sampleRate);
           const data = noiseBuffer.getChannelData(0);
@@ -619,16 +621,21 @@
           keepAliveGainNode = appAudioContext.createGain();
           keepAliveGainNode.gain.value = 0.0002; // 約-74dB
 
-          questionBus = appAudioContext.createGain();
-          questionBus.gain.value = 1;
-          sfxBus = appAudioContext.createGain();
-          sfxBus.gain.value = 1;
-
           keepAliveNoiseSource.connect(keepAliveGainNode);
           keepAliveGainNode.connect(appAudioContext.destination);
-          questionBus.connect(appAudioContext.destination);
-          sfxBus.connect(appAudioContext.destination);
           keepAliveNoiseSource.start();
+        }
+
+        if (!questionBus){
+          questionBus = appAudioContext.createGain();
+          questionBus.gain.value = 1;
+          questionBus.connect(appAudioContext.destination);
+        }
+
+        if (!sfxBus){
+          sfxBus = appAudioContext.createGain();
+          sfxBus.gain.value = 1;
+          sfxBus.connect(appAudioContext.destination);
         }
         return appAudioContext;
       }catch(_e){
@@ -639,22 +646,18 @@
 
     function unlockAudio(){
       try{
-        if (!appAudioContext){
-          const AC = window.AudioContext || window.webkitAudioContext;
-          if (!AC) return;
-          appAudioContext = new AC();
-        }
-
         initKeepAliveAudio();
+        const ctx = appAudioContext;
+        if (!ctx) return;
 
-        if (appAudioContext.state === "suspended"){
-          appAudioContext.resume();
+        if (ctx.state === "suspended"){
+          ctx.resume().catch(() => {});
         }
 
-        const buffer = appAudioContext.createBuffer(1, 1, 22050);
-        const src = appAudioContext.createBufferSource();
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
         src.buffer = buffer;
-        src.connect(appAudioContext.destination);
+        src.connect(ctx.destination);
         src.start(0);
       }catch(_e){
         // unlock失敗時もUI操作は継続
@@ -1514,7 +1517,10 @@
     resetToIdle("待機中");
 
     document.body.addEventListener("touchstart", unlockAudio, { once:true });
+    document.body.addEventListener("touchend", unlockAudio, { once:true });
     document.body.addEventListener("mousedown", unlockAudio, { once:true });
+    document.body.addEventListener("pointerdown", unlockAudio, { once:true });
+    document.body.addEventListener("click", unlockAudio, { once:true });
   })();
   </script>
 </body>

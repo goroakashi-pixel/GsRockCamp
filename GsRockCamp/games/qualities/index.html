@@ -1186,7 +1186,10 @@
       syncSfxOption();
     });
     document.body.addEventListener("touchstart", unlockAudio, { once: true });
+    document.body.addEventListener("touchend", unlockAudio, { once: true });
     document.body.addEventListener("mousedown", unlockAudio, { once: true });
+    document.body.addEventListener("pointerdown", unlockAudio, { once: true });
+    document.body.addEventListener("click", unlockAudio, { once: true });
     buildOptions();
   })();
   </script>
