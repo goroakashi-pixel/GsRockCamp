@@ -241,13 +241,13 @@
   <div class="wrap">
     <h1>
       Diatonic Chord Quiz
-      <span class="ver" id="verText">ver1.2.21</span>
+      <span class="ver" id="verText">ver1.2.22</span>
     </h1>
 
     <div class="changelog">
       <div class="changelog-title">開発中の仕様確認（主な修正点）</div>
       <ul>
-        <li>ver1.2.21：正解演出仕様をQualitiesと統一</li>
+        <li>ver1.2.22：正解演出仕様をQualitiesと統一</li>
         <li>スニペット500ms＋streak同時再生実装</li>
         <li>correctは即再生（エンベロープ削除）</li>
         <li>streakは自然終了まで停止しない設計</li>
@@ -394,7 +394,7 @@
     // -------------------------
     // Version / Cache buster
     // -------------------------
-    const VER = "1.2.21";
+    const VER = "1.2.22";
     document.getElementById("verText").textContent = "ver" + VER;
 
     const AUDIO_DIR = "audio/";
@@ -687,6 +687,11 @@
       try{
         const ctx = initKeepAliveAudio();
         if (!ctx) return false;
+
+        if (ctx.state !== "running"){
+          try{ await ctx.resume(); }catch{}
+          if (ctx.state !== "running") return false;
+        }
 
         const buffer = await getDecodedAudioBuffer(url);
         if (!buffer) return false;
@@ -1149,15 +1154,6 @@
     // -------------------------
     // Audio
     // -------------------------
-    async function canPlay(url){
-      try{
-        const r = await fetch(url, { method:"HEAD", cache:"no-store" });
-        return r.ok;
-      }catch{
-        return false;
-      }
-    }
-
     async function playFile(file){
       const url = AUDIO_DIR + file + CACHE_BUSTER;
       return await playDecodedUrl(url, "player");
@@ -1214,24 +1210,22 @@
       await playSfx(SFX_INCORRECT, SFX_INCORRECT_DIR, sfx);
     }
 
-    // 出題音のフォールバック：invが無ければ root_3
+    // 出題音のフォールバック：まず本命を再生し、失敗時のみ root_3 へ退避
     async function playWithFallback(candidate){
-      const tryUrl = AUDIO_DIR + candidate.file + CACHE_BUSTER;
-      const ok = await canPlay(tryUrl);
-      if (ok){
-        return await playFile(candidate.file);
-      }
+      const played = await playFile(candidate.file);
+      if (played) return true;
 
       const fallback = `${candidate.chordId}_3.mp3`;
-      const fbUrl = AUDIO_DIR + fallback + CACHE_BUSTER;
-      const fbOk = await canPlay(fbUrl);
-      if (!fbOk) return false;
+      if (fallback === candidate.file) return false;
+
+      const fallbackPlayed = await playFile(fallback);
+      if (!fallbackPlayed) return false;
 
       candidate.file = fallback;
       candidate.invIdx = 0;
       candidate.isInv = false;
       candidate.oct = 3;
-      return await playFile(fallback);
+      return true;
     }
 
     // -------------------------
