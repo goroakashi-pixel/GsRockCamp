@@ -472,7 +472,6 @@
     let missStreak = 0;
     let sfxEnhanced = true;
 
-    let warmupDone = false;
     let warmupContext = null;
     let bufferCache = new Map();
     let masterGain = null;
@@ -706,9 +705,6 @@
         if(!warmupContext){
           warmupContext = new (window.AudioContext || window.webkitAudioContext)();
         }
-        if(warmupContext.state === "suspended"){
-          await warmupContext.resume();
-        }
         if(!masterGain){
           masterGain = warmupContext.createGain();
           masterGain.gain.value = 1;
@@ -743,6 +739,30 @@
       }catch(e){
         if (LOG_ENABLED) console.warn("AudioContextの初期化に失敗しました。");
         return null;
+      }
+    }
+
+    function unlockAudio(){
+      try{
+        if(!warmupContext){
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if(!AC) return;
+          warmupContext = new AC();
+        }
+
+        ensureAudioContext();
+
+        if(warmupContext.state === "suspended"){
+          warmupContext.resume();
+        }
+
+        const buffer = warmupContext.createBuffer(1, 1, 22050);
+        const src = warmupContext.createBufferSource();
+        src.buffer = buffer;
+        src.connect(warmupContext.destination);
+        src.start(0);
+      }catch(e){
+        if (LOG_ENABLED) console.warn("Audio unlockに失敗しました。", e);
       }
     }
 
@@ -918,12 +938,6 @@
       await playSfx(SFX_INCORRECT, SFX_INCORRECT_DIR);
     }
 
-    async function warmupAudio(){
-      if(warmupDone) return;
-      warmupDone = true;
-      await ensureAudioContext();
-    }
-
     function logSelection(candidate){
       if(!LOG_ENABLED) return;
       console.log("[qualities] octave:", candidate.octave, "chordId:", candidate.chord.id, "url:", candidate.url);
@@ -1089,9 +1103,9 @@
       }
     }
 
-    $("btnStart").onclick = async () => {
+    $("btnStart").onclick = () => {
       if (phase !== "idle") return;
-      await warmupAudio();
+      unlockAudio();
       start();
     };
 
@@ -1113,6 +1127,7 @@
     };
 
     $("btnC").onclick = () => {
+      unlockAudio();
       const basePath = buildAudioPath("C", 3, 0);
       playAudio(withCache(basePath));
     };
@@ -1170,6 +1185,8 @@
       saveSfxOption();
       syncSfxOption();
     });
+    document.body.addEventListener("touchstart", unlockAudio, { once: true });
+    document.body.addEventListener("mousedown", unlockAudio, { once: true });
     buildOptions();
   })();
   </script>

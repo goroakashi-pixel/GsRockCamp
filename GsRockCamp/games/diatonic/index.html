@@ -630,12 +630,34 @@
           sfxBus.connect(appAudioContext.destination);
           keepAliveNoiseSource.start();
         }
-
-        if (appAudioContext.state === "suspended") await appAudioContext.resume();
         return appAudioContext;
       }catch(_e){
         // KeepAliveは補助機能のため失敗しても既存再生は継続
         return null;
+      }
+    }
+
+    function unlockAudio(){
+      try{
+        if (!appAudioContext){
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          appAudioContext = new AC();
+        }
+
+        initKeepAliveAudio();
+
+        if (appAudioContext.state === "suspended"){
+          appAudioContext.resume();
+        }
+
+        const buffer = appAudioContext.createBuffer(1, 1, 22050);
+        const src = appAudioContext.createBufferSource();
+        src.buffer = buffer;
+        src.connect(appAudioContext.destination);
+        src.start(0);
+      }catch(_e){
+        // unlock失敗時もUI操作は継続
       }
     }
 
@@ -1427,10 +1449,10 @@
       setChoicesEnabled(true);
     }
 
-    btnStart.addEventListener("click", async () => {
-      await initKeepAliveAudio();
+    btnStart.addEventListener("click", () => {
+      unlockAudio();
       if (phase !== "idle") return;
-      await startNewQuestion();
+      startNewQuestion();
     });
 
     btnReplay.addEventListener("click", async () => {
@@ -1468,7 +1490,7 @@
     });
 
     btnC.addEventListener("click", async () => {
-      await initKeepAliveAudio();
+      unlockAudio();
       await playFile("C_3.mp3");
     });
 
@@ -1490,6 +1512,9 @@
     buildChoices();
     syncAll();
     resetToIdle("待機中");
+
+    document.body.addEventListener("touchstart", unlockAudio, { once:true });
+    document.body.addEventListener("mousedown", unlockAudio, { once:true });
   })();
   </script>
 </body>
