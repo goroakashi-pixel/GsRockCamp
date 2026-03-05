@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Progression_ver1.2.9</title>
+<title>Progression_ver1.2.8</title>
 
 <style>
 body{
@@ -81,7 +81,7 @@ font-weight:bold;
 
 <body>
 
-<h2>Progression_ver1.2.9</h2>
+<h2>Progression_ver1.2.8</h2>
 
 <button onclick="newQuestion()">出題</button> <button onclick="playProgression()">PLAY!</button> <button id="hintBtn" onclick="hint()">ヒント</button> <button onclick="replay()">もう一回</button>
 
@@ -759,6 +759,15 @@ return applyDegreeHintToParsed(seg, current.degrees[barIndex] || "")
 }
 return seg
 }
+
+function parseChordSymbol(sym){
+sym = normalizeChordText(sym)
+const slashSplit = sym.split("/")
+const baseSym = slashSplit[0].trim()
+const slashBass = slashSplit[1] ? slashSplit[1].trim() : ""
+const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/)
+const root = m ? m[1] : "C"
+const rest = m ? m[2] : ""
 
 function parseChordSymbol(sym){
 sym = normalizeChordText(sym)
