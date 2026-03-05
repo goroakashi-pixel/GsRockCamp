@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Progression_ver1.2.4</title>
+<title>Progression_ver1.2.7</title>
 
 <style>
 body{
@@ -25,6 +25,16 @@ text-align:left;
 margin:14px 0 10px;
 line-height:1.6;
 }
+#question{
+margin:10px 0;
+font-size:20px;
+font-weight:bold;
+}
+#hints{
+margin-top:10px;
+line-height:1.6;
+color:#333;
+}
 #comment{
 margin-top:14px;
 line-height:1.6;
@@ -37,20 +47,68 @@ font-size:13px;
 margin:14px 0;
 border-top:1px solid #ddd;
 }
+.credit-row{
+display:flex;
+font-family:monospace;
+}
+.credit-label{
+width:9ch;
+}
+#statusWrap{
+margin-top:16px;
+overflow-x:auto;
+}
+#statusTable{
+border-collapse:collapse;
+font-size:13px;
+}
+#statusTable th,
+#statusTable td{
+border:1px solid #ddd;
+padding:6px 8px;
+white-space:nowrap;
+}
+#statusTable th{
+background:#f7f7f7;
+}
+.error-cell{
+color:#b30000;
+font-weight:bold;
+}
 </style>
 
 </head>
 
 <body>
 
-<h2>Progression_ver1.2.4</h2>
+<h2>Progression_ver1.2.7</h2>
 
 <button onclick="newQuestion()">出題</button> <button onclick="playProgression()">PLAY!</button> <button onclick="hint()">ヒント</button> <button onclick="replay()">もう一回</button>
 
 <div id="meta"></div>
 <div class="hr"></div>
+<div id="question"></div>
 <div id="choices"></div>
+<div id="hints"></div>
 <div id="comment"></div>
+
+<div id="statusWrap">
+<table id="statusTable">
+<thead>
+<tr><th>項目</th><th>1</th><th>2</th><th>3</th><th>4</th></tr>
+</thead>
+<tbody>
+<tr><th>Chord</th><td id="st_chord_1"></td><td id="st_chord_2"></td><td id="st_chord_3"></td><td id="st_chord_4"></td></tr>
+<tr><th>degree</th><td id="st_degree_1"></td><td id="st_degree_2"></td><td id="st_degree_3"></td><td id="st_degree_4"></td></tr>
+<tr><th>non_diatonic</th><td id="st_nd_1"></td><td id="st_nd_2"></td><td id="st_nd_3"></td><td id="st_nd_4"></td></tr>
+<tr><th>PIANO1</th><td id="st_p1_1"></td><td id="st_p1_2"></td><td id="st_p1_3"></td><td id="st_p1_4"></td></tr>
+<tr><th>PIANO2</th><td id="st_p2_1"></td><td id="st_p2_2"></td><td id="st_p2_3"></td><td id="st_p2_4"></td></tr>
+<tr><th>PIANO3</th><td id="st_p3_1"></td><td id="st_p3_2"></td><td id="st_p3_3"></td><td id="st_p3_4"></td></tr>
+<tr><th>PIANO4</th><td id="st_p4_1"></td><td id="st_p4_2"></td><td id="st_p4_3"></td><td id="st_p4_4"></td></tr>
+<tr><th>BASS</th><td id="st_bass_1"></td><td id="st_bass_2"></td><td id="st_bass_3"></td><td id="st_bass_4"></td></tr>
+</tbody>
+</table>
+</div>
 
 <script>
 
@@ -66,93 +124,117 @@ return String(url).replaceAll("#","%23")
 }
 
 async function loadBuffer(url){
- const r = await fetch(urlForFetch(url))
- const a = await r.arrayBuffer()
- return await ctx.decodeAudioData(a)
+const r = await fetch(urlForFetch(url))
+if(!r.ok){
+throw new Error(`fetch failed: ${url}`)
+}
+const a = await r.arrayBuffer()
+return await ctx.decodeAudioData(a)
 }
 
 let buf={}
+let bufferErrors = {}
+let activeSources = []
+
+function markBufferError(name){
+bufferErrors[name] = true
+}
+
+function isBufferError(name){
+return !!bufferErrors[name]
+}
+
+async function safeLoadBuffer(key, url){
+try{
+buf[key] = await loadBuffer(url)
+}catch(e){
+console.error(e)
+markBufferError(key)
+buf[key] = null
+}
+}
 
 async function loadAll(){
 
 if(buf.__loaded) return
 
-buf.drum = await loadBuffer("./audio/Drum_loop.wav")
+await safeLoadBuffer("drum", "./audio/Drum_loop.wav")
 
 /* bass (12) */
-buf["A#0_Bass"] = await loadBuffer("./audio/A#0_Bass.wav")
-buf["A0_Bass"]  = await loadBuffer("./audio/A0_Bass.wav")
-buf["B0_Bass"]  = await loadBuffer("./audio/B0_Bass.wav")
-buf["C#1_Bass"] = await loadBuffer("./audio/C#1_Bass.wav")
-buf["C1_Bass"]  = await loadBuffer("./audio/C1_Bass.wav")
-buf["D#1_Bass"] = await loadBuffer("./audio/D#1_Bass.wav")
-buf["D1_Bass"]  = await loadBuffer("./audio/D1_Bass.wav")
-buf["E0_Bass"]  = await loadBuffer("./audio/E0_Bass.wav")
-buf["F#0_Bass"] = await loadBuffer("./audio/F#0_Bass.wav")
-buf["F0_Bass"]  = await loadBuffer("./audio/F0_Bass.wav")
-buf["G#0_Bass"] = await loadBuffer("./audio/G#0_Bass.wav")
-buf["G0_Bass"]  = await loadBuffer("./audio/G0_Bass.wav")
+await safeLoadBuffer("A#0_Bass", "./audio/A#0_Bass.wav")
+await safeLoadBuffer("A0_Bass",  "./audio/A0_Bass.wav")
+await safeLoadBuffer("B0_Bass",  "./audio/B0_Bass.wav")
+await safeLoadBuffer("C#1_Bass", "./audio/C#1_Bass.wav")
+await safeLoadBuffer("C1_Bass",  "./audio/C1_Bass.wav")
+await safeLoadBuffer("D#1_Bass", "./audio/D#1_Bass.wav")
+await safeLoadBuffer("D1_Bass",  "./audio/D1_Bass.wav")
+await safeLoadBuffer("E0_Bass",  "./audio/E0_Bass.wav")
+await safeLoadBuffer("F#0_Bass", "./audio/F#0_Bass.wav")
+await safeLoadBuffer("F0_Bass",  "./audio/F0_Bass.wav")
+await safeLoadBuffer("G#0_Bass", "./audio/G#0_Bass.wav")
+await safeLoadBuffer("G0_Bass",  "./audio/G0_Bass.wav")
 
 /* notes (12 x oct 2,3,4) + C5 */
 const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
 for(let o=2;o<=4;o++){
- for(const n of pcs){
-  buf[`${n}${o}`] = await loadBuffer(`./audio/${n}${o}.wav`)
- }
+for(const n of pcs){
+await safeLoadBuffer(`${n}${o}`, `./audio/${n}${o}.wav`)
 }
-buf["C5"] = await loadBuffer("./audio/C5.wav")
+}
+await safeLoadBuffer("C5", "./audio/C5.wav")
 
 buf.__loaded = true
 
 }
 
 function play(buffer,time,fade=false){
-
+if(!buffer) return null
 const s = ctx.createBufferSource()
 const g = ctx.createGain()
-
 s.buffer = buffer
 s.connect(g)
 g.connect(ctx.destination)
-
 if(fade){
 g.gain.setValueAtTime(1, time)
 g.gain.setValueAtTime(1, time + 2.1)
 g.gain.linearRampToValueAtTime(0, time + 2.2)
 }
-
 s.start(time)
+activeSources.push(s)
+return s
+}
 
+function stopAllPlaying(){
+for(const s of activeSources){
+try{ s.stop(0) }catch(_e){}
+}
+activeSources = []
 }
 
 function piano(notes,time,fade=false){
-
-notes.forEach(n=>{
- play(buf[n],time,fade)
-})
-
+notes.forEach(n=>{ play(buf[n],time,fade) })
 }
 
 function bass(note,time,fade=false){
-
 play(buf[note],time,fade)
-
 }
 
 function drum(time,fade=false){
-
 play(buf.drum,time,fade)
-
 }
 
 /* =========================
    ゲーム部分
    ========================= */
 
+const NON_DIATONIC_CANDIDATES = ["Ⅳm","Ⅲ7","Ⅱ7","Ⅵ7","♭Ⅶ","♭Ⅲ","♭Ⅵ","dim","aug"]
+
 let DB=[]
 let current=null
+let currentQuiz=null
 let correctChoice=""
 let dbReadyPromise = null
+let preloadStarted = false
 
 function esc(s){
 return String(s??"")
@@ -163,6 +245,25 @@ return String(s??"")
 .replaceAll("'","&#39;")
 }
 
+function normalizeDegreeForDisplay(s){
+return String(s||"").replaceAll("b","♭")
+}
+
+function normalizeAccidentalRoot(root){
+const map = {
+"Cb":"B",
+"Db":"C#", "D♭":"C#",
+"Eb":"D#", "E♭":"D#",
+"Fb":"E",
+"Gb":"F#", "G♭":"F#",
+"Ab":"G#", "A♭":"G#",
+"Bb":"A#", "B♭":"A#",
+"E#":"F",
+"B#":"C"
+}
+return map[root] || root
+}
+
 async function loadDB(){
 const r = await fetch("./progressions.json", {cache:"no-store"})
 DB = await r.json()
@@ -170,10 +271,10 @@ DB = await r.json()
 
 function ensureDB(){
 if(!dbReadyPromise){
- dbReadyPromise = loadDB().catch(e=>{
-  console.error(e)
-  DB=[]
- })
+dbReadyPromise = loadDB().catch(e=>{
+console.error(e)
+DB=[]
+})
 }
 return dbReadyPromise
 }
@@ -182,36 +283,224 @@ function hasChordData(q){
 return q && Array.isArray(q.chords) && q.chords.length===4 && q.chords.every(x=>String(x).trim().length>0)
 }
 
-async function newQuestion(){
-
-await ensureDB()
-
-if(DB.length===0){
-document.getElementById("meta").innerHTML="<b>DB未読み込み</b>"
-document.getElementById("choices").innerHTML=""
-document.getElementById("comment").innerHTML=""
-return
+function hasDegreeData(q){
+return q && Array.isArray(q.degrees) && q.degrees.length===4 && q.degrees.every(x=>String(x).trim().length>0)
 }
 
-let pool = DB.filter(x=>hasChordData(x))
-if(pool.length===0){
-document.getElementById("meta").innerHTML="<b>Chordデータが存在する行がありません</b>"
-document.getElementById("choices").innerHTML=""
-document.getElementById("comment").innerHTML=""
-return
+function truthyNonDiatonic(v){
+if(v===true) return true
+if(v===false || v==null) return false
+const s = String(v).trim().toLowerCase()
+return s==="true" || s==="1" || s==="yes"
 }
 
-current = pool[Math.floor(Math.random()*pool.length)]
+function fallbackIsNonDiatonicDegree(token){
+const t = String(token||"")
+if(/[b♭#]/.test(t)) return true
+if(/Ⅳm|dim|aug/.test(t)) return true
+if(/7/.test(t) && !/^Ⅴ7?$/.test(t)) return true
+return false
+}
 
-renderMeta(current)
-generateChoices(current)
+function collectNonDiatonicIndices(q){
+const idx=[]
+let hasFlagKey=false
+for(let i=1;i<=4;i++){
+const key = `non_diatonic_${i}`
+if(Object.prototype.hasOwnProperty.call(q,key)){
+hasFlagKey=true
+if(truthyNonDiatonic(q[key])) idx.push(i-1)
+}
+}
+if(hasFlagKey) return idx
+const degs = hasDegreeData(q) ? q.degrees : []
+for(let i=0;i<degs.length;i++){
+if(fallbackIsNonDiatonicDegree(degs[i])) idx.push(i)
+}
+return idx
+}
 
-document.getElementById("comment").innerHTML=""
+function chooseRandom(arr){
+return arr[Math.floor(Math.random()*arr.length)]
+}
 
+function shuffle(arr){
+const out = arr.slice()
+for(let i=out.length-1;i>0;i--){
+const j = Math.floor(Math.random()*(i+1))
+const tmp = out[i]
+out[i] = out[j]
+out[j] = tmp
+}
+return out
+}
+
+function degreeString(arr){
+return arr.map(normalizeDegreeForDisplay).join(" → ")
+}
+
+function buildPatternAQuiz(q){
+const degs = q.degrees.slice(0,4)
+const nonDiaIdx = collectNonDiatonicIndices(q)
+if(nonDiaIdx.length===0) return null
+const hiddenIndex = chooseRandom(nonDiaIdx)
+const correct = normalizeDegreeForDisplay(String(degs[hiddenIndex]).trim())
+
+const choiceSet = new Set([correct])
+const pool = shuffle(NON_DIATONIC_CANDIDATES.filter(x=>x!==correct))
+for(const c of pool){
+if(choiceSet.size>=4) break
+choiceSet.add(c)
+}
+if(choiceSet.size<4){
+const fallbackPool = shuffle(NON_DIATONIC_CANDIDATES)
+for(const c of fallbackPool){
+if(choiceSet.size>=4) break
+choiceSet.add(c)
+}
+}
+
+const choices = shuffle(Array.from(choiceSet).slice(0,4))
+while(choices.length<4){
+choices.push(correct)
+}
+
+const masked = degs.slice()
+masked[hiddenIndex] = "？"
+
+return {
+mode:"A",
+hiddenIndex,
+choices,
+correct,
+questionText: degreeString(masked)
+}
+}
+
+function splitDegreeToken(tok){
+tok = String(tok||"").trim()
+let base = tok
+let suffix = ""
+const m = tok.match(/^([b♭♯#]?)([ⅠⅡⅢⅣⅤⅥⅦ]+)(.*)$/)
+if(m){
+base = (m[1]||"") + (m[2]||"")
+suffix = (m[3]||"")
+}
+return {base, suffix}
+}
+
+/* トニック：Ⅰ / Ⅵm / Ⅲm の入替 */
+function applyTonicSwap(degs, mode){
+const out = degs.slice()
+for(let i=0;i<out.length;i++){
+const t = splitDegreeToken(out[i])
+const base = t.base
+const suf  = t.suffix
+const isI = (base==="Ⅰ")
+const isVIm = (base==="Ⅵ" && suf.startsWith("m"))
+const isIIIm = (base==="Ⅲ" && suf.startsWith("m"))
+if(!(isI || isVIm || isIIIm)) continue
+if(mode===1){
+if(isI){
+out[i] = "Ⅲm"
+}else if(isVIm){
+out[i] = "Ⅰ"
+}else{
+out[i] = "Ⅵm"
+}
+}else{
+if(isI){
+out[i] = "Ⅵm"
+}else if(isVIm){
+out[i] = "Ⅲm"
+}else{
+out[i] = "Ⅰ"
+}
+}
+}
+return out
+}
+
+/* サブドミ：Ⅳ ⇔ Ⅱm */
+function applySubdomSwap(degs){
+const out = degs.slice()
+for(let i=0;i<out.length;i++){
+const t = splitDegreeToken(out[i])
+const base = t.base
+const suf  = t.suffix
+const isIV = (base==="Ⅳ")
+const isIIm = (base==="Ⅱ" && suf.startsWith("m"))
+if(isIV){
+out[i] = "Ⅱm"
+}else if(isIIm){
+out[i] = "Ⅳ"
+}
+}
+return out
+}
+
+function buildPatternBQuiz(q){
+const degs = q.degrees.slice(0,4)
+const correct = degreeString(degs)
+const choiceSet = new Set([correct])
+const generated = [
+degreeString(applyTonicSwap(degs,1)),
+degreeString(applyTonicSwap(degs,2)),
+degreeString(applySubdomSwap(degs)),
+degreeString(applySubdomSwap(applyTonicSwap(degs,1))),
+degreeString(applySubdomSwap(applyTonicSwap(degs,2)))
+]
+for(const g of generated){
+if(choiceSet.size>=4) break
+choiceSet.add(g)
+}
+
+if(choiceSet.size<4){
+const dbPool = shuffle(DB.filter(row=>hasDegreeData(row) && collectNonDiatonicIndices(row).length===0))
+for(const row of dbPool){
+if(choiceSet.size>=4) break
+choiceSet.add(degreeString(row.degrees.slice(0,4)))
+}
+}
+
+const allDiatonicTokens = ["Ⅰ","Ⅱm","Ⅲm","Ⅳ","Ⅴ","Ⅵm"]
+let guard = 0
+while(choiceSet.size<4 && guard<40){
+guard++
+const arr = degs.map(d=>String(d))
+for(let i=0;i<arr.length;i++){
+const t = splitDegreeToken(arr[i])
+const token = t.base + (t.suffix||"")
+if(["Ⅰ","Ⅱm","Ⅲm","Ⅳ","Ⅴ","Ⅵm"].includes(token)){
+arr[i] = chooseRandom(allDiatonicTokens)
+}
+}
+choiceSet.add(degreeString(arr))
+}
+
+const choices = shuffle(Array.from(choiceSet).slice(0,4))
+while(choices.length<4){
+choices.push(correct)
+}
+
+return {
+mode:"B",
+choices,
+correct,
+questionText:""
+}
+}
+
+function buildQuizForQuestion(q){
+if(!hasDegreeData(q)) return null
+const nonDiaIdx = collectNonDiatonicIndices(q)
+if(nonDiaIdx.length>0){
+return buildPatternAQuiz(q)
+}
+return buildPatternBQuiz(q)
 }
 
 function renderMeta(q){
-
 const artist = esc(q.artist)
 const title  = esc(q.title)
 const words  = esc(q.words)
@@ -221,203 +510,193 @@ const year   = esc(q.year)
 const era    = esc(q.ERA ?? q.era)
 const okey   = esc(q.original_key ?? q.originalKey)
 const part   = esc(q.part)
+const qkey   = esc(q.quiz_key ?? q.Quiz_key ?? "C")
 
 document.getElementById("meta").innerHTML =
 "<b>"+artist+"</b> / "+title+"<br>"+
-"<span class='small'>words:</span> "+words+"<br>"+
-"<span class='small'>music:</span> "+music+"<br>"+
-"<span class='small'>arrange:</span> "+arrange+"<br>"+
+"<div class='credit-row'><span class='credit-label'>words:</span><span>"+words+"</span></div>"+
+"<div class='credit-row'><span class='credit-label'>music:</span><span>"+music+"</span></div>"+
+"<div class='credit-row'><span class='credit-label'>arrange:</span><span>"+arrange+"</span></div>"+
 "<span class='small'>Year:</span> "+year+
 "　<span class='small'>ERA:</span> "+era+
 "　<span class='small'>original_key:</span> "+okey+
+" / <span class='small'>Quiz_key:</span> "+qkey+
 "　<span class='small'>Part:</span> "+part
-
 }
 
-function degreeString(arr){
-return arr.join("→")
+function renderHints(){
+if(!current){
+document.getElementById("hints").innerHTML = ""
+return
+}
+const t1 = esc(current.tag1)
+const t2 = esc(current.tag2)
+const t3 = esc(current.tag3)
+const t4 = esc(current.tag4)
+let html = "<div class='hr'></div><b>Hint</b><br>"
+if(t1) html += t1+"<br>"
+if(t2) html += t2+"<br>"
+if(t3) html += t3+"<br>"
+if(t4) html += t4+"<br>"
+document.getElementById("hints").innerHTML = html
 }
 
-/* 「役割入れ替え方式」：DBが1行でも4択が作れる */
-function generateChoices(q){
+function hint(){
+renderHints()
+}
 
-const degs = Array.isArray(q.degrees) ? q.degrees.slice(0,4) : []
-if(degs.length!==4){
-document.getElementById("choices").innerHTML="<b>degrees が不足しています</b>"
+function setCell(id, text, isError=false){
+const el = document.getElementById(id)
+el.textContent = text
+if(isError){
+el.classList.add("error-cell")
+}else{
+el.classList.remove("error-cell")
+}
+}
+
+function renderStatusTable(){
+for(let i=1;i<=4;i++){
+setCell(`st_chord_${i}`,"")
+setCell(`st_degree_${i}`,"")
+setCell(`st_nd_${i}`,"")
+setCell(`st_p1_${i}`,"")
+setCell(`st_p2_${i}`,"")
+setCell(`st_p3_${i}`,"")
+setCell(`st_p4_${i}`,"")
+setCell(`st_bass_${i}`,"")
+}
+if(!current) return
+
+const degs = current.degrees.slice(0,4)
+const ch = current.chords.slice(0,4)
+const ndSet = new Set(collectNonDiatonicIndices(current))
+
+for(let i=0;i<4;i++){
+const col = i+1
+setCell(`st_chord_${col}`, String(ch[i]||""))
+setCell(`st_degree_${col}`, normalizeDegreeForDisplay(String(degs[i]||"")))
+setCell(`st_nd_${col}`, ndSet.has(i) ? "True" : "False")
+const pn = pianoVoicing(ch[i])
+setCell(`st_p1_${col}`, pn[0]||"")
+setCell(`st_p2_${col}`, pn[1]||"")
+setCell(`st_p3_${col}`, pn[2]||"")
+setCell(`st_p4_${col}`, pn[3]||"")
+const rootPc = normalizeAccidentalRoot(parseChordSymbol(ch[i]).bassRoot)
+const bname = bassBufferName(rootPc)
+setCell(`st_bass_${col}`, bname)
+
+if(pn[0] && isBufferError(pn[0])) setCell(`st_p1_${col}`, "error", true)
+if(pn[1] && isBufferError(pn[1])) setCell(`st_p2_${col}`, "error", true)
+if(pn[2] && isBufferError(pn[2])) setCell(`st_p3_${col}`, "error", true)
+if(pn[3] && isBufferError(pn[3])) setCell(`st_p4_${col}`, "error", true)
+if(isBufferError(bname)) setCell(`st_bass_${col}`, "error", true)
+}
+}
+
+function renderQuiz(){
+if(!currentQuiz) return
+if(currentQuiz.mode==="A"){
+document.getElementById("question").innerHTML = esc(currentQuiz.questionText)
+}else{
+document.getElementById("question").innerHTML = ""
+}
+
+let html=""
+for(const c of currentQuiz.choices){
+html += `<button class='choice' onclick="answer('${esc(c)}')">${esc(c)}</button>`
+}
+document.getElementById("choices").innerHTML = html
+correctChoice = currentQuiz.correct
+}
+
+async function warmup(){
+if(preloadStarted) return
+preloadStarted = true
+ensureDB()
+loadAll()
+}
+
+async function prepareAudioForGesture(){
+if(ctx.state !== "running"){
+try{ await ctx.resume() }catch(e){ console.error(e) }
+}
+await loadAll()
+}
+
+async function newQuestion(){
+await warmup()
+await ensureDB()
+
+if(DB.length===0){
+document.getElementById("meta").innerHTML="<b>DB未読み込み</b>"
+document.getElementById("question").innerHTML=""
+document.getElementById("choices").innerHTML=""
+document.getElementById("hints").innerHTML=""
+document.getElementById("comment").innerHTML=""
+renderStatusTable()
 return
 }
 
-const correct = degreeString(degs)
-correctChoice = correct
-
-let choices = [correct]
-
-const d1 = degreeString(applyTonicSwap(degs, 1))
-const d2 = degreeString(applyTonicSwap(degs, 2))
-const d3 = degreeString(applySubdomSwap(degs))
-
-for(const d of [d1,d2,d3]){
-if(!choices.includes(d)) choices.push(d)
+let pool = DB.filter(x=>hasChordData(x) && hasDegreeData(x))
+if(pool.length===0){
+document.getElementById("meta").innerHTML="<b>Chord/Degreeデータが存在する行がありません</b>"
+document.getElementById("question").innerHTML=""
+document.getElementById("choices").innerHTML=""
+document.getElementById("hints").innerHTML=""
+document.getElementById("comment").innerHTML=""
+renderStatusTable()
+return
 }
 
-let guard=0
-while(choices.length<4 && guard<10){
-const mix = degreeString(applySubdomSwap(applyTonicSwap(degs, (guard%2)+1)))
-if(!choices.includes(mix)) choices.push(mix)
-guard++
+current = chooseRandom(pool)
+currentQuiz = buildQuizForQuestion(current)
+if(!currentQuiz){
+document.getElementById("meta").innerHTML="<b>問題生成に失敗しました</b>"
+document.getElementById("question").innerHTML=""
+document.getElementById("choices").innerHTML=""
+document.getElementById("hints").innerHTML=""
+document.getElementById("comment").innerHTML=""
+renderStatusTable()
+return
 }
 
-while(choices.length<4){
-choices.push(correct)
-}
-
-choices = choices.slice(0,4)
-choices.sort(()=>Math.random()-0.5)
-
-let html=""
-choices.forEach(c=>{
-html += "<button class='choice' onclick=\"answer('"+esc(c)+"')\">"+esc(c)+"</button>"
-})
-
-document.getElementById("choices").innerHTML = html
-
-}
-
-function splitDegreeToken(tok){
-
-tok = String(tok||"").trim()
-
-let base = tok
-let suffix = ""
-
-const m = tok.match(/^([♭♯]?)([ⅠⅡⅢⅣⅤⅥⅦ]+)(.*)$/)
-if(m){
-base = (m[1]||"") + (m[2]||"")
-suffix = (m[3]||"")
-}
-
-return {base, suffix}
-
-}
-
-/* トニック：Ⅰ / Ⅵm / Ⅲm の入替 */
-function applyTonicSwap(degs, mode){
-
-const out = degs.slice()
-
-for(let i=0;i<out.length;i++){
-
-const t = splitDegreeToken(out[i])
-const base = t.base
-const suf  = t.suffix
-
-const isI = (base==="Ⅰ")
-const isVIm = (base==="Ⅵ" && suf.startsWith("m"))
-const isIIIm = (base==="Ⅲ" && suf.startsWith("m"))
-
-if(!(isI || isVIm || isIIIm)) continue
-
-if(mode===1){
-if(isI){
- out[i] = "Ⅲm"
-}else if(isVIm){
- out[i] = "Ⅰ"
-}else{
- out[i] = "Ⅵm"
-}
-}else{
-if(isI){
- out[i] = "Ⅵm"
-}else if(isVIm){
- out[i] = "Ⅲm"
-}else{
- out[i] = "Ⅰ"
-}
-}
-
-}
-
-return out
-
-}
-
-/* サブドミ：Ⅳ ⇔ Ⅱm */
-function applySubdomSwap(degs){
-
-const out = degs.slice()
-
-for(let i=0;i<out.length;i++){
-
-const t = splitDegreeToken(out[i])
-const base = t.base
-const suf  = t.suffix
-
-const isIV = (base==="Ⅳ")
-const isIIm = (base==="Ⅱ" && suf.startsWith("m"))
-
-if(isIV){
- out[i] = "Ⅱm"
-}else if(isIIm){
- out[i] = "Ⅳ"
-}
-
-}
-
-return out
-
+renderMeta(current)
+document.getElementById("question").innerHTML = ""
+document.getElementById("choices").innerHTML = ""
+document.getElementById("comment").innerHTML = ""
+document.getElementById("hints").innerHTML = ""
+renderStatusTable()
 }
 
 function answer(c){
-
 if(c===correctChoice){
-
 playCorrect()
 showTagsAndComment()
-
 }else{
-
 playCheer()
 document.getElementById("comment").innerHTML=""
-
 }
-
 }
 
 function showTagsAndComment(){
-
 if(!current) return
-
 const t1 = esc(current.tag1)
 const t2 = esc(current.tag2)
 const t3 = esc(current.tag3)
 const t4 = esc(current.tag4)
 const cm = esc(current.comment)
-
 let html = "<b>OK</b><br>"
 if(t1) html += t1+"<br>"
 if(t2) html += t2+"<br>"
 if(t3) html += t3+"<br>"
 if(t4) html += t4+"<br>"
 if(cm) html += "<div class='hr'></div>"+cm
-
 document.getElementById("comment").innerHTML = html
-
-}
-
-function hint(){
-
-if(!current) return
-
-const t1 = String(current.tag1||"")
-const t2 = String(current.tag2||"")
-const t3 = String(current.tag3||"")
-const t4 = String(current.tag4||"")
-
-alert(t1+"\n"+t2+"\n"+t3+"\n"+t4)
-
 }
 
 function replay(){
+stopAllPlaying()
 playProgression()
 }
 
@@ -449,24 +728,23 @@ return pcs[(i%12+12)%12]
 }
 
 function parseChordSymbol(sym){
-
 sym = String(sym||"").trim()
-
+const slashSplit = sym.split("/")
+const baseSym = slashSplit[0].trim()
+const slashBass = slashSplit[1] ? slashSplit[1].trim() : ""
 let root = ""
 let rest = ""
-
-if(sym.length>=2 && sym[1]==="#"){
-root = sym.slice(0,2)
-rest = sym.slice(2)
+if(baseSym.length>=2 && /[#b♭]/.test(baseSym[1])){
+root = baseSym.slice(0,2)
+rest = baseSym.slice(2)
 }else{
-root = sym.slice(0,1)
-rest = sym.slice(1)
+root = baseSym.slice(0,1)
+rest = baseSym.slice(1)
 }
-
 let quality = "maj"
 let seventh = null
-
-if(rest.startsWith("maj7")){
+let sixth = false
+if(rest.startsWith("maj7") || rest.startsWith("M7")){
 quality="maj"
 seventh="maj7"
 }else if(rest.startsWith("m7")){
@@ -486,97 +764,75 @@ quality="maj"
 }else{
 quality="maj"
 }
-
-return {root, quality, seventh}
-
+if(/6/.test(rest) && !rest.startsWith("m6")){
+sixth = true
+}
+const bassRoot = slashBass ? slashBass : root
+return {root, bassRoot, quality, seventh, sixth}
 }
 
 function chordToPitchClasses(sym){
-
 const p = parseChordSymbol(sym)
-const r = pcIndex(p.root)
+const r = pcIndex(normalizeAccidentalRoot(p.root))
 if(r<0) return ["C","E","G"]
-
 let third = 4
 let fifth = 7
-
 if(p.quality==="min"){ third = 3; fifth = 7 }
 if(p.quality==="aug"){ third = 4; fifth = 8 }
 if(p.quality==="dim"){ third = 3; fifth = 6 }
-
 let pcs = [ idxToPc(r), idxToPc(r+third), idxToPc(r+fifth) ]
-
-if(p.seventh==="7"){
-pcs.push(idxToPc(r+10))
-}
-if(p.seventh==="maj7"){
-pcs.push(idxToPc(r+11))
-}
-if(p.seventh==="m7"){
-pcs.push(idxToPc(r+10))
-}
-
+if(p.sixth) pcs.push(idxToPc(r+9))
+if(p.seventh==="7") pcs.push(idxToPc(r+10))
+if(p.seventh==="maj7") pcs.push(idxToPc(r+11))
+if(p.seventh==="m7") pcs.push(idxToPc(r+10))
 return pcs
-
 }
 
 function bassBufferName(rootPc){
-
 if(rootPc==="C" || rootPc==="C#" || rootPc==="D" || rootPc==="D#"){
 return rootPc+"1_Bass"
 }
 return rootPc+"0_Bass"
-
 }
 
 function pianoVoicing(sym){
-
 const pcs = chordToPitchClasses(sym)
-
 let notes = []
 for(let i=0;i<pcs.length;i++){
 notes.push(pcs[i]+"3")
 }
-
-notes = notes.filter(n=>buf[n])
-if(notes.length===0){
+if(notes.length<3){
 notes = ["C3","E3","G3"]
 }
-
+if(notes.length>4){
+notes = notes.slice(0,4)
+}
 return notes
-
 }
 
 async function playProgression(){
-
-if(!current) return
+if(!current || !currentQuiz) return
 if(!hasChordData(current)) return
-
-await loadAll()
-
+await prepareAudioForGesture()
+stopAllPlaying()
 let t = ctx.currentTime + 0.1
 let bar = 2.0
-
 const ch = current.chords.slice(0,4)
-
 for(let i=0;i<4;i++){
-
 const time = t + bar*i
 const fade = (i===3)
-
-const rootPc = parseChordSymbol(ch[i]).root
+const rootPc = normalizeAccidentalRoot(parseChordSymbol(ch[i]).bassRoot)
 const bname = bassBufferName(rootPc)
-
 drum(time, fade)
 bass(bname, time, fade)
 piano(pianoVoicing(ch[i]), time, fade)
-
+}
+renderQuiz()
+renderStatusTable()
 }
 
-}
-
-/* 起動時にDB読み込み開始 */
-ensureDB()
+/* 起動時に先読み開始 */
+warmup()
 
 </script>
 
