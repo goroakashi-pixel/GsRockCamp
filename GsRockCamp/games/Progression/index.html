@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Progression_ver1.2.7</title>
+<title>Progression_ver1.2.8</title>
 
 <style>
 body{
@@ -81,7 +81,7 @@ font-weight:bold;
 
 <body>
 
-<h2>Progression_ver1.2.7</h2>
+<h2>Progression_ver1.2.8</h2>
 
 <button onclick="newQuestion()">出題</button> <button onclick="playProgression()">PLAY!</button> <button onclick="replay()">もう一回</button>
 
@@ -577,12 +577,13 @@ const col = i+1
 setCell(`st_chord_${col}`, String(ch[i]||""))
 setCell(`st_degree_${col}`, normalizeDegreeForDisplay(String(degs[i]||"")))
 setCell(`st_nd_${col}`, ndSet.has(i) ? "True" : "False")
-const pn = pianoVoicing(ch[i])
+const seg = getBarSegments(ch[i])[0]
+const pn = pianoVoicing(seg.raw)
 setCell(`st_p1_${col}`, pn[0]||"")
 setCell(`st_p2_${col}`, pn[1]||"")
 setCell(`st_p3_${col}`, pn[2]||"")
 setCell(`st_p4_${col}`, pn[3]||"")
-const rootPc = normalizeAccidentalRoot(parseChordSymbol(ch[i]).bassRoot)
+const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot)
 const bname = bassBufferName(rootPc)
 setCell(`st_bass_${col}`, bname)
 
@@ -732,82 +733,99 @@ sym = String(sym||"").trim()
 const slashSplit = sym.split("/")
 const baseSym = slashSplit[0].trim()
 const slashBass = slashSplit[1] ? slashSplit[1].trim() : ""
-let root = ""
-let rest = ""
-if(baseSym.length>=2 && /[#b♭]/.test(baseSym[1])){
-root = baseSym.slice(0,2)
-rest = baseSym.slice(2)
-}else{
-root = baseSym.slice(0,1)
-rest = baseSym.slice(1)
-}
+const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/)
+const root = m ? m[1] : "C"
+const rest = m ? m[2] : ""
+
 let quality = "maj"
+if(rest.startsWith("m") && !rest.startsWith("maj")){ quality = "min" }
+if(rest.startsWith("dim")){ quality = "dim" }
+if(rest.startsWith("aug")){ quality = "aug" }
+
 let seventh = null
-let sixth = false
-if(rest.startsWith("maj7") || rest.startsWith("M7")){
-quality="maj"
-seventh="maj7"
-}else if(rest.startsWith("m7")){
-quality="min"
-seventh="m7"
-}else if(rest.startsWith("m")){
-quality="min"
-}else if(rest.startsWith("aug")){
-quality="aug"
-}else if(rest.startsWith("dim")){
-quality="dim"
-}else if(rest.startsWith("7")){
-quality="maj"
-seventh="7"
-}else if(rest.length===0){
-quality="maj"
-}else{
-quality="maj"
-}
-if(/6/.test(rest) && !rest.startsWith("m6")){
-sixth = true
-}
+if(/mM7/.test(rest)){ seventh = "maj7" }
+else if(/maj7|M7/.test(rest)){ seventh = "maj7" }
+else if(/m7/.test(rest)){ seventh = "m7" }
+else if(/(^|[^a-zA-Z])7/.test(rest)){ seventh = "7" }
+
+const sixth = /6/.test(rest)
+const ninth = /9/.test(rest)
 const bassRoot = slashBass ? slashBass : root
-return {root, bassRoot, quality, seventh, sixth}
+
+return {root, bassRoot, quality, seventh, sixth, ninth}
 }
 
 function chordToPitchClasses(sym){
 const p = parseChordSymbol(sym)
-const r = pcIndex(normalizeAccidentalRoot(p.root))
+const rootNorm = normalizeAccidentalRoot(p.root)
+const r = pcIndex(rootNorm)
 if(r<0) return ["C","E","G"]
 let third = 4
 let fifth = 7
 if(p.quality==="min"){ third = 3; fifth = 7 }
 if(p.quality==="aug"){ third = 4; fifth = 8 }
 if(p.quality==="dim"){ third = 3; fifth = 6 }
-let pcs = [ idxToPc(r), idxToPc(r+third), idxToPc(r+fifth) ]
-if(p.sixth) pcs.push(idxToPc(r+9))
-if(p.seventh==="7") pcs.push(idxToPc(r+10))
-if(p.seventh==="maj7") pcs.push(idxToPc(r+11))
-if(p.seventh==="m7") pcs.push(idxToPc(r+10))
-return pcs
+
+const pcs = [ idxToPc(r), idxToPc(r+third), idxToPc(r+fifth) ]
+if(p.sixth){ pcs.push(idxToPc(r+9)) }
+if(p.seventh==="7"){ pcs.push(idxToPc(r+10)) }
+if(p.seventh==="maj7"){ pcs.push(idxToPc(r+11)) }
+if(p.seventh==="m7"){ pcs.push(idxToPc(r+10)) }
+if(p.ninth){ pcs.push(idxToPc(r+14)) }
+
+const uniq = []
+for(const x of pcs){ if(!uniq.includes(x)) uniq.push(x) }
+return uniq
 }
 
 function bassBufferName(rootPc){
-if(rootPc==="C" || rootPc==="C#" || rootPc==="D" || rootPc==="D#"){
-return rootPc+"1_Bass"
-}
+if(rootPc==="C") return "C1_Bass"
+if(rootPc==="C#" || rootPc==="D" || rootPc==="D#") return rootPc+"1_Bass"
 return rootPc+"0_Bass"
 }
 
 function pianoVoicing(sym){
-const pcs = chordToPitchClasses(sym)
-let notes = []
-for(let i=0;i<pcs.length;i++){
-notes.push(pcs[i]+"3")
+const p = parseChordSymbol(sym)
+const rootNorm = normalizeAccidentalRoot(p.root)
+const rootIdx = pcIndex(rootNorm)
+let pcs = chordToPitchClasses(sym)
+
+if(p.ninth){
+const n9 = idxToPc(rootIdx+14)
+pcs = pcs.filter(x=>x!==n9)
+pcs.push(n9)
 }
-if(notes.length<3){
-notes = ["C3","E3","G3"]
+if(p.seventh){
+const sev = p.seventh==="maj7" ? idxToPc(rootIdx+11) : idxToPc(rootIdx+10)
+pcs = pcs.filter(x=>x!==sev)
+pcs.push(sev)
 }
-if(notes.length>4){
-notes = notes.slice(0,4)
+
+while(pcs.length<3){ pcs.push(idxToPc(rootIdx+7)) }
+if(pcs.length>4){
+if(p.ninth){
+pcs = [pcs[0], pcs[1], pcs[2], idxToPc(rootIdx+14)]
+}else if(p.seventh){
+const sev = p.seventh==="maj7" ? idxToPc(rootIdx+11) : idxToPc(rootIdx+10)
+pcs = [pcs[0], pcs[1], pcs[2], sev]
+}else{
+pcs = pcs.slice(0,4)
 }
-return notes
+}
+
+return pcs.slice(0,4).map(x=>x+"3")
+}
+
+function getBarSegments(chordText){
+const raw = String(chordText||"")
+const parts = raw.split("│").map(x=>x.trim()).filter(Boolean)
+if(parts.length>=2){
+return [
+{raw:parts[0], offset:0.0, duration:1.0},
+{raw:parts[1], offset:1.0, duration:1.0}
+]
+}
+return [{raw:raw.trim(), offset:0.0, duration:2.0}]
 }
 
 async function playProgression(){
@@ -819,13 +837,20 @@ let t = ctx.currentTime + 0.1
 let bar = 2.0
 const ch = current.chords.slice(0,4)
 for(let i=0;i<4;i++){
-const time = t + bar*i
-const fade = (i===3)
-const rootPc = normalizeAccidentalRoot(parseChordSymbol(ch[i]).bassRoot)
+const baseTime = t + bar*i
+const isLastBar = (i===3)
+const segs = getBarSegments(ch[i])
+
+drum(baseTime, isLastBar)
+for(let j=0;j<segs.length;j++){
+const seg = segs[j]
+const segTime = baseTime + seg.offset
+const segFade = (isLastBar && j===segs.length-1)
+const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot)
 const bname = bassBufferName(rootPc)
-drum(time, fade)
-bass(bname, time, fade)
-piano(pianoVoicing(ch[i]), time, fade)
+bass(bname, segTime, segFade)
+piano(pianoVoicing(seg.raw), segTime, segFade)
+}
 }
 renderQuiz()
 renderStatusTable()
