@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Progression_ver1.2.4</title>
+<title>Progression_ver1.2.5</title>
 
 <style>
 body{
@@ -25,6 +25,11 @@ text-align:left;
 margin:14px 0 10px;
 line-height:1.6;
 }
+#question{
+margin:10px 0;
+font-size:20px;
+font-weight:bold;
+}
 #comment{
 margin-top:14px;
 line-height:1.6;
@@ -43,12 +48,13 @@ border-top:1px solid #ddd;
 
 <body>
 
-<h2>Progression_ver1.2.4</h2>
+<h2>Progression_ver1.2.5</h2>
 
 <button onclick="newQuestion()">出題</button> <button onclick="playProgression()">PLAY!</button> <button onclick="hint()">ヒント</button> <button onclick="replay()">もう一回</button>
 
 <div id="meta"></div>
 <div class="hr"></div>
+<div id="question"></div>
 <div id="choices"></div>
 <div id="comment"></div>
 
@@ -149,8 +155,11 @@ play(buf.drum,time,fade)
    ゲーム部分
    ========================= */
 
+const NON_DIATONIC_CANDIDATES = ["Ⅳm","Ⅲ7","Ⅱ7","Ⅵ7","♭Ⅶ","♭Ⅲ","♭Ⅵ","dim","aug"]
+
 let DB=[]
 let current=null
+let currentQuiz=null
 let correctChoice=""
 let dbReadyPromise = null
 
@@ -182,105 +191,98 @@ function hasChordData(q){
 return q && Array.isArray(q.chords) && q.chords.length===4 && q.chords.every(x=>String(x).trim().length>0)
 }
 
-async function newQuestion(){
-
-await ensureDB()
-
-if(DB.length===0){
-document.getElementById("meta").innerHTML="<b>DB未読み込み</b>"
-document.getElementById("choices").innerHTML=""
-document.getElementById("comment").innerHTML=""
-return
+function hasDegreeData(q){
+return q && Array.isArray(q.degrees) && q.degrees.length===4 && q.degrees.every(x=>String(x).trim().length>0)
 }
 
-let pool = DB.filter(x=>hasChordData(x))
-if(pool.length===0){
-document.getElementById("meta").innerHTML="<b>Chordデータが存在する行がありません</b>"
-document.getElementById("choices").innerHTML=""
-document.getElementById("comment").innerHTML=""
-return
+function truthyNonDiatonic(v){
+if(v===true) return true
+if(v===false || v==null) return false
+const s = String(v).trim().toLowerCase()
+return s==="true" || s==="1" || s==="yes"
 }
 
-current = pool[Math.floor(Math.random()*pool.length)]
-
-renderMeta(current)
-generateChoices(current)
-
-document.getElementById("comment").innerHTML=""
-
+function fallbackIsNonDiatonicDegree(token){
+const t = String(token||"")
+if(/[b♭#]/.test(t)) return true
+if(/Ⅳm|dim|aug/.test(t)) return true
+if(/7/.test(t) && !/^Ⅴ7?$/.test(t)) return true
+return false
 }
 
-function renderMeta(q){
+function collectNonDiatonicIndices(q){
+const idx=[]
+let hasFlagKey=false
+for(let i=1;i<=4;i++){
+const key = `non_diatonic_${i}`
+if(Object.prototype.hasOwnProperty.call(q,key)){
+hasFlagKey=true
+if(truthyNonDiatonic(q[key])) idx.push(i-1)
+}
+}
+if(hasFlagKey) return idx
+const degs = hasDegreeData(q) ? q.degrees : []
+for(let i=0;i<degs.length;i++){
+if(fallbackIsNonDiatonicDegree(degs[i])) idx.push(i)
+}
+return idx
+}
 
-const artist = esc(q.artist)
-const title  = esc(q.title)
-const words  = esc(q.words)
-const music  = esc(q.music)
-const arrange= esc(q.arrange)
-const year   = esc(q.year)
-const era    = esc(q.ERA ?? q.era)
-const okey   = esc(q.original_key ?? q.originalKey)
-const part   = esc(q.part)
+function chooseRandom(arr){
+return arr[Math.floor(Math.random()*arr.length)]
+}
 
-document.getElementById("meta").innerHTML =
-"<b>"+artist+"</b> / "+title+"<br>"+
-"<span class='small'>words:</span> "+words+"<br>"+
-"<span class='small'>music:</span> "+music+"<br>"+
-"<span class='small'>arrange:</span> "+arrange+"<br>"+
-"<span class='small'>Year:</span> "+year+
-"　<span class='small'>ERA:</span> "+era+
-"　<span class='small'>original_key:</span> "+okey+
-"　<span class='small'>Part:</span> "+part
-
+function shuffle(arr){
+const out = arr.slice()
+for(let i=out.length-1;i>0;i--){
+const j = Math.floor(Math.random()*(i+1))
+const tmp = out[i]
+out[i] = out[j]
+out[j] = tmp
+}
+return out
 }
 
 function degreeString(arr){
-return arr.join("→")
+return arr.join(" → ")
 }
 
-/* 「役割入れ替え方式」：DBが1行でも4択が作れる */
-function generateChoices(q){
+function buildPatternAQuiz(q){
+const degs = q.degrees.slice(0,4)
+const nonDiaIdx = collectNonDiatonicIndices(q)
+if(nonDiaIdx.length===0) return null
+const hiddenIndex = chooseRandom(nonDiaIdx)
+const correct = String(degs[hiddenIndex]).trim()
 
-const degs = Array.isArray(q.degrees) ? q.degrees.slice(0,4) : []
-if(degs.length!==4){
-document.getElementById("choices").innerHTML="<b>degrees が不足しています</b>"
-return
+const choiceSet = new Set([correct])
+const pool = shuffle(NON_DIATONIC_CANDIDATES.filter(x=>x!==correct))
+for(const c of pool){
+if(choiceSet.size>=4) break
+choiceSet.add(c)
+}
+if(choiceSet.size<4){
+const fallbackPool = shuffle(NON_DIATONIC_CANDIDATES)
+for(const c of fallbackPool){
+if(choiceSet.size>=4) break
+choiceSet.add(c)
+}
 }
 
-const correct = degreeString(degs)
-correctChoice = correct
-
-let choices = [correct]
-
-const d1 = degreeString(applyTonicSwap(degs, 1))
-const d2 = degreeString(applyTonicSwap(degs, 2))
-const d3 = degreeString(applySubdomSwap(degs))
-
-for(const d of [d1,d2,d3]){
-if(!choices.includes(d)) choices.push(d)
-}
-
-let guard=0
-while(choices.length<4 && guard<10){
-const mix = degreeString(applySubdomSwap(applyTonicSwap(degs, (guard%2)+1)))
-if(!choices.includes(mix)) choices.push(mix)
-guard++
-}
-
+const choices = shuffle(Array.from(choiceSet).slice(0,4))
 while(choices.length<4){
 choices.push(correct)
 }
 
-choices = choices.slice(0,4)
-choices.sort(()=>Math.random()-0.5)
+const masked = degs.slice()
+masked[hiddenIndex] = "？"
 
-let html=""
-choices.forEach(c=>{
-html += "<button class='choice' onclick=\"answer('"+esc(c)+"')\">"+esc(c)+"</button>"
-})
-
-document.getElementById("choices").innerHTML = html
-
+return {
+mode:"A",
+hiddenIndex,
+choices,
+correct,
+questionText: degreeString(masked)
+}
 }
 
 function splitDegreeToken(tok){
@@ -290,7 +292,7 @@ tok = String(tok||"").trim()
 let base = tok
 let suffix = ""
 
-const m = tok.match(/^([♭♯]?)([ⅠⅡⅢⅣⅤⅥⅦ]+)(.*)$/)
+const m = tok.match(/^([b♭♯#]?)([ⅠⅡⅢⅣⅤⅥⅦ]+)(.*)$/)
 if(m){
 base = (m[1]||"") + (m[2]||"")
 suffix = (m[3]||"")
@@ -364,6 +366,146 @@ if(isIV){
 }
 
 return out
+
+}
+
+function buildPatternBQuiz(q){
+const degs = q.degrees.slice(0,4)
+const correct = degreeString(degs)
+const choiceSet = new Set([correct])
+const generated = [
+ degreeString(applyTonicSwap(degs,1)),
+ degreeString(applyTonicSwap(degs,2)),
+ degreeString(applySubdomSwap(degs)),
+ degreeString(applySubdomSwap(applyTonicSwap(degs,1))),
+ degreeString(applySubdomSwap(applyTonicSwap(degs,2)))
+]
+for(const g of generated){
+if(choiceSet.size>=4) break
+choiceSet.add(g)
+}
+
+if(choiceSet.size<4){
+const dbPool = shuffle(DB.filter(row=>hasDegreeData(row) && collectNonDiatonicIndices(row).length===0))
+for(const row of dbPool){
+if(choiceSet.size>=4) break
+choiceSet.add(degreeString(row.degrees.slice(0,4)))
+}
+}
+
+const allDiatonicTokens = ["Ⅰ","Ⅱm","Ⅲm","Ⅳ","Ⅴ","Ⅵm"]
+let guard = 0
+while(choiceSet.size<4 && guard<40){
+guard++
+const arr = degs.map(d=>String(d))
+for(let i=0;i<arr.length;i++){
+const t = splitDegreeToken(arr[i])
+const token = t.base + (t.suffix||"")
+if(["Ⅰ","Ⅱm","Ⅲm","Ⅳ","Ⅴ","Ⅵm"].includes(token)){
+arr[i] = chooseRandom(allDiatonicTokens)
+}
+}
+choiceSet.add(degreeString(arr))
+}
+
+const choices = shuffle(Array.from(choiceSet).slice(0,4))
+while(choices.length<4){
+choices.push(correct)
+}
+
+return {
+mode:"B",
+choices,
+correct,
+questionText:""
+}
+}
+
+function buildQuizForQuestion(q){
+if(!hasDegreeData(q)) return null
+const nonDiaIdx = collectNonDiatonicIndices(q)
+if(nonDiaIdx.length>0){
+return buildPatternAQuiz(q)
+}
+return buildPatternBQuiz(q)
+}
+
+function renderMeta(q){
+
+const artist = esc(q.artist)
+const title  = esc(q.title)
+const words  = esc(q.words)
+const music  = esc(q.music)
+const arrange= esc(q.arrange)
+const year   = esc(q.year)
+const era    = esc(q.ERA ?? q.era)
+const okey   = esc(q.original_key ?? q.originalKey)
+const part   = esc(q.part)
+
+document.getElementById("meta").innerHTML =
+"<b>"+artist+"</b> / "+title+"<br>"+
+"<span class='small'>words:</span> "+words+"<br>"+
+"<span class='small'>music:</span> "+music+"<br>"+
+"<span class='small'>arrange:</span> "+arrange+"<br>"+
+"<span class='small'>Year:</span> "+year+
+"　<span class='small'>ERA:</span> "+era+
+"　<span class='small'>original_key:</span> "+okey+
+"　<span class='small'>Part:</span> "+part
+
+}
+
+function renderQuiz(){
+if(!currentQuiz) return
+
+if(currentQuiz.mode==="A"){
+document.getElementById("question").innerHTML = esc(currentQuiz.questionText)
+}else{
+document.getElementById("question").innerHTML = ""
+}
+
+let html=""
+for(const c of currentQuiz.choices){
+html += `<button class='choice' onclick="answer('${esc(c)}')">${esc(c)}</button>`
+}
+document.getElementById("choices").innerHTML = html
+correctChoice = currentQuiz.correct
+}
+
+async function newQuestion(){
+
+await ensureDB()
+
+if(DB.length===0){
+document.getElementById("meta").innerHTML="<b>DB未読み込み</b>"
+document.getElementById("question").innerHTML=""
+document.getElementById("choices").innerHTML=""
+document.getElementById("comment").innerHTML=""
+return
+}
+
+let pool = DB.filter(x=>hasChordData(x) && hasDegreeData(x))
+if(pool.length===0){
+document.getElementById("meta").innerHTML="<b>Chord/Degreeデータが存在する行がありません</b>"
+document.getElementById("question").innerHTML=""
+document.getElementById("choices").innerHTML=""
+document.getElementById("comment").innerHTML=""
+return
+}
+
+current = chooseRandom(pool)
+currentQuiz = buildQuizForQuestion(current)
+if(!currentQuiz){
+document.getElementById("meta").innerHTML="<b>問題生成に失敗しました</b>"
+document.getElementById("question").innerHTML=""
+document.getElementById("choices").innerHTML=""
+document.getElementById("comment").innerHTML=""
+return
+}
+
+renderMeta(current)
+document.getElementById("question").innerHTML = ""
+document.getElementById("choices").innerHTML = ""
+document.getElementById("comment").innerHTML = ""
 
 }
 
@@ -549,7 +691,7 @@ return notes
 
 async function playProgression(){
 
-if(!current) return
+if(!current || !currentQuiz) return
 if(!hasChordData(current)) return
 
 await loadAll()
@@ -572,6 +714,8 @@ bass(bname, time, fade)
 piano(pianoVoicing(ch[i]), time, fade)
 
 }
+
+renderQuiz()
 
 }
 
