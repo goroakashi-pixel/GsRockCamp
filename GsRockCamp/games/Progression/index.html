@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Progression_ver1.2.6</title>
+<title>Progression_ver1.2.7</title>
 
 <style>
 body{
@@ -81,7 +81,7 @@ font-weight:bold;
 
 <body>
 
-<h2>Progression_ver1.2.6</h2>
+<h2>Progression_ver1.2.7</h2>
 
 <button onclick="newQuestion()">出題</button> <button onclick="playProgression()">PLAY!</button> <button onclick="replay()">もう一回</button>
 
@@ -247,6 +247,21 @@ return String(s??"")
 
 function normalizeDegreeForDisplay(s){
 return String(s||"").replaceAll("b","♭")
+}
+
+function normalizeAccidentalRoot(root){
+const map = {
+"Cb":"B",
+"Db":"C#", "D♭":"C#",
+"Eb":"D#", "E♭":"D#",
+"Fb":"E",
+"Gb":"F#", "G♭":"F#",
+"Ab":"G#", "A♭":"G#",
+"Bb":"A#", "B♭":"A#",
+"E#":"F",
+"B#":"C"
+}
+return map[root] || root
 }
 
 async function loadDB(){
@@ -495,6 +510,7 @@ const year   = esc(q.year)
 const era    = esc(q.ERA ?? q.era)
 const okey   = esc(q.original_key ?? q.originalKey)
 const part   = esc(q.part)
+const qkey   = esc(q.quiz_key ?? q.Quiz_key ?? "C")
 
 document.getElementById("meta").innerHTML =
 "<b>"+artist+"</b> / "+title+"<br>"+
@@ -504,6 +520,7 @@ document.getElementById("meta").innerHTML =
 "<span class='small'>Year:</span> "+year+
 "　<span class='small'>ERA:</span> "+era+
 "　<span class='small'>original_key:</span> "+okey+
+" / <span class='small'>Quiz_key:</span> "+qkey+
 "　<span class='small'>Part:</span> "+part
 }
 
@@ -522,6 +539,10 @@ if(t2) html += t2+"<br>"
 if(t3) html += t3+"<br>"
 if(t4) html += t4+"<br>"
 document.getElementById("hints").innerHTML = html
+}
+
+function hint(){
+renderHints()
 }
 
 function setCell(id, text, isError=false){
@@ -561,7 +582,7 @@ setCell(`st_p1_${col}`, pn[0]||"")
 setCell(`st_p2_${col}`, pn[1]||"")
 setCell(`st_p3_${col}`, pn[2]||"")
 setCell(`st_p4_${col}`, pn[3]||"")
-const rootPc = parseChordSymbol(ch[i]).root
+const rootPc = normalizeAccidentalRoot(parseChordSymbol(ch[i]).bassRoot)
 const bname = bassBufferName(rootPc)
 setCell(`st_bass_${col}`, bname)
 
@@ -587,7 +608,6 @@ html += `<button class='choice' onclick="answer('${esc(c)}')">${esc(c)}</button>
 }
 document.getElementById("choices").innerHTML = html
 correctChoice = currentQuiz.correct
-renderHints()
 }
 
 async function warmup(){
@@ -645,7 +665,7 @@ renderMeta(current)
 document.getElementById("question").innerHTML = ""
 document.getElementById("choices").innerHTML = ""
 document.getElementById("comment").innerHTML = ""
-renderHints()
+document.getElementById("hints").innerHTML = ""
 renderStatusTable()
 }
 
@@ -709,18 +729,22 @@ return pcs[(i%12+12)%12]
 
 function parseChordSymbol(sym){
 sym = String(sym||"").trim()
+const slashSplit = sym.split("/")
+const baseSym = slashSplit[0].trim()
+const slashBass = slashSplit[1] ? slashSplit[1].trim() : ""
 let root = ""
 let rest = ""
-if(sym.length>=2 && sym[1]==="#"){
-root = sym.slice(0,2)
-rest = sym.slice(2)
+if(baseSym.length>=2 && /[#b♭]/.test(baseSym[1])){
+root = baseSym.slice(0,2)
+rest = baseSym.slice(2)
 }else{
-root = sym.slice(0,1)
-rest = sym.slice(1)
+root = baseSym.slice(0,1)
+rest = baseSym.slice(1)
 }
 let quality = "maj"
 let seventh = null
-if(rest.startsWith("maj7")){
+let sixth = false
+if(rest.startsWith("maj7") || rest.startsWith("M7")){
 quality="maj"
 seventh="maj7"
 }else if(rest.startsWith("m7")){
@@ -740,12 +764,16 @@ quality="maj"
 }else{
 quality="maj"
 }
-return {root, quality, seventh}
+if(/6/.test(rest) && !rest.startsWith("m6")){
+sixth = true
+}
+const bassRoot = slashBass ? slashBass : root
+return {root, bassRoot, quality, seventh, sixth}
 }
 
 function chordToPitchClasses(sym){
 const p = parseChordSymbol(sym)
-const r = pcIndex(p.root)
+const r = pcIndex(normalizeAccidentalRoot(p.root))
 if(r<0) return ["C","E","G"]
 let third = 4
 let fifth = 7
@@ -753,6 +781,7 @@ if(p.quality==="min"){ third = 3; fifth = 7 }
 if(p.quality==="aug"){ third = 4; fifth = 8 }
 if(p.quality==="dim"){ third = 3; fifth = 6 }
 let pcs = [ idxToPc(r), idxToPc(r+third), idxToPc(r+fifth) ]
+if(p.sixth) pcs.push(idxToPc(r+9))
 if(p.seventh==="7") pcs.push(idxToPc(r+10))
 if(p.seventh==="maj7") pcs.push(idxToPc(r+11))
 if(p.seventh==="m7") pcs.push(idxToPc(r+10))
@@ -792,7 +821,7 @@ const ch = current.chords.slice(0,4)
 for(let i=0;i<4;i++){
 const time = t + bar*i
 const fade = (i===3)
-const rootPc = parseChordSymbol(ch[i]).root
+const rootPc = normalizeAccidentalRoot(parseChordSymbol(ch[i]).bassRoot)
 const bname = bassBufferName(rootPc)
 drum(time, fade)
 bass(bname, time, fade)
