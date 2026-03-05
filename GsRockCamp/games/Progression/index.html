@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Progression_ver1.2.11</title>
+<title>Progression_ver1.2.12</title>
 
 <style>
 body{
@@ -81,7 +81,7 @@ font-weight:bold;
 
 <body>
 
-<h2>Progression_ver1.2.11</h2>
+<h2>Progression_ver1.2.12</h2>
 
 <button onclick="newQuestion()">出題</button> <button onclick="playProgression()">PLAY!</button> <button id="hintBtn" onclick="hint()">ヒント</button> <button onclick="replay()">もう一回</button>
 
@@ -187,18 +187,14 @@ buf.__loaded = true
 
 }
 
-function play(buffer,time,fade=false,duration=null,segFadeStart=null,segFadeEnd=null){
+function play(buffer,time,fade=false,duration=null){
 if(!buffer) return null
 const s = ctx.createBufferSource()
 const g = ctx.createGain()
 s.buffer = buffer
 s.connect(g)
 g.connect(ctx.destination)
-if(segFadeStart!=null && segFadeEnd!=null){
-g.gain.setValueAtTime(1, time)
-g.gain.setValueAtTime(1, time + segFadeStart)
-g.gain.linearRampToValueAtTime(0, time + segFadeEnd)
-}else if(fade){
+if(fade){
 g.gain.setValueAtTime(1, time)
 g.gain.setValueAtTime(1, time + 2.1)
 g.gain.linearRampToValueAtTime(0, time + 2.2)
@@ -218,12 +214,12 @@ try{ s.stop(0) }catch(_e){}
 activeSources = []
 }
 
-function piano(notes,time,fade=false,duration=null,segFadeStart=null,segFadeEnd=null){
-notes.forEach(n=>{ play(buf[n],time,fade,duration,segFadeStart,segFadeEnd) })
+function piano(notes,time,fade=false,duration=null){
+notes.forEach(n=>{ play(buf[n],time,fade,duration) })
 }
 
-function bass(note,time,fade=false,duration=null,segFadeStart=null,segFadeEnd=null){
-play(buf[note],time,fade,duration,segFadeStart,segFadeEnd)
+function bass(note,time,fade=false,duration=null){
+play(buf[note],time,fade,duration)
 }
 
 function drum(time,fade=false){
@@ -791,6 +787,15 @@ const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/)
 const root = m ? m[1] : "C"
 const rest = m ? m[2] : ""
 
+function parseChordSymbol(sym){
+sym = normalizeChordText(sym)
+const slashSplit = sym.split("/")
+const baseSym = slashSplit[0].trim()
+const slashBass = slashSplit[1] ? slashSplit[1].trim() : ""
+const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/)
+const root = m ? m[1] : "C"
+const rest = m ? m[2] : ""
+
 let quality = "maj"
 if(rest.startsWith("m") && !rest.startsWith("maj")){ quality = "min" }
 if(rest.startsWith("dim")){ quality = "dim" }
@@ -875,8 +880,8 @@ const raw = String(chordText||"")
 const parts = raw.split("│").map(x=>x.trim()).filter(Boolean)
 if(parts.length>=2){
 return [
-{raw:parts[0], offset:0.0, duration:1.2, fadeStart:1.1, fadeEnd:1.2},
-{raw:parts[1], offset:1.0, duration:1.3, fadeStart:1.2, fadeEnd:1.3}
+{raw:parts[0], offset:0.0, duration:1.0},
+{raw:parts[1], offset:1.0, duration:1.0}
 ]
 }
 return [{raw:raw.trim(), offset:0.0, duration:2.0}]
@@ -885,7 +890,6 @@ return [{raw:raw.trim(), offset:0.0, duration:2.0}]
 async function playProgression(){
 if(!current || !currentQuiz) return
 if(!hasChordData(current)) return
-renderQuiz()
 await prepareAudioForGesture()
 stopAllPlaying()
 let t = ctx.currentTime + 0.1
@@ -900,26 +904,19 @@ drum(baseTime, isLastBar)
 for(let j=0;j<segs.length;j++){
 const seg = segs[j]
 const segTime = baseTime + seg.offset
+const segFade = (isLastBar && j===segs.length-1)
 const parsed = getParsedForPlayback(seg.raw, i)
 const rootPc = normalizeAccidentalRoot(parsed.bassRoot)
 const bname = bassBufferName(rootPc)
-const isSplitSeg = (segs.length>1)
-const segFade = (!isSplitSeg && isLastBar && j===segs.length-1)
-if(isSplitSeg){
-bass(bname, segTime, false, seg.duration, seg.fadeStart, seg.fadeEnd)
-piano(pianoVoicing(seg.raw, parsed), segTime, false, seg.duration, seg.fadeStart, seg.fadeEnd)
-}else{
-bass(bname, segTime, segFade)
-piano(pianoVoicing(seg.raw, parsed), segTime, segFade)
+bass(bname, segTime, segFade, seg.duration)
+piano(pianoVoicing(seg.raw, parsed), segTime, segFade, seg.duration)
 }
 }
-}
+renderQuiz()
 renderStatusTable()
 }
 
 /* 起動時に先読み開始 */
-const hintBtn = document.getElementById("hintBtn")
-if(hintBtn){ hintBtn.addEventListener("click", hint) }
 warmup()
 
 </script>
