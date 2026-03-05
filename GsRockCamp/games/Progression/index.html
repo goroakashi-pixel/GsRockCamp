@@ -773,6 +773,24 @@ const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/)
 const root = m ? m[1] : "C"
 const rest = m ? m[2] : ""
 
+function parseChordSymbol(sym){
+sym = normalizeChordText(sym)
+const slashSplit = sym.split("/")
+const baseSym = slashSplit[0].trim()
+const slashBass = slashSplit[1] ? slashSplit[1].trim() : ""
+const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/)
+const root = m ? m[1] : "C"
+const rest = m ? m[2] : ""
+
+function parseChordSymbol(sym){
+sym = normalizeChordText(sym)
+const slashSplit = sym.split("/")
+const baseSym = slashSplit[0].trim()
+const slashBass = slashSplit[1] ? slashSplit[1].trim() : ""
+const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/)
+const root = m ? m[1] : "C"
+const rest = m ? m[2] : ""
+
 let quality = "maj"
 if(rest.startsWith("m") && !rest.startsWith("maj")){ quality = "min" }
 if(rest.startsWith("dim")){ quality = "dim" }
@@ -796,7 +814,6 @@ const p = parsedOpt || parseChordSymbol(sym)
 const rootNorm = normalizeAccidentalRoot(p.root)
 const r = pcIndex(rootNorm)
 if(r<0) return ["C","E","G"]
-
 let third = 4
 let fifth = 7
 if(p.quality==="min"){ third = 3; fifth = 7 }
