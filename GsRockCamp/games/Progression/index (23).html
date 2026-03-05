@@ -1,0 +1,650 @@
+<!doctype html>
+
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Progression_ver1.2.8</title>
+
+<style>
+body{
+font-family:sans-serif;
+margin:30px;
+}
+button{
+margin:5px;
+padding:10px 16px;
+font-size:16px;
+}
+.choice{
+display:block;
+margin-top:10px;
+min-width:320px;
+text-align:left;
+}
+#meta{
+margin:14px 0 10px;
+line-height:1.6;
+}
+#question{
+margin:10px 0;
+font-size:20px;
+font-weight:bold;
+}
+#hints{
+margin-top:10px;
+line-height:1.6;
+color:#333;
+}
+#comment{
+margin-top:14px;
+line-height:1.6;
+}
+.small{
+color:#555;
+font-size:13px;
+}
+.hr{
+margin:14px 0;
+border-top:1px solid #ddd;
+}
+.credit-row{
+display:flex;
+font-family:monospace;
+}
+.credit-label{
+width:9ch;
+}
+#statusWrap{
+margin-top:16px;
+overflow-x:auto;
+}
+#statusTable{
+border-collapse:collapse;
+font-size:13px;
+}
+#statusTable th,
+#statusTable td{
+border:1px solid #ddd;
+padding:6px 8px;
+white-space:nowrap;
+}
+#statusTable th{
+background:#f7f7f7;
+}
+.error-cell{
+color:#b30000;
+font-weight:bold;
+}
+</style>
+
+</head>
+
+<body>
+
+<h2>Progression_ver1.2.8</h2>
+
+<button onclick="newQuestion()">出題</button> <button onclick="playProgression()">PLAY!</button> <button id="hintBtn" onclick="hint()">ヒント</button> <button onclick="replay()">もう一回</button>
+
+<div id="meta"></div>
+<div class="hr"></div>
+<div id="question"></div>
+<div id="choices"></div>
+<div id="hints"></div>
+<div id="comment"></div>
+
+<div id="statusWrap">
+<table id="statusTable">
+<thead>
+<tr><th>項目</th><th>1</th><th>2</th><th>3</th><th>4</th></tr>
+</thead>
+<tbody>
+<tr><th>Chord</th><td id="st_chord_1"></td><td id="st_chord_2"></td><td id="st_chord_3"></td><td id="st_chord_4"></td></tr>
+<tr><th>degree</th><td id="st_degree_1"></td><td id="st_degree_2"></td><td id="st_degree_3"></td><td id="st_degree_4"></td></tr>
+<tr><th>non_diatonic</th><td id="st_nd_1"></td><td id="st_nd_2"></td><td id="st_nd_3"></td><td id="st_nd_4"></td></tr>
+<tr><th>PIANO1</th><td id="st_p1_1"></td><td id="st_p1_2"></td><td id="st_p1_3"></td><td id="st_p1_4"></td></tr>
+<tr><th>PIANO2</th><td id="st_p2_1"></td><td id="st_p2_2"></td><td id="st_p2_3"></td><td id="st_p2_4"></td></tr>
+<tr><th>PIANO3</th><td id="st_p3_1"></td><td id="st_p3_2"></td><td id="st_p3_3"></td><td id="st_p3_4"></td></tr>
+<tr><th>PIANO4</th><td id="st_p4_1"></td><td id="st_p4_2"></td><td id="st_p4_3"></td><td id="st_p4_4"></td></tr>
+<tr><th>BASS</th><td id="st_bass_1"></td><td id="st_bass_2"></td><td id="st_bass_3"></td><td id="st_bass_4"></td></tr>
+</tbody>
+</table>
+</div>
+
+<script>
+/* ===== Utilities ===== */
+function esc(s){
+return String(s??"").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]))
+}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+
+/* ===== DB ===== */
+let DB = []
+let dbReadyPromise = null
+async function loadDB(){
+const r = await fetch("./progressions.json", {cache:"no-store"})
+DB = await r.json()
+}
+function ensureDB(){
+if(!dbReadyPromise){
+dbReadyPromise = loadDB().catch(e=>{
+console.error(e)
+DB=[]
+})
+}
+return dbReadyPromise
+}
+function hasChordData(q){
+return q && Array.isArray(q.chords) && q.chords.length===4 && q.chords.every(x=>String(x).trim().length>0)
+}
+
+/* ===== Audio ===== */
+let ctx = null
+let masterGain = null
+let questionBusGain = null
+let sfxBusGain = null
+let buffers = {}
+let activeSources = []
+let stopped = false
+
+function ensureAudioContext(){
+if(ctx) return
+ctx = new (window.AudioContext || window.webkitAudioContext)()
+
+masterGain = ctx.createGain()
+masterGain.gain.value = 0.9
+masterGain.connect(ctx.destination)
+
+questionBusGain = ctx.createGain()
+questionBusGain.gain.value = 1.0
+questionBusGain.connect(masterGain)
+
+sfxBusGain = ctx.createGain()
+sfxBusGain.gain.value = 1.0
+sfxBusGain.connect(masterGain)
+}
+
+async function fetchArrayBuffer(url){
+const r = await fetch(url, {cache:"no-store"})
+if(!r.ok) throw new Error("fetch failed: "+url+" ("+r.status+")")
+return await r.arrayBuffer()
+}
+
+async function decode(url){
+ensureAudioContext()
+const ab = await fetchArrayBuffer(url)
+return await ctx.decodeAudioData(ab)
+}
+
+function isBufferError(x){ return typeof x==="string" && x.startsWith("ERR:") }
+
+async function loadBuffer(name, url){
+try{
+buffers[name] = await decode(url)
+}catch(e){
+console.error("音源エラー:", e)
+buffers[name] = "ERR:"+url
+}
+}
+
+function playBuffer(name, when, duration, fadeOut){
+const b = buffers[name]
+if(!b) return
+if(isBufferError(b)) return
+ensureAudioContext()
+
+const src = ctx.createBufferSource()
+src.buffer = b
+
+const g = ctx.createGain()
+g.gain.setValueAtTime(1.0, when)
+
+src.connect(g)
+g.connect(questionBusGain)
+
+src.start(when)
+
+if(duration){
+const end = when + duration
+if(fadeOut){
+g.gain.setValueAtTime(1.0, end-0.2)
+g.gain.linearRampToValueAtTime(0.0, end)
+}
+src.stop(end)
+}
+
+activeSources.push(src)
+}
+
+function stopAllPlaying(){
+for(const s of activeSources){
+try{s.stop()}catch(_){}
+}
+activeSources = []
+}
+
+async function prepareAudioForGesture(){
+ensureAudioContext()
+if(ctx.state !== "running"){
+try{ await ctx.resume() }catch(_){}
+}
+}
+
+/* ===== SFX (optional) ===== */
+async function ensureSfx(){
+if(buffers.__sfxReady) return
+buffers.__sfxReady = true
+await loadBuffer("correctSfx", "../../assets/correct.mp3")
+await loadBuffer("incorrectSfx", "../../assets/incorrect.mp3")
+await loadBuffer("cheer1", "../../assets/cheer1.mp3")
+await loadBuffer("cheer2", "../../assets/cheer2.mp3")
+await loadBuffer("cheer3", "../../assets/cheer3.mp3")
+}
+
+function playSfx(name){
+const b = buffers[name]
+if(!b || isBufferError(b)) return
+ensureAudioContext()
+const now = ctx.currentTime + 0.01
+
+const src = ctx.createBufferSource()
+src.buffer = b
+
+const g = ctx.createGain()
+g.gain.setValueAtTime(0.0001, now)
+g.gain.exponentialRampToValueAtTime(1.0, now+0.03)
+g.gain.setValueAtTime(1.0, now + Math.max(0.12, (b.duration-0.08)))
+g.gain.exponentialRampToValueAtTime(0.0001, now + b.duration)
+
+src.connect(g)
+g.connect(sfxBusGain)
+src.start(now)
+activeSources.push(src)
+}
+
+/* ===== Game State ===== */
+let current = null
+let currentQuiz = null
+let lastPlayed = null
+
+function warmup(){
+ensureDB()
+ensureAudioContext()
+}
+
+/* ===== Quiz Generation ===== */
+function collectNonDiatonicIndices(degrees){
+const diatonic = new Set(["I","ii","iii","IV","V","vi","vii°"])
+const nd = []
+for(let i=0;i<degrees.length;i++){
+if(!diatonic.has(degrees[i])) nd.push(i)
+}
+return nd
+}
+
+function chooseRandom(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+function shuffle(a){
+const x = a.slice()
+for(let i=x.length-1;i>0;i--){
+const j = Math.floor(Math.random()*(i+1))
+;[x[i],x[j]] = [x[j],x[i]]
+}
+return x
+}
+
+/* Pattern A: mask a detected non-diatonic degree */
+function buildPatternAQuiz(base){
+const degrees = base.degrees.slice(0,4)
+const nd = collectNonDiatonicIndices(degrees)
+if(nd.length===0) return null
+const targetIdx = chooseRandom(nd)
+
+const masked = degrees.slice()
+masked[targetIdx] = "？"
+const questionText = masked.join(" - ")
+
+const correct = degrees[targetIdx]
+const distract = ["bII","bIII","bVI","bVII","#IV","V/V","V/ii","V/vi"].filter(x=>x!==correct)
+const choices = shuffle([correct, ...shuffle(distract).slice(0,3)])
+
+return {
+mode:"A",
+questionText,
+answer:correct,
+answerIndex:targetIdx,
+choices
+}
+}
+
+/* Pattern B: ask which bar is non-diatonic */
+function buildPatternBQuiz(base){
+const degrees = base.degrees.slice(0,4)
+const nd = collectNonDiatonicIndices(degrees)
+if(nd.length===0) return null
+const correctBar = chooseRandom(nd)+1
+const choices = shuffle(["1","2","3","4"].map(x=>({label:x, value:Number(x)})))
+return {
+mode:"B",
+questionText:"",
+answer:correctBar,
+choices:choices.map(x=>x.label),
+answerIndex:correctBar-1
+}
+}
+
+function buildQuizForQuestion(base){
+const candidates = []
+const a = buildPatternAQuiz(base); if(a) candidates.push(a)
+const b = buildPatternBQuiz(base); if(b) candidates.push(b)
+if(candidates.length===0){
+/* fallback: ask about first degree */
+const deg = base.degrees[0]
+return {mode:"A", questionText:"？ - "+base.degrees.slice(1,4).join(" - "), answer:deg, answerIndex:0, choices:shuffle([deg,"bII","bVII","V/V"]) }
+}
+return chooseRandom(candidates)
+}
+
+/* ===== UI Rendering ===== */
+function setMeta(base){
+const meta = document.getElementById("meta")
+const rows = []
+rows.push(`<div class="credit-row"><div class="credit-label">Artist:</div><div>${esc(base.artist||"")}</div></div>`)
+rows.push(`<div class="credit-row"><div class="credit-label">Song:</div><div>${esc(base.song||"")}</div></div>`)
+rows.push(`<div class="credit-row"><div class="credit-label">Key:</div><div>${esc(base.key||"")}</div></div>`)
+rows.push(`<div class="credit-row"><div class="credit-label">Tag:</div><div>${esc(base.tag||"")}</div></div>`)
+meta.innerHTML = rows.join("")
+}
+
+function renderQuiz(){
+if(!currentQuiz) return
+if(currentQuiz.mode==="A"){
+document.getElementById("question").innerHTML = esc(currentQuiz.questionText)
+}else{
+document.getElementById("question").innerHTML = ""
+}
+
+let html=""
+for(const c of currentQuiz.choices){
+html += `<button class="choice" onclick="answer('${esc(c)}')">${esc(c)}</button>`
+}
+document.getElementById("choices").innerHTML = html
+document.getElementById("hints").innerHTML = ""
+document.getElementById("comment").innerHTML = ""
+}
+
+function hint(){
+if(!current || !currentQuiz) return
+const h = []
+h.push(`<div class="small">degrees: ${esc(current.degrees.join(" - "))}</div>`)
+h.push(`<div class="small">chords: ${esc(current.chords.join(" | "))}</div>`)
+document.getElementById("hints").innerHTML = h.join("")
+}
+
+function answer(choice){
+if(!current || !currentQuiz) return
+
+let ok = false
+if(currentQuiz.mode==="A"){
+ok = (choice === currentQuiz.answer)
+}else{
+ok = (Number(choice) === Number(currentQuiz.answer))
+}
+document.getElementById("comment").innerHTML = ok ? "✅ 正解" : `❌ 不正解（正解: ${esc(String(currentQuiz.answer))}）`
+
+ensureSfx().finally(()=>{
+if(ok) playSfx("correctSfx")
+else playSfx("incorrectSfx")
+})
+}
+
+function replay(){
+if(lastPlayed){
+playProgression()
+}
+}
+
+/* ===== Status Table ===== */
+function setCell(id, txt, isErr){
+const el = document.getElementById(id)
+if(!el) return
+el.textContent = String(txt??"")
+el.className = isErr ? "error-cell" : ""
+}
+function renderStatusTable(){
+if(!current) return
+for(let i=1;i<=4;i++){
+setCell(`st_chord_${i}`, "")
+setCell(`st_degree_${i}`, "")
+setCell(`st_nd_${i}`, "")
+setCell(`st_p1_${i}`, "")
+setCell(`st_p2_${i}`, "")
+setCell(`st_p3_${i}`, "")
+setCell(`st_p4_${i}`, "")
+setCell(`st_bass_${i}`, "")
+}
+if(!currentQuiz) return
+
+for(let col=1; col<=4; col++){
+const chord = current.chords[col-1]
+const degree = current.degrees[col-1]
+setCell(`st_chord_${col}`, chord)
+setCell(`st_degree_${col}`, degree)
+const nd = collectNonDiatonicIndices(current.degrees).includes(col-1) ? "TRUE" : "FALSE"
+setCell(`st_nd_${col}`, nd)
+
+const segs = getBarSegments(chord)
+const seg = segs[0] ? segs[0].raw : chord
+const pn = pianoVoicing(seg)
+setCell(`st_p1_${col}`, pn[0]||"")
+setCell(`st_p2_${col}`, pn[1]||"")
+setCell(`st_p3_${col}`, pn[2]||"")
+setCell(`st_p4_${col}`, pn[3]||"")
+const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg).bassRoot)
+const bname = bassBufferName(rootPc)
+setCell(`st_bass_${col}`, bname)
+
+if(pn[0] && isBufferError(pn[0])) setCell(`st_p1_${col}`, "error", true)
+if(pn[1] && isBufferError(pn[1])) setCell(`st_p2_${col}`, "error", true)
+if(pn[2] && isBufferError(pn[2])) setCell(`st_p3_${col}`, "error", true)
+if(pn[3] && isBufferError(pn[3])) setCell(`st_p4_${col}`, "error", true)
+if(isBufferError(bname)) setCell(`st_bass_${col}`, "error", true)
+}
+}
+
+/* ===== Question Flow ===== */
+async function newQuestion(){
+await ensureDB()
+if(DB.length===0){
+document.getElementById("comment").innerHTML = "DBが空です"
+return
+}
+current = pick(DB)
+currentQuiz = buildQuizForQuestion(current)
+lastPlayed = null
+
+setMeta(current)
+renderQuiz()
+renderStatusTable()
+}
+
+function pcIndex(pc){
+const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+return pcs.indexOf(pc)
+}
+function idxToPc(i){
+const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+const x = ((i%12)+12)%12
+return pcs[x]
+}
+function normalizeAccidentalRoot(root){
+const map = {
+"Cb":"B",
+"Db":"C#", "D♭":"C#",
+"Eb":"D#", "E♭":"D#",
+"Fb":"E",
+"Gb":"F#", "G♭":"F#",
+"Ab":"G#", "A♭":"G#",
+"Bb":"A#", "B♭":"A#",
+"E#":"F",
+"B#":"C"
+}
+return map[root] || root
+}
+
+/* ===== FIXED: parseChordSymbol (NO nested defs) ===== */
+function parseChordSymbol(sym){
+  // 表示（文字）は入力のまま扱う（#↔♭ 等の勝手な変換はしない）
+  // ただし解析のために trim だけは行う
+  sym = String(sym || "").trim();
+
+  const slashSplit = sym.split("/");
+  const baseSym = (slashSplit[0] || "").trim();
+  const slashBass = slashSplit[1] ? slashSplit[1].trim() : "";
+
+  const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/);
+  const root = m ? m[1] : "C";
+  const rest = m ? m[2] : "";
+
+  let quality = "maj";
+  if (rest.startsWith("m") && !rest.startsWith("maj")) quality = "min";
+  if (rest.startsWith("dim")) quality = "dim";
+  if (rest.startsWith("aug")) quality = "aug";
+
+  let seventh = null;
+  if (/mM7/.test(rest)) seventh = "maj7";
+  else if (/maj7|M7/.test(rest)) seventh = "maj7";
+  else if (/m7/.test(rest)) seventh = "m7";
+  else if (/(^|[^a-zA-Z])7/.test(rest)) seventh = "7";
+
+  const sixth = /6/.test(rest);
+  const ninth = /9/.test(rest);
+  const bassRoot = slashBass ? slashBass : root;
+
+  return { root, bassRoot, quality, seventh, sixth, ninth };
+}
+
+function chordToPitchClasses(sym){
+const p = parseChordSymbol(sym)
+const rootNorm = normalizeAccidentalRoot(p.root)
+const r = pcIndex(rootNorm)
+if(r<0) return ["C","E","G"]
+let third = 4
+let fifth = 7
+if(p.quality==="min"){ third = 3; fifth = 7 }
+if(p.quality==="aug"){ third = 4; fifth = 8 }
+if(p.quality==="dim"){ third = 3; fifth = 6 }
+
+const pcs = [ idxToPc(r), idxToPc(r+third), idxToPc(r+fifth) ]
+if(p.sixth){ pcs.push(idxToPc(r+9)) }
+if(p.seventh==="7"){ pcs.push(idxToPc(r+10)) }
+if(p.seventh==="maj7"){ pcs.push(idxToPc(r+11)) }
+if(p.seventh==="m7"){ pcs.push(idxToPc(r+10)) }
+if(p.ninth){ pcs.push(idxToPc(r+14)) }
+
+const uniq = []
+for(const x of pcs){ if(!uniq.includes(x)) uniq.push(x) }
+return uniq
+}
+
+function bassBufferName(rootPc){
+if(rootPc==="C") return "C1_Bass"
+if(rootPc==="C#" || rootPc==="D" || rootPc==="D#") return rootPc+"1_Bass"
+return rootPc+"0_Bass"
+}
+
+function pianoVoicing(sym){
+const p = parseChordSymbol(sym)
+const rootNorm = normalizeAccidentalRoot(p.root)
+const rootIdx = pcIndex(rootNorm)
+let pcs = chordToPitchClasses(sym)
+
+if(p.ninth){
+const n9 = idxToPc(rootIdx+14)
+pcs = pcs.filter(x=>x!==n9)
+pcs.push(n9)
+}
+if(p.seventh){
+const sev = p.seventh==="maj7" ? idxToPc(rootIdx+11) : idxToPc(rootIdx+10)
+pcs = pcs.filter(x=>x!==sev)
+pcs.push(sev)
+}
+
+while(pcs.length<3){ pcs.push(idxToPc(rootIdx+7)) }
+if(pcs.length>4){
+if(p.ninth){
+pcs = [pcs[0], pcs[1], pcs[2], idxToPc(rootIdx+14)]
+}else if(p.seventh){
+const sev = p.seventh==="maj7" ? idxToPc(rootIdx+11) : idxToPc(rootIdx+10)
+pcs = [pcs[0], pcs[1], pcs[2], sev]
+}else{
+pcs = pcs.slice(0,4)
+}
+}
+
+return pcs.slice(0,4).map(x=>x+"3")
+}
+
+function getBarSegments(chordText){
+const raw = String(chordText||"")
+const parts = raw.split("│").map(x=>x.trim()).filter(Boolean)
+if(parts.length>=2){
+return [
+{raw:parts[0], offset:0.0, duration:1.0},
+{raw:parts[1], offset:1.0, duration:1.0}
+]
+}
+return [{raw:raw.trim(), offset:0.0, duration:2.0}]
+}
+
+/* ===== Instruments (simple) ===== */
+function drum(when, fadeOut){
+/* (drum is optional: do nothing if no buffers) */
+}
+function bass(name, when, fadeOut){
+/* if you have bass samples preloaded into buffers, call playBuffer here.
+   current file expects name like "C1_Bass". If you already have that mapping, keep it.
+   (No-op if not preloaded) */
+}
+function piano(notes, when, fadeOut){
+/* if you have piano note samples preloaded into buffers, call playBuffer for each note.
+   (No-op if not preloaded) */
+}
+
+async function playProgression(){
+if(!current || !currentQuiz) return
+if(!hasChordData(current)) return
+await prepareAudioForGesture()
+stopAllPlaying()
+
+let t = ctx.currentTime + 0.1
+let bar = 2.0
+const ch = current.chords.slice(0,4)
+
+for(let i=0;i<4;i++){
+const baseTime = t + bar*i
+const isLastBar = (i===3)
+const segs = getBarSegments(ch[i])
+
+drum(baseTime, isLastBar)
+for(let j=0;j<segs.length;j++){
+const seg = segs[j]
+const segTime = baseTime + seg.offset
+const segFade = (isLastBar && j===segs.length-1)
+const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot)
+const bname = bassBufferName(rootPc)
+bass(bname, segTime, segFade)
+piano(pianoVoicing(seg.raw), segTime, segFade)
+}
+}
+
+renderQuiz()
+renderStatusTable()
+lastPlayed = true
+}
+
+/* 起動時に先読み開始 */
+warmup()
+
+</script>
+
+</body>
+</html>
