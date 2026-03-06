@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Progression songs</title>
+<style>
+body{font-family:sans-serif;margin:30px;}
+table{border-collapse:collapse;width:100%;max-width:1000px;}
+th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;}
+th{background:#f7f7f7;}
+a{color:#06c;}
+</style>
+</head>
+<body>
+<div><a href="./index.html">ゲームへ戻る</a></div>
+<h2>楽曲リスト</h2>
+<table>
+<thead><tr><th>Artist</th><th>title</th><th>Part</th><th>ERA</th><th>Rank</th></tr></thead>
+<tbody id="rows"></tbody>
+</table>
+<script>
+function esc(s){
+return String(s??"")
+.replaceAll("&","&amp;")
+.replaceAll("<","&lt;")
+.replaceAll(">","&gt;")
+.replaceAll('"',"&quot;")
+.replaceAll("'","&#39;")
+}
+async function loadSongs(){
+const r = await fetch("./progressions.json", {cache:"no-store"})
+const data = await r.json()
+const rows = document.getElementById("rows")
+let html = ""
+for(let i=0;i<data.length;i++){
+const q = data[i] || {}
+const artist = q.artist || ""
+const title = (q.song!=null && q.song!=="") ? q.song : (q.title || "")
+const part = q.part || ""
+const era = q.era || q.ERA || ""
+const rank = q.rank || q.Rank || ""
+html += `<tr><td>${esc(artist)}</td><td><a href="./index.html?qid=${i}">${esc(title)}</a></td><td>${esc(part)}</td><td>${esc(era)}</td><td>${esc(rank)}</td></tr>`
+}
+rows.innerHTML = html
+}
+loadSongs().catch(e=>{
+console.error(e)
+document.getElementById("rows").innerHTML = '<tr><td colspan="5">読み込みに失敗しました</td></tr>'
+})
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Progression_ver1.2.8</title>
+<title>Progression_ver1.2.9</title>
 
 <style>
 body{
@@ -81,9 +81,11 @@ font-weight:bold;
 
 <body>
 
-<h2>Progression_ver1.2.8</h2>
+<h2>Progression_ver1.2.9</h2>
 
-<button onclick="newQuestion()">出題</button> <button onclick="playProgression()">PLAY!</button> <button id="hintBtn" onclick="hint()">ヒント</button> <button onclick="replay()">もう一回</button>
+<div style="text-align:right;"><button onclick="location.href='./songs.html'">楽曲リスト</button></div>
+
+<button onclick="location.href='../../index.html'">ポータルへ戻る</button> <button onclick="newQuestion()">出題</button> <button onclick="playProgression()">PLAY!</button> <button id="hintBtn" onclick="hint()">ヒント</button> <button onclick="replay()">もう一回</button>
 
 <div id="meta"></div>
 <div class="hr"></div>
@@ -235,6 +237,21 @@ let currentQuiz=null
 let correctChoice=""
 let dbReadyPromise = null
 let preloadStarted = false
+let presetQid = null
+let presetUsed = false
+
+function getPresetQidFromUrl(){
+const params = new URLSearchParams(location.search)
+const raw = params.get("qid")
+if(raw==null) return null
+const n = Number(raw)
+if(!Number.isInteger(n) || n<0) return null
+return n
+}
+
+function clearPresetQidFromUrl(){
+history.replaceState(null, "", "./")
+}
 
 function esc(s){
 return String(s??"")
@@ -650,7 +667,20 @@ renderStatusTable()
 return
 }
 
-current = chooseRandom(pool)
+let picked = null
+if(!presetUsed && presetQid!=null && presetQid<DB.length){
+const candidate = DB[presetQid]
+if(hasChordData(candidate) && hasDegreeData(candidate)){
+picked = candidate
+presetUsed = true
+clearPresetQidFromUrl()
+}
+}
+if(!picked){
+picked = chooseRandom(pool)
+}
+
+current = picked
 currentQuiz = buildQuizForQuestion(current)
 if(!currentQuiz){
 document.getElementById("meta").innerHTML="<b>問題生成に失敗しました</b>"
@@ -857,6 +887,7 @@ renderStatusTable()
 }
 
 /* 起動時に先読み開始 */
+presetQid = getPresetQidFromUrl()
 warmup()
 
 </script>
