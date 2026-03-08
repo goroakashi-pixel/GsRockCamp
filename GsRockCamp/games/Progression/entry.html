@@ -3,10 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>GoRockCamp DB Entry ver1.0.1</title>
-
-  <!-- SheetJS (xlsx) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.2/dist/xlsx.full.min.js"></script>
+  <title>Entry Tool (ERA + Rank + Part) ver1.0.0</title>
 
   <style>
     :root{
@@ -17,706 +14,639 @@
       --card:#fff;
       --blue:#1d4ed8;
       --warn:#b91c1c;
-      --ok:#0f766e;
+      --ok:#166534;
+
       --btn-bg:#fff;
-      --radius:14px;
-      --tap:44px;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      --sans: -apple-system, system-ui, "Segoe UI", sans-serif;
+      --btn-on-border: 2px solid var(--blue);
+      --btn-off-border: 1px solid var(--line);
+      --btn-radius: 14px;
+
+      --tap-min-h: 44px;
+
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
     }
+
     body{
-      font-family:var(--sans);
+      font-family:-apple-system, system-ui, "Segoe UI", sans-serif;
       margin:16px;
       color:var(--text);
       background:var(--bg);
-      padding-bottom:140px;
+      padding-bottom:120px;
     }
+
     h1{
-      font-size:18px;
-      margin:0 0 8px 0;
-      font-weight:700;
+      font-size:20px;
+      margin:0 0 10px;
+      letter-spacing:0.2px;
     }
-    .muted{ color:var(--muted); font-size:13px; }
-    .wrap{ max-width: 980px; margin:0 auto; }
+
+    .sub{
+      color:var(--muted);
+      font-size:13px;
+      margin-bottom:14px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+      max-width: 980px;
+    }
+
     .card{
       border:1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--card);
+      border-radius:16px;
+      background:var(--card);
       padding:14px;
-      margin:12px 0;
     }
+
     .row{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:flex-end;
     }
-    @media (max-width: 780px){
-      .row{ grid-template-columns: 1fr; }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width:160px;
+      flex:1;
     }
+    .field.small{ min-width:120px; flex:0 0 120px;}
+    .field.mid{ min-width:180px; flex:0 0 180px;}
+    .field.long{ min-width:260px; flex:1 1 260px;}
+
     label{
-      display:block;
       font-size:12px;
       color:var(--muted);
-      margin:0 0 6px 0;
     }
+
     input, select, textarea{
-      width:100%;
-      box-sizing:border-box;
-      padding:10px 12px;
+      min-height: var(--tap-min-h);
       border:1px solid var(--line);
-      border-radius: 12px;
-      font-size:14px;
-      min-height: var(--tap);
+      border-radius:12px;
+      padding:10px 12px;
+      font-size:16px;
       background:#fff;
       color:var(--text);
+      outline:none;
     }
     textarea{
-      min-height: 84px;
-      resize: vertical;
+      min-height:80px;
+      resize:vertical;
     }
     input[readonly], textarea[readonly]{
       background:#fafafa;
       color:#333;
     }
+
     .btns{
       display:flex;
       flex-wrap:wrap;
-      gap:10px;
-      margin-top:10px;
+      gap:8px;
+      align-items:center;
     }
     button{
-      min-height: var(--tap);
+      min-height: var(--tap-min-h);
       padding:10px 14px;
-      border-radius: 999px;
-      border:1px solid var(--line);
+      border-radius: var(--btn-radius);
+      border: var(--btn-off-border);
       background: var(--btn-bg);
+      font-size:14px;
       cursor:pointer;
-      font-weight:600;
+      user-select:none;
     }
     button.primary{
-      border:2px solid var(--blue);
+      border: var(--btn-on-border);
+      color: var(--blue);
+      font-weight:600;
     }
-    button.ok{
-      border:2px solid var(--ok);
-    }
-    button.warn{
-      border:2px solid var(--warn);
+    button.danger{
+      border: 2px solid var(--warn);
       color: var(--warn);
+      font-weight:600;
     }
+    button:disabled{
+      opacity:0.55;
+      cursor:not-allowed;
+    }
+
     .status{
-      font-family:var(--mono);
-      font-size:12px;
-      white-space:pre-wrap;
-      color:#222;
-      background:#fafafa;
-      border:1px dashed var(--line);
-      border-radius:12px;
-      padding:10px 12px;
-      margin-top:10px;
+      font-size:13px;
+      color:var(--muted);
+      margin-top:8px;
+      line-height:1.4;
     }
-    .grid3{
+    .status.ok{ color:var(--ok); }
+    .status.warn{ color:var(--warn); }
+
+    .chords{
       display:grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap:10px;
+    }
+    @media (max-width: 760px){
+      .chords{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    .chordBox{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:10px;
+      background:#fff;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .chordBox .idx{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .chordBox input{
+      font-family: var(--mono);
+      letter-spacing:0.2px;
+    }
+
+    .help{
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.5;
+      margin-top:8px;
+    }
+
+    .kbd{
+      font-family: var(--mono);
+      font-size:12px;
+      border:1px solid var(--line);
+      border-bottom-width:2px;
+      padding:2px 6px;
+      border-radius:6px;
+      background:#fff;
+      color:#222;
+    }
+
+    .split{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
       gap:12px;
     }
-    @media (max-width: 780px){
-      .grid3{ grid-template-columns: 1fr; }
+    @media (max-width: 900px){
+      .split{ grid-template-columns: 1fr; }
     }
-    .pill{
-      font-family:var(--mono);
-      font-size:12px;
-      padding:2px 8px;
-      border:1px solid var(--line);
-      border-radius:999px;
-      display:inline-block;
-      margin-left:8px;
-      color:#333;
-      background:#fafafa;
-    }
-    .smallnote{ font-size:12px; color:var(--muted); margin-top:6px;}
-    .hr{
-      height:1px; background:var(--line); margin:10px 0;
-    }
-    .k{ font-family:var(--mono); font-size:12px; }
   </style>
 </head>
-
 <body>
-<div class="wrap">
-  <h1>DB Entry <span class="pill">ver1.0.1</span></h1>
-  <div class="muted">
-    検索キーは <b>ERA + Rank + Part</b>。IDは既存行が見つかった場合 <b>不変</b>（再生成しません）。
+
+  <h1>Entry Tool（ERA＋Rank＋Part）</h1>
+  <div class="sub">
+    既存行を呼び出して、コード（進行）だけ入力 → 保存でスプシ更新します。
   </div>
 
-  <div class="card">
-    <div class="row">
-      <div>
-        <label>① DBファイル（.xlsx）を読み込み</label>
-        <input id="file" type="file" accept=".xlsx" />
-        <div class="smallnote">最初のシートを読み込みます（ヘッダ行＝1行目想定）。</div>
+  <div class="grid">
+
+    <!-- 1) Key + Load -->
+    <div class="card">
+      <div class="row">
+        <div class="field small">
+          <label>ERA</label>
+          <input id="era" inputmode="numeric" placeholder="例：1990" />
+        </div>
+        <div class="field small">
+          <label>Rank</label>
+          <input id="rank" inputmode="numeric" placeholder="例：18" />
+        </div>
+        <div class="field mid">
+          <label>Part</label>
+          <select id="part">
+            <option value="">選択</option>
+            <option>intro</option>
+            <option>Aメロ</option>
+            <option>Bメロ</option>
+            <option>サビ</option>
+            <option>ブリッジ</option>
+            <option>間奏</option>
+            <option>アウトロ</option>
+            <option>その他</option>
+          </select>
+        </div>
+
+        <div class="btns">
+          <button class="primary" id="btnLoad">呼び出す</button>
+          <button id="btnClear">入力クリア</button>
+        </div>
       </div>
 
-      <div>
-        <label>シート名 / 行数</label>
-        <input id="meta" type="text" readonly value="未読込" />
-        <div class="smallnote">読み込み後、フォーム項目はヘッダに合わせて自動生成されます。</div>
+      <div class="help">
+        ショートカット：<span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> で保存（Macは ⌘+Enter）
+      </div>
+
+      <div id="status" class="status">待機中</div>
+    </div>
+
+    <!-- 2) Metadata (read-only) + Notes -->
+    <div class="card">
+      <div class="split">
+        <div>
+          <div class="row">
+            <div class="field long">
+              <label>Artist（読取）</label>
+              <input id="metaArtist" readonly />
+            </div>
+            <div class="field long">
+              <label>Title（読取）</label>
+              <input id="metaTitle" readonly />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field mid">
+              <label>Key（読取）</label>
+              <input id="metaKey" readonly />
+            </div>
+            <div class="field mid">
+              <label>ID（不偏・読取）</label>
+              <input id="metaId" readonly />
+            </div>
+            <div class="field long">
+              <label>Comment / Memo（読取）</label>
+              <input id="metaMemo" readonly />
+            </div>
+          </div>
+          <div class="help">
+            ※ここは “確認用” で編集しません。編集するのは下のコードだけ。
+          </div>
+        </div>
+
+        <div>
+          <div class="field">
+            <label>入力メモ（任意：保存対象にしたいならGAS側で反映）</label>
+            <textarea id="note" placeholder="例：ここ、Aメロ2回目と同じ／代理コード候補…"></textarea>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="hr"></div>
+    <!-- 3) Chord Inputs -->
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-weight:700; margin-bottom:4px;">コード入力</div>
+          <div class="help">Tabで次へ。空欄OK。表記はDBルールに合わせてそのまま入れてください（勝手に変換しません）。</div>
+        </div>
+        <div class="btns">
+          <button id="btnPasteBar">「｜」区切り貼り付け</button>
+          <button id="btnCopyBar">「｜」区切りコピー</button>
+        </div>
+      </div>
 
-    <div class="grid3">
-      <div>
-        <label>Rank（B列想定）</label>
-        <input id="rank" type="text" placeholder="例: 18" />
-      </div>
-      <div>
-        <label>ERA（J列想定）</label>
-        <input id="era" type="text" placeholder="例: 1990 / 1970s など" />
-      </div>
-      <div>
-        <label>number（1〜4）→ Part入力補助</label>
-        <select id="number">
-          <option value="">未選択</option>
-          <option value="1">1 = intro</option>
-          <option value="2">2 = Aメロ</option>
-          <option value="3">3 = Bメロ</option>
-          <option value="4">4 = サビ</option>
-        </select>
+      <div class="chords" id="chords"></div>
+
+      <div class="help">
+        「｜A｜Bm7｜E7｜A｜」みたいな貼り付けもOK（上のボタンを使用）。
       </div>
     </div>
 
-    <div class="row" style="margin-top:12px;">
-      <div>
-        <label>Part（M列想定 / 検索キーの一部）</label>
-        <input id="part" type="text" placeholder="例: Aメロ" />
-        <div class="smallnote">numberを選ぶと自動で上書きされます（必要なら直接編集も可）。</div>
+    <!-- 4) Save -->
+    <div class="card">
+      <div class="row">
+        <div class="btns">
+          <button class="primary" id="btnSave" disabled>保存（スプシ更新）</button>
+          <button class="danger" id="btnResetMeta" disabled>呼び出し解除</button>
+        </div>
       </div>
-      <div>
-        <label>ID（DB側で採番済み / 不偏）</label>
-        <input id="id" type="text" readonly placeholder="検索で既存行を拾うと表示されます" />
+      <div class="help">
+        保存は「ERA＋Rank＋Part」で該当行を特定し、コード列を上書きします。
       </div>
     </div>
 
-    <div class="btns">
-      <button id="btnSearch" class="primary">検索（ERA+Rank+Part）</button>
-      <button id="btnClear" class="">クリア（フォーム）</button>
-      <button id="btnSave" class="ok">保存（IDは触らない）</button>
-      <button id="btnExport" class="primary">XLSXを書き出し（ダウンロード）</button>
-      <button id="btnExportJson" class="">JSONを書き出し</button>
-      <button id="btnExportCsv" class="">CSVを書き出し</button>
-    </div>
-
-    <div id="status" class="status">status: 未読込</div>
   </div>
-
-  <div class="card">
-    <div class="muted" style="margin-bottom:10px;">
-      ここから下は、読み込んだヘッダに合わせて編集項目を自動生成します（キー列は上でも編集できます）。
-    </div>
-    <div id="dynamicForm"></div>
-  </div>
-</div>
 
 <script>
-(() => {
-  const VER = "1.0.1";
+/**
+ * =========================
+ *  設定：GAS WebApp URL
+ * =========================
+ * Google Apps Script を「ウェブアプリとして導入」したURLを貼ってください。
+ *
+ * 必要なAPI契約（推奨）：
+ * 1) GET  : ?action=get&era=1990&rank=18&part=Aメロ
+ *    => { ok:true, row:{ id, artist, title, key, memo, chords:[... up to 8] } }
+ *
+ * 2) POST : { action:"update", era, rank, part, chords:[...], note:"..." }
+ *    => { ok:true, updated:true }
+ */
+const GAS_URL = "PASTE_YOUR_GAS_WEBAPP_URL_HERE"; // ★ここ差し替え
 
-  // number → Part は「入力補助」
-  const PART_BY_NUMBER = {
-    1: "intro",
-    2: "Aメロ",
-    3: "Bメロ",
-    4: "サビ",
+// chord input count
+const CHORD_SLOTS = 8;
+
+// state
+let loadedRow = null;
+
+const $ = (id) => document.getElementById(id);
+const statusEl = $("status");
+
+function setStatus(msg, kind=""){
+  statusEl.className = "status" + (kind ? " " + kind : "");
+  statusEl.textContent = msg;
+}
+
+function normalizeKey(s){
+  return (s ?? "").toString().trim();
+}
+
+function canLoad(){
+  return normalizeKey($("era").value) && normalizeKey($("rank").value) && normalizeKey($("part").value);
+}
+
+function ensureGasUrl(){
+  return GAS_URL && GAS_URL.startsWith("http");
+}
+
+function buildChordInputs(){
+  const wrap = $("chords");
+  wrap.innerHTML = "";
+  for(let i=1;i<=CHORD_SLOTS;i++){
+    const box = document.createElement("div");
+    box.className = "chordBox";
+    box.innerHTML = `
+      <div class="idx">Chord ${i}</div>
+      <input id="ch${i}" placeholder="例：A / Bm7 / F#7 / CM7 ..." />
+    `;
+    wrap.appendChild(box);
+  }
+
+  // tab behavior: enter = next, shift+enter = prev
+  for(let i=1;i<=CHORD_SLOTS;i++){
+    const el = $("ch"+i);
+    el.addEventListener("keydown", (e)=>{
+      if(e.key === "Enter"){
+        e.preventDefault();
+        const next = e.shiftKey ? i-1 : i+1;
+        const target = $("ch"+next);
+        if(target) target.focus();
+      }
+    });
+  }
+}
+
+function clearInputsOnly(){
+  for(let i=1;i<=CHORD_SLOTS;i++){
+    $("ch"+i).value = "";
+  }
+  $("note").value = "";
+}
+
+function clearAll(){
+  loadedRow = null;
+  $("metaArtist").value = "";
+  $("metaTitle").value = "";
+  $("metaKey").value = "";
+  $("metaId").value = "";
+  $("metaMemo").value = "";
+  clearInputsOnly();
+  $("btnSave").disabled = true;
+  $("btnResetMeta").disabled = true;
+}
+
+function fillFromRow(row){
+  $("metaArtist").value = row.artist ?? "";
+  $("metaTitle").value = row.title ?? "";
+  $("metaKey").value = row.key ?? "";
+  $("metaId").value = row.id ?? "";
+  $("metaMemo").value = row.memo ?? "";
+
+  const chords = Array.isArray(row.chords) ? row.chords : [];
+  for(let i=1;i<=CHORD_SLOTS;i++){
+    $("ch"+i).value = chords[i-1] ?? "";
+  }
+
+  loadedRow = row;
+  $("btnSave").disabled = false;
+  $("btnResetMeta").disabled = false;
+}
+
+function getKeyTriple(){
+  return {
+    era: normalizeKey($("era").value),
+    rank: normalizeKey($("rank").value),
+    part: normalizeKey($("part").value),
   };
+}
 
-  const el = {
-    file: document.getElementById("file"),
-    meta: document.getElementById("meta"),
-    rank: document.getElementById("rank"),
-    era: document.getElementById("era"),
-    number: document.getElementById("number"),
-    part: document.getElementById("part"),
-    id: document.getElementById("id"),
-    btnSearch: document.getElementById("btnSearch"),
-    btnClear: document.getElementById("btnClear"),
-    btnSave: document.getElementById("btnSave"),
-    btnExport: document.getElementById("btnExport"),
-    btnExportJson: document.getElementById("btnExportJson"),
-    btnExportCsv: document.getElementById("btnExportCsv"),
-    status: document.getElementById("status"),
-    dynamicForm: document.getElementById("dynamicForm"),
-  };
+function collectChords(){
+  const arr = [];
+  for(let i=1;i<=CHORD_SLOTS;i++){
+    arr.push(($("ch"+i).value ?? "").toString().trim());
+  }
+  return arr;
+}
 
-  // in-memory DB
-  let workbook = null;
-  let sheetName = null;
-  let headers = [];
-  let rows = [];        // array of objects (header -> value)
-  let currentIndex = -1; // found row index by ERA+Rank+Part
+async function apiGet(params){
+  const url = new URL(GAS_URL);
+  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k, v));
+  const res = await fetch(url.toString(), { method:"GET" });
+  if(!res.ok) throw new Error("GET failed: " + res.status);
+  return await res.json();
+}
 
-  function log(msg){
-    el.status.textContent = `status: ${msg}`;
+async function apiPost(payload){
+  const res = await fetch(GAS_URL, {
+    method: "POST",
+    headers: { "Content-Type":"application/json" },
+    body: JSON.stringify(payload)
+  });
+  if(!res.ok) throw new Error("POST failed: " + res.status);
+  return await res.json();
+}
+
+async function loadRow(){
+  if(!ensureGasUrl()){
+    setStatus("GAS_URL が未設定です（entry.html内の PASTE... を差し替え）。", "warn");
+    return;
+  }
+  if(!canLoad()){
+    setStatus("ERA / Rank / Part を全部入れてください。", "warn");
+    return;
   }
 
-  function norm(s){
-    return String(s ?? "").trim();
-  }
+  const { era, rank, part } = getKeyTriple();
 
-  function findHeaderCI(target){
-    // case-insensitive / whitespace-insensitive match against headers
-    const t = norm(target).toLowerCase();
-    return headers.find(h => norm(h).toLowerCase() === t) ?? null;
-  }
+  setStatus(`呼び出し中…（ERA=${era}, Rank=${rank}, Part=${part}）`);
+  $("btnLoad").disabled = true;
 
-  function findHeaderAny(candidates){
-    for (const c of candidates){
-      const h = findHeaderCI(c);
-      if (h) return h;
+  try{
+    const data = await apiGet({ action:"get", era, rank, part });
+    if(!data || data.ok !== true){
+      throw new Error(data?.message || "not ok");
     }
-    return null;
-  }
-
-  function keyHeaders(){
-    // "Rank", "ERA", "Part", "ID", "number" の実ヘッダを推定
-    const hRank  = findHeaderAny(["Rank", "RANK", "rank"]);
-    const hEra   = findHeaderAny(["ERA", "Era", "era"]);
-    const hPart  = findHeaderAny(["Part", "PART", "part"]);
-    const hId    = findHeaderAny(["ID", "Id", "id"]);
-    const hNum   = findHeaderAny(["number", "Number", "NUMBER", "num", "Num"]);
-    return { hRank, hEra, hPart, hId, hNum };
-  }
-
-  function syncPartFromNumber(){
-    const n = parseInt(el.number.value, 10);
-    if (!Number.isFinite(n)) return;
-    const p = PART_BY_NUMBER[n];
-    if (p) el.part.value = p;
-
-    // 動的フォーム内のPartにも反映
-    const { hPart } = keyHeaders();
-    if (hPart){
-      const inp = document.querySelector(`[data-col="${cssEscape(hPart)}"]`);
-      if (inp) inp.value = p;
-    }
-
-    // number列があるならそれも反映
-    const { hNum } = keyHeaders();
-    if (hNum){
-      const inpNum = document.querySelector(`[data-col="${cssEscape(hNum)}"]`);
-      if (inpNum) inpNum.value = String(n);
-    }
-  }
-
-  // CSS.escape fallback
-  function cssEscape(str){
-    if (window.CSS && CSS.escape) return CSS.escape(str);
-    return String(str).replace(/["\\]/g, "\\$&");
-  }
-
-  function buildDynamicForm(){
-    el.dynamicForm.innerHTML = "";
-    if (!headers.length){
-      el.dynamicForm.innerHTML = `<div class="muted">未読込です。</div>`;
+    if(!data.row){
+      setStatus("該当データが見つかりませんでした（キーが一致しない）。", "warn");
+      clearAll();
       return;
     }
 
-    const { hRank, hEra, hPart, hId, hNum } = keyHeaders();
+    fillFromRow(data.row);
+    setStatus("呼び出しました。コードを入力して保存してください。", "ok");
 
-    const frag = document.createDocumentFragment();
-    const wrap = document.createElement("div");
-    wrap.className = "row";
-
-    // 2カラムで並べる：左・右に交互配置
-    const colA = document.createElement("div");
-    const colB = document.createElement("div");
-
-    headers.forEach((h, i) => {
-      const box = document.createElement("div");
-      box.style.marginBottom = "12px";
-
-      const lab = document.createElement("label");
-      lab.textContent = h;
-
-      let input;
-      // 長文っぽい列名はtextareaに
-      const hn = norm(h).toLowerCase();
-      const useTextarea =
-        hn.includes("note") || hn.includes("memo") || hn.includes("comment") || hn.includes("lyrics") || hn.includes("chord");
-
-      if (useTextarea){
-        input = document.createElement("textarea");
-      } else {
-        input = document.createElement("input");
-        input.type = "text";
-      }
-
-      input.dataset.col = h;
-      input.placeholder = h;
-
-      // キー列は上段フォームと連動
-      if (h === hRank){
-        input.addEventListener("input", () => el.rank.value = input.value);
-      }
-      if (h === hEra){
-        input.addEventListener("input", () => el.era.value = input.value);
-      }
-      if (h === hPart){
-        input.addEventListener("input", () => el.part.value = input.value);
-      }
-      if (h === hId){
-        input.readOnly = true; // IDは不偏（entry側でいじらない）
-      }
-
-      box.appendChild(lab);
-      box.appendChild(input);
-
-      (i % 2 === 0 ? colA : colB).appendChild(box);
-    });
-
-    wrap.appendChild(colA);
-    wrap.appendChild(colB);
-    frag.appendChild(wrap);
-
-    el.dynamicForm.appendChild(frag);
-
-    // 上段の number/part/rank/era/id を動的フォームへ初期反映
-    el.rank.dispatchEvent(new Event("input"));
-    el.era.dispatchEvent(new Event("input"));
-    el.part.dispatchEvent(new Event("input"));
-    // id は読み取り専用なので触らない
-  }
-
-  function setDynamicValue(header, value){
-    const inp = document.querySelector(`[data-col="${cssEscape(header)}"]`);
-    if (inp) inp.value = value ?? "";
-  }
-
-  function getDynamicValue(header){
-    const inp = document.querySelector(`[data-col="${cssEscape(header)}"]`);
-    return inp ? inp.value : "";
-  }
-
-  function clearForm(keepKeys=true){
-    // dynamic inputs
-    headers.forEach(h => {
-      const { hId } = keyHeaders();
-      if (h === hId) return; // IDは保持しない（検索結果に依存）
-      const inp = document.querySelector(`[data-col="${cssEscape(h)}"]`);
-      if (inp) inp.value = "";
-    });
-
-    if (!keepKeys){
-      el.rank.value = "";
-      el.era.value = "";
-      el.part.value = "";
-      el.number.value = "";
-    } else {
-      // keyは残すなら、上段は触らない
+    // focus first empty chord or chord1
+    let focusIdx = 1;
+    for(let i=1;i<=CHORD_SLOTS;i++){
+      if(!($("ch"+i).value||"").trim()){ focusIdx=i; break; }
     }
-    el.id.value = "";
-    currentIndex = -1;
+    $("ch"+focusIdx).focus();
+
+  }catch(err){
+    console.error(err);
+    setStatus("呼び出し失敗： " + (err?.message || err), "warn");
+    clearAll();
+  }finally{
+    $("btnLoad").disabled = false;
+  }
+}
+
+async function saveRow(){
+  if(!ensureGasUrl()){
+    setStatus("GAS_URL が未設定です。", "warn");
+    return;
+  }
+  if(!canLoad()){
+    setStatus("ERA / Rank / Part を全部入れてください。", "warn");
+    return;
+  }
+  if(!loadedRow){
+    setStatus("先に「呼び出す」で既存行を読み込んでください。", "warn");
+    return;
   }
 
-  function findRowIndexByKey(era, rank, part){
-    const { hRank, hEra, hPart } = keyHeaders();
-    if (!hRank || !hEra || !hPart) return -1;
+  const { era, rank, part } = getKeyTriple();
+  const chords = collectChords();
+  const note = ($("note").value ?? "").toString();
 
-    const e = norm(era);
-    const r = norm(rank);
-    const p = norm(part);
+  setStatus("保存中…（スプシ更新）");
+  $("btnSave").disabled = true;
 
-    return rows.findIndex(row =>
-      norm(row[hEra])  === e &&
-      norm(row[hRank]) === r &&
-      norm(row[hPart]) === p
-    );
-  }
-
-  function populateFormFromRow(row){
-    const { hId, hRank, hEra, hPart, hNum } = keyHeaders();
-
-    headers.forEach(h => setDynamicValue(h, row[h]));
-    // 上段キーも同期
-    if (hRank) el.rank.value = row[hRank] ?? "";
-    if (hEra)  el.era.value  = row[hEra] ?? "";
-    if (hPart) el.part.value = row[hPart] ?? "";
-    if (hId)   el.id.value   = row[hId] ?? "";
-
-    // number列があるなら、number UIも寄せる（存在しない/不正ならそのまま）
-    if (hNum){
-      const n = parseInt(row[hNum], 10);
-      if (Number.isFinite(n) && n >= 1 && n <= 4){
-        el.number.value = String(n);
-      }
-    } else {
-      // number列が無い場合でも、partから逆引きできるときだけ合わせる
-      const p = norm(el.part.value);
-      const inv = Object.entries(PART_BY_NUMBER).find(([k,v]) => v === p);
-      if (inv) el.number.value = String(inv[0]);
-    }
-  }
-
-  function buildRowFromFormPreserveId(existingRow){
-    const { hRank, hEra, hPart, hId, hNum } = keyHeaders();
-
-    const out = { ...(existingRow ?? {}) };
-
-    // まず、フォームの値を全部反映
-    headers.forEach(h => {
-      // IDは既存がある場合は絶対保持（不偏）
-      if (hId && h === hId){
-        if (existingRow && norm(existingRow[hId]) !== ""){
-          out[hId] = existingRow[hId];
-        } else {
-          // 新規の場合：ユーザーがDB側で採番する方針なら空のまま
-          // （ここで生成しない）
-          out[hId] = existingRow?.[hId] ?? out[hId] ?? "";
-        }
-        return;
-      }
-      out[h] = getDynamicValue(h);
-    });
-
-    // 上段キーは動的フォームより優先して確実に書き込む
-    if (hRank) out[hRank] = norm(el.rank.value);
-    if (hEra)  out[hEra]  = norm(el.era.value);
-    if (hPart) out[hPart] = norm(el.part.value);
-
-    // number列が存在するなら、number UIの値を反映（補助）
-    if (hNum){
-      const n = norm(el.number.value);
-      if (n) out[hNum] = n;
-    }
-
-    // 既存行があるならIDを最優先で固定
-    if (hId && existingRow && norm(existingRow[hId]) !== ""){
-      out[hId] = existingRow[hId];
-    }
-
-    return out;
-  }
-
-  function writeBackToWorkbook(){
-    if (!workbook || !sheetName) return false;
-
-    // rows -> worksheet
-    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
-    // ヘッダ順を強制したいので !ref を調整（json_to_sheetで作られる）
-    workbook.Sheets[sheetName] = ws;
-    return true;
-  }
-
-  function downloadBlob(filename, blob){
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 800);
-  }
-
-  function exportXlsx(){
-    if (!workbook) { log("XLSX未読込"); return; }
-    writeBackToWorkbook();
-    const out = XLSX.write(workbook, { bookType:"xlsx", type:"array" });
-    downloadBlob(`GoRockCampDB_updated_ver${VER}.xlsx`, new Blob([out], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-    log("XLSXを書き出しました");
-  }
-
-  function exportJson(){
-    const out = JSON.stringify({ headers, rows }, null, 2);
-    downloadBlob(`GoRockCampDB_updated_ver${VER}.json`, new Blob([out], { type:"application/json" }));
-    log("JSONを書き出しました");
-  }
-
-  function exportCsv(){
-    if (!headers.length) { log("未読込"); return; }
-    // RFC4180簡易
-    const esc = (v) => {
-      const s = String(v ?? "");
-      if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
-      return s;
+  try{
+    const payload = {
+      action: "update",
+      era, rank, part,
+      chords,
+      note,
+      // IDは不偏：触らない（GAS側で row.id を維持）
+      // id: loadedRow.id  // 必要ならGAS側の実装次第で付けても良い
     };
-    const lines = [];
-    lines.push(headers.map(esc).join(","));
-    for (const row of rows){
-      lines.push(headers.map(h => esc(row[h])).join(","));
+
+    const data = await apiPost(payload);
+    if(!data || data.ok !== true){
+      throw new Error(data?.message || "not ok");
     }
-    downloadBlob(`GoRockCampDB_updated_ver${VER}.csv`, new Blob([lines.join("\n")], { type:"text/csv;charset=utf-8" }));
-    log("CSVを書き出しました");
+    if(data.updated !== true){
+      throw new Error("updated=false");
+    }
+
+    setStatus("保存しました ✅", "ok");
+
+  }catch(err){
+    console.error(err);
+    setStatus("保存失敗： " + (err?.message || err), "warn");
+  }finally{
+    $("btnSave").disabled = false;
   }
+}
 
-  // events
-  el.number.addEventListener("change", syncPartFromNumber);
+// 「｜」区切り貼り付け
+function parseBarString(s){
+  // 例：｜A｜Bm7｜E7｜A｜  または A|Bm7|E7|A
+  if(!s) return [];
+  s = s.trim();
 
-  el.part.addEventListener("input", () => {
-    const { hPart } = keyHeaders();
-    if (hPart) setDynamicValue(hPart, el.part.value);
-  });
-  el.rank.addEventListener("input", () => {
-    const { hRank } = keyHeaders();
-    if (hRank) setDynamicValue(hRank, el.rank.value);
-  });
-  el.era.addEventListener("input", () => {
-    const { hEra } = keyHeaders();
-    if (hEra) setDynamicValue(hEra, el.era.value);
-  });
+  // 全角｜と半角|を統一
+  s = s.replace(/\|/g, "｜");
 
-  el.file.addEventListener("change", async (ev) => {
-    const f = ev.target.files?.[0];
-    if (!f){ return; }
+  // 先頭末尾の｜があってもOK
+  // splitして空要素除去
+  const parts = s.split("｜").map(x=>x.trim()).filter(x=>x.length>0);
+  return parts;
+}
 
-    try{
-      const buf = await f.arrayBuffer();
-      workbook = XLSX.read(buf, { type:"array" });
-
-      sheetName = workbook.SheetNames?.[0] ?? null;
-      if (!sheetName){
-        log("シートが見つかりませんでした");
-        return;
-      }
-
-      const ws = workbook.Sheets[sheetName];
-      const json = XLSX.utils.sheet_to_json(ws, { defval:"", raw:false });
-
-      rows = json;
-
-      // headers: 1行目ヘッダを優先しつつ、無い場合はjsonのキー集合
-      const range = XLSX.utils.decode_range(ws["!ref"]);
-      const firstRow = [];
-      for (let c = range.s.c; c <= range.e.c; c++){
-        const cell = ws[XLSX.utils.encode_cell({ r: range.s.r, c })];
-        firstRow.push(cell ? String(cell.v ?? "").trim() : "");
-      }
-      const headerFromSheet = firstRow.filter(x => x !== "");
-      if (headerFromSheet.length){
-        headers = headerFromSheet;
-      } else {
-        // fallback
-        const set = new Set();
-        rows.forEach(r => Object.keys(r).forEach(k => set.add(k)));
-        headers = Array.from(set);
-      }
-
-      // ヘッダ順に各rowを整形（欠けを埋める）
-      rows = rows.map(r => {
-        const out = {};
-        headers.forEach(h => out[h] = (h in r) ? r[h] : "");
-        return out;
-      });
-
-      // キー列必須チェック
-      const { hRank, hEra, hPart, hId } = keyHeaders();
-      const missing = [];
-      if (!hRank) missing.push("Rank");
-      if (!hEra) missing.push("ERA");
-      if (!hPart) missing.push("Part");
-      if (!hId) missing.push("ID（任意だが推奨）");
-
-      el.meta.value = `${sheetName} / ${rows.length} rows / ${headers.length} cols`;
-      buildDynamicForm();
-
-      log(
-        `読み込みOK: ${sheetName}\n` +
-        `列: Rank=${hRank ?? "?"}, ERA=${hEra ?? "?"}, Part=${hPart ?? "?"}, ID=${hId ?? "?"}\n` +
-        (missing.length ? `注意: 主要列が見つからない可能性 → ${missing.join(", ")}\n` : "") +
-        `検索キー=ERA+Rank+Part / IDは既存行があれば不変`
-      );
-
-    } catch (e){
-      console.error(e);
-      log("読み込みエラー: " + (e?.message ?? e));
-    }
-  });
-
-  el.btnSearch.addEventListener("click", () => {
-    if (!rows.length){ log("未読込"); return; }
-
-    const era = el.era.value;
-    const rank = el.rank.value;
-    const part = el.part.value;
-
-    const idx = findRowIndexByKey(era, rank, part);
-    currentIndex = idx;
-
-    if (idx >= 0){
-      populateFormFromRow(rows[idx]);
-      log(`ヒット: index=${idx}\n（ERA+Rank+Partで一致）\nIDは不変で維持します`);
-    } else {
-      // 見つからない場合：キーを残して他をクリア（新規入力を想定）
-      clearForm(true);
-      // キーは再投入（clearFormでdynamicも消えてるので戻す）
-      el.era.value = norm(era);
-      el.rank.value = norm(rank);
-      el.part.value = norm(part);
-      el.era.dispatchEvent(new Event("input"));
-      el.rank.dispatchEvent(new Event("input"));
-      el.part.dispatchEvent(new Event("input"));
-      log(`未ヒット: ERA+Rank+Partが見つかりません\n新規として入力→保存できます（IDは生成しません）`);
-    }
-  });
-
-  el.btnClear.addEventListener("click", () => {
-    clearForm(false);
-    log("フォームをクリアしました");
-  });
-
-  el.btnSave.addEventListener("click", () => {
-    if (!rows.length){ log("未読込"); return; }
-
-    const era = norm(el.era.value);
-    const rank = norm(el.rank.value);
-    const part = norm(el.part.value);
-
-    if (!era || !rank || !part){
-      log("保存できません: ERA / Rank / Part は必須です（検索キー）");
+async function pasteBar(){
+  try{
+    const clip = await navigator.clipboard.readText();
+    const parts = parseBarString(clip);
+    if(parts.length === 0){
+      setStatus("クリップボードに「｜」区切りの文字列がありません。", "warn");
       return;
     }
+    for(let i=1;i<=CHORD_SLOTS;i++){
+      $("ch"+i).value = parts[i-1] ?? "";
+    }
+    setStatus("貼り付けました。", "ok");
+    $("ch1").focus();
+  }catch(err){
+    setStatus("貼り付け失敗（ブラウザの権限）", "warn");
+  }
+}
 
-    // まず現状のキーで再検索（currentIndexが古い可能性があるため）
-    const idx = findRowIndexByKey(era, rank, part);
+async function copyBar(){
+  const arr = collectChords().filter(x => x.length > 0);
+  const s = "｜" + arr.join("｜") + "｜";
+  try{
+    await navigator.clipboard.writeText(s);
+    setStatus("コピーしました。", "ok");
+  }catch(err){
+    setStatus("コピー失敗（ブラウザの権限）", "warn");
+  }
+}
 
-    if (idx >= 0){
-      // update
-      const existing = rows[idx];
-      const updated = buildRowFromFormPreserveId(existing);
-      rows[idx] = updated;
+function bindEvents(){
+  $("btnLoad").addEventListener("click", loadRow);
+  $("btnSave").addEventListener("click", saveRow);
 
-      // フォームへ再反映（ID固定が効いてることを見せる）
-      populateFormFromRow(rows[idx]);
-      currentIndex = idx;
+  $("btnClear").addEventListener("click", ()=>{
+    clearInputsOnly();
+    setStatus("入力欄をクリアしました。", "ok");
+    $("ch1").focus();
+  });
 
-      log(`更新しました: index=${idx}\n検索キー=ERA+Rank+Part\nIDは既存のまま保持`);
-    } else {
-      // create
-      const created = buildRowFromFormPreserveId(null);
+  $("btnResetMeta").addEventListener("click", ()=>{
+    clearAll();
+    setStatus("呼び出しを解除しました。", "ok");
+  });
 
-      // 重複キー最終チェック（念のため）
-      const again = findRowIndexByKey(created[keyHeaders().hEra], created[keyHeaders().hRank], created[keyHeaders().hPart]);
-      if (again >= 0){
-        log("保存中に重複が検出されました（ERA+Rank+Part）。検索し直してから更新してください。");
-        return;
-      }
+  $("btnPasteBar").addEventListener("click", pasteBar);
+  $("btnCopyBar").addEventListener("click", copyBar);
 
-      rows.push(created);
-      currentIndex = rows.length - 1;
-
-      // IDは空のままの可能性がある（DB側で採番する前提）
-      populateFormFromRow(created);
-      log(`新規追加しました: index=${currentIndex}\nIDは生成していません（不偏方針）`);
+  // Ctrl/Cmd + Enter => save
+  document.addEventListener("keydown", (e)=>{
+    const isMac = navigator.platform.toLowerCase().includes("mac");
+    const mod = isMac ? e.metaKey : e.ctrlKey;
+    if(mod && e.key === "Enter"){
+      e.preventDefault();
+      saveRow();
     }
   });
 
-  el.btnExport.addEventListener("click", exportXlsx);
-  el.btnExportJson.addEventListener("click", exportJson);
-  el.btnExportCsv.addEventListener("click", exportCsv);
+  // Enable load hint
+  ["era","rank","part"].forEach(id=>{
+    $(id).addEventListener("input", ()=>{
+      if(canLoad()){
+        setStatus("キー入力OK。『呼び出す』で既存行を読み込みます。");
+      }
+    });
+    $(id).addEventListener("change", ()=>{
+      if(canLoad()){
+        setStatus("キー入力OK。『呼び出す』で既存行を読み込みます。");
+      }
+    });
+  });
+}
 
-  // 初期
-  log(`未読込\nver=${VER}`);
-})();
+buildChordInputs();
+bindEvents();
+clearAll();
+setStatus("ERA / Rank / Part を入れて『呼び出す』。");
 </script>
+
 </body>
 </html>
