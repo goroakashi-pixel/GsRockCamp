@@ -1,357 +1,722 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.0.3</title>
-<style>
-  :root{
-    --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
-    --blue:#1d4ed8; --warn:#b91c1c; --btn-radius:14px; --tap-min-h:44px;
-  }
-  body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;margin:16px;color:var(--text);background:var(--bg);padding-bottom:120px;}
-  h2{margin:0 0 10px;font-size:20px;}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
-  .card{border:1px solid var(--line);border-radius:16px;padding:12px;background:var(--card);margin:10px 0;}
-  label{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px;}
-  input,select{width:100%;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;min-height:var(--tap-min-h);box-sizing:border-box;background:#fff;}
-  .btn{min-height:var(--tap-min-h);padding:10px 12px;border-radius:var(--btn-radius);border:1px solid var(--line);background:#fff;font-size:16px;cursor:pointer;}
-  .btn.primary{border:2px solid var(--blue);color:var(--blue);font-weight:700;}
-  .btn.warn{border:2px solid var(--warn);color:var(--warn);font-weight:700;}
-  .btn.small{font-size:14px;padding:8px 10px;min-height:40px;}
-  .muted{color:var(--muted);font-size:13px;}
-  .hr{margin:12px 0;border-top:1px solid var(--line);}
-  .grid{display:grid;grid-template-columns:1fr;gap:8px;}
-  .bar{display:grid;grid-template-columns:60px 1fr 1fr;gap:8px;align-items:stretch;}
-  .bar .idx{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:12px;background:#fafafa;font-weight:700;}
-  .slot{border:2px solid var(--line);border-radius:12px;padding:10px 10px;min-height:var(--tap-min-h);display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;}
-  .slot.active{border-color:var(--blue);box-shadow:0 0 0 2px rgba(29,78,216,0.12);}
-  .slot .txt{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .badge{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:2px 8px;border-radius:999px;background:#f7f7f7;}
-  .kbd{display:flex;gap:8px;flex-wrap:wrap;}
-  .metaGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
-  .metaItem{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fafafa;}
-  .metaItem .k{font-size:12px;color:var(--muted);}
-  .metaItem .v{font-size:15px;font-weight:600;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GoRockCamp DB Entry ver1.0.1</title>
+
+  <!-- SheetJS (xlsx) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.2/dist/xlsx.full.min.js"></script>
+
+  <style>
+    :root{
+      --text:#111;
+      --muted:#666;
+      --line:#ddd;
+      --bg:#fff;
+      --card:#fff;
+      --blue:#1d4ed8;
+      --warn:#b91c1c;
+      --ok:#0f766e;
+      --btn-bg:#fff;
+      --radius:14px;
+      --tap:44px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: -apple-system, system-ui, "Segoe UI", sans-serif;
+    }
+    body{
+      font-family:var(--sans);
+      margin:16px;
+      color:var(--text);
+      background:var(--bg);
+      padding-bottom:140px;
+    }
+    h1{
+      font-size:18px;
+      margin:0 0 8px 0;
+      font-weight:700;
+    }
+    .muted{ color:var(--muted); font-size:13px; }
+    .wrap{ max-width: 980px; margin:0 auto; }
+    .card{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+      padding:14px;
+      margin:12px 0;
+    }
+    .row{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width: 780px){
+      .row{ grid-template-columns: 1fr; }
+    }
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin:0 0 6px 0;
+    }
+    input, select, textarea{
+      width:100%;
+      box-sizing:border-box;
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius: 12px;
+      font-size:14px;
+      min-height: var(--tap);
+      background:#fff;
+      color:var(--text);
+    }
+    textarea{
+      min-height: 84px;
+      resize: vertical;
+    }
+    input[readonly], textarea[readonly]{
+      background:#fafafa;
+      color:#333;
+    }
+    .btns{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:10px;
+    }
+    button{
+      min-height: var(--tap);
+      padding:10px 14px;
+      border-radius: 999px;
+      border:1px solid var(--line);
+      background: var(--btn-bg);
+      cursor:pointer;
+      font-weight:600;
+    }
+    button.primary{
+      border:2px solid var(--blue);
+    }
+    button.ok{
+      border:2px solid var(--ok);
+    }
+    button.warn{
+      border:2px solid var(--warn);
+      color: var(--warn);
+    }
+    .status{
+      font-family:var(--mono);
+      font-size:12px;
+      white-space:pre-wrap;
+      color:#222;
+      background:#fafafa;
+      border:1px dashed var(--line);
+      border-radius:12px;
+      padding:10px 12px;
+      margin-top:10px;
+    }
+    .grid3{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width: 780px){
+      .grid3{ grid-template-columns: 1fr; }
+    }
+    .pill{
+      font-family:var(--mono);
+      font-size:12px;
+      padding:2px 8px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      display:inline-block;
+      margin-left:8px;
+      color:#333;
+      background:#fafafa;
+    }
+    .smallnote{ font-size:12px; color:var(--muted); margin-top:6px;}
+    .hr{
+      height:1px; background:var(--line); margin:10px 0;
+    }
+    .k{ font-family:var(--mono); font-size:12px; }
+  </style>
 </head>
 
 <body>
-
-<h2>Progression Entry ver1.0.3</h2>
-<div class="muted">取得は「GASへ遷移→戻り」（CORSなし）。ERA/Rank/Part → 取得 → コード入力 → 反映。</div>
-
-<div class="card">
-  <div class="row">
-    <button class="btn small" onclick="location.href='./index.html'">ゲームへ戻る</button>
-    <button class="btn small" onclick="location.href='./songs.html'">楽曲リスト</button>
-    <button class="btn small" onclick="location.href='../../index.html'">ポータル</button>
+<div class="wrap">
+  <h1>DB Entry <span class="pill">ver1.0.1</span></h1>
+  <div class="muted">
+    検索キーは <b>ERA + Rank + Part</b>。IDは既存行が見つかった場合 <b>不変</b>（再生成しません）。
   </div>
 
-  <div class="row">
-    <div style="flex:1; min-width:180px;">
-      <label>ERA</label>
-      <select id="inEra">
-        <option value="1970s">1970s</option>
-        <option value="1980s" selected>1980s</option>
-        <option value="1990s">1990s</option>
-        <option value="2000s">2000s</option>
-        <option value="2010s">2010s</option>
-        <option value="2020s">2020s</option>
-      </select>
-    </div>
-    <div style="flex:1; min-width:140px;">
-      <label>Rank</label>
-      <input id="inRank" inputmode="numeric" placeholder="例：150" />
-    </div>
-    <div style="flex:1; min-width:160px;">
-      <label>Part</label>
-      <select id="inPart">
-        <option value="intro">intro</option>
-        <option value="Aメロ">Aメロ</option>
-        <option value="Bメロ">Bメロ</option>
-        <option value="サビ">サビ</option>
-      </select>
-    </div>
-  </div>
-
-  <div class="row" style="margin-top:8px;">
-    <button class="btn primary" id="btnLookup">取得</button>
-    <button class="btn" id="btnFill">既存コードをBOXへ（任意）</button>
-    <button class="btn primary" id="btnUpdate">反映（更新）</button>
-    <span class="muted" id="statusMsg"></span>
-  </div>
-</div>
-
-<div class="card">
-  <div class="muted">取得したメタ情報（表示のみ）</div>
-  <div class="metaGrid" id="metaGrid"></div>
-</div>
-
-<div class="card">
-  <div class="row" style="justify-content:space-between;">
-    <div class="muted">小節入力：前半(A)／後半(B)</div>
+  <div class="card">
     <div class="row">
-      <button class="btn small" id="btnHalfA">前半(A)</button>
-      <button class="btn small" id="btnHalfB">後半(B)</button>
-      <button class="btn small warn" id="btnClearBar">選択小節クリア</button>
-      <button class="btn small" id="btnSwap">A⇔B入替</button>
-    </div>
-  </div>
-  <div class="grid" id="barGrid"></div>
-</div>
+      <div>
+        <label>① DBファイル（.xlsx）を読み込み</label>
+        <input id="file" type="file" accept=".xlsx" />
+        <div class="smallnote">最初のシートを読み込みます（ヘッダ行＝1行目想定）。</div>
+      </div>
 
-<div class="card">
-  <div class="row">
-    <div style="flex:1;">
-      <div class="muted">①ルート（押すと即上書き）</div>
-      <div class="kbd" id="rootPad"></div>
+      <div>
+        <label>シート名 / 行数</label>
+        <input id="meta" type="text" readonly value="未読込" />
+        <div class="smallnote">読み込み後、フォーム項目はヘッダに合わせて自動生成されます。</div>
+      </div>
     </div>
-  </div>
-  <div style="height:10px;"></div>
-  <div class="row">
-    <div style="flex:1;">
-      <div class="muted">②クオリティ（押すと即上書き）</div>
-      <div class="kbd" id="qualPad"></div>
+
+    <div class="hr"></div>
+
+    <div class="grid3">
+      <div>
+        <label>Rank（B列想定）</label>
+        <input id="rank" type="text" placeholder="例: 18" />
+      </div>
+      <div>
+        <label>ERA（J列想定）</label>
+        <input id="era" type="text" placeholder="例: 1990 / 1970s など" />
+      </div>
+      <div>
+        <label>number（1〜4）→ Part入力補助</label>
+        <select id="number">
+          <option value="">未選択</option>
+          <option value="1">1 = intro</option>
+          <option value="2">2 = Aメロ</option>
+          <option value="3">3 = Bメロ</option>
+          <option value="4">4 = サビ</option>
+        </select>
+      </div>
     </div>
+
+    <div class="row" style="margin-top:12px;">
+      <div>
+        <label>Part（M列想定 / 検索キーの一部）</label>
+        <input id="part" type="text" placeholder="例: Aメロ" />
+        <div class="smallnote">numberを選ぶと自動で上書きされます（必要なら直接編集も可）。</div>
+      </div>
+      <div>
+        <label>ID（DB側で採番済み / 不偏）</label>
+        <input id="id" type="text" readonly placeholder="検索で既存行を拾うと表示されます" />
+      </div>
+    </div>
+
+    <div class="btns">
+      <button id="btnSearch" class="primary">検索（ERA+Rank+Part）</button>
+      <button id="btnClear" class="">クリア（フォーム）</button>
+      <button id="btnSave" class="ok">保存（IDは触らない）</button>
+      <button id="btnExport" class="primary">XLSXを書き出し（ダウンロード）</button>
+      <button id="btnExportJson" class="">JSONを書き出し</button>
+      <button id="btnExportCsv" class="">CSVを書き出し</button>
+    </div>
+
+    <div id="status" class="status">status: 未読込</div>
   </div>
-  <div style="height:10px;"></div>
-  <div class="row">
-    <button class="btn" id="btnBassMode">オンベース入力（/）</button>
-    <button class="btn warn" id="btnBassClear">オンベース解除</button>
-    <button class="btn warn" id="btnQualClear">クオリティ解除</button>
+
+  <div class="card">
+    <div class="muted" style="margin-bottom:10px;">
+      ここから下は、読み込んだヘッダに合わせて編集項目を自動生成します（キー列は上でも編集できます）。
+    </div>
+    <div id="dynamicForm"></div>
   </div>
-  <div class="muted">オンベース：押す→次にルートで /Root（例：C/E）</div>
 </div>
 
 <script>
-/* ===== 設定 ===== */
-const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwLyrVpKlQSAWCJXRufi1HIRBfJYVrXg1NGCeCtP9lRqM0N-8TyevnsNKoV0n8UMb1D/exec";
+(() => {
+  const VER = "1.0.1";
 
-/* ===== State ===== */
-const PLAY_BARS = 8;
-const state = Array.from({length: PLAY_BARS}, () => ({ A:{root:"",qual:"",bass:""}, B:{root:"",qual:"",bass:""} }));
-let selectedBar=1, selectedHalf="A", bassMode=false;
-let lastLookup=null;
+  // number → Part は「入力補助」
+  const PART_BY_NUMBER = {
+    1: "intro",
+    2: "Aメロ",
+    3: "Bメロ",
+    4: "サビ",
+  };
 
-function $(id){ return document.getElementById(id); }
-function val(id){ return String($(id)?.value||"").trim(); }
-function setStatus(msg){ const el=$("statusMsg"); if(el) el.textContent=msg||""; }
+  const el = {
+    file: document.getElementById("file"),
+    meta: document.getElementById("meta"),
+    rank: document.getElementById("rank"),
+    era: document.getElementById("era"),
+    number: document.getElementById("number"),
+    part: document.getElementById("part"),
+    id: document.getElementById("id"),
+    btnSearch: document.getElementById("btnSearch"),
+    btnClear: document.getElementById("btnClear"),
+    btnSave: document.getElementById("btnSave"),
+    btnExport: document.getElementById("btnExport"),
+    btnExportJson: document.getElementById("btnExportJson"),
+    btnExportCsv: document.getElementById("btnExportCsv"),
+    status: document.getElementById("status"),
+    dynamicForm: document.getElementById("dynamicForm"),
+  };
 
-function toast(msg){
-  const d=document.createElement("div");
-  d.textContent=msg;
-  d.style.position="fixed"; d.style.left="50%"; d.style.bottom="24px";
-  d.style.transform="translateX(-50%)"; d.style.background="#111"; d.style.color="#fff";
-  d.style.padding="10px 14px"; d.style.borderRadius="999px"; d.style.fontSize="14px";
-  d.style.opacity="0.95"; d.style.zIndex="9999";
-  document.body.appendChild(d);
-  setTimeout(()=>d.remove(),1400);
-}
+  // in-memory DB
+  let workbook = null;
+  let sheetName = null;
+  let headers = [];
+  let rows = [];        // array of objects (header -> value)
+  let currentIndex = -1; // found row index by ERA+Rank+Part
 
-function esc(s){
-  return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">", "&gt;")
-    .replaceAll('"',"&quot;").replaceAll("'","&#39;");
-}
-function slot(){ return state[selectedBar-1][selectedHalf]; }
-
-function buildChordString(s){
-  const r=(s.root||"").trim(), q=(s.qual||"").trim(), b=(s.bass||"").trim();
-  if(!r) return "";
-  let out=r+q;
-  if(b) out += "/" + b;
-  return out;
-}
-function buildBarChord(i){
-  const a=buildChordString(state[i].A), b=buildChordString(state[i].B);
-  if(a && b) return `${a}│${b}`;
-  if(a) return a;
-  if(b) return b;
-  return "";
-}
-
-function renderHalfButtons(){
-  $("btnHalfA")?.classList.toggle("primary", selectedHalf==="A");
-  $("btnHalfB")?.classList.toggle("primary", selectedHalf==="B");
-}
-
-function renderBars(){
-  const grid=$("barGrid"); if(!grid) return;
-  grid.innerHTML="";
-  for(let i=1;i<=PLAY_BARS;i++){
-    const row=document.createElement("div"); row.className="bar";
-    const idx=document.createElement("div"); idx.className="idx"; idx.textContent=i;
-
-    const aStr=buildChordString(state[i-1].A);
-    const bStr=buildChordString(state[i-1].B);
-
-    const slotA=document.createElement("div");
-    slotA.className="slot"+(selectedBar===i && selectedHalf==="A" ? " active":"");
-    slotA.onclick=()=>{selectedBar=i;selectedHalf="A";bassMode=false;renderAll();};
-    slotA.innerHTML=`<div class="txt">${esc(aStr||"（前半）")}</div><div class="badge">A</div>`;
-
-    const slotB=document.createElement("div");
-    slotB.className="slot"+(selectedBar===i && selectedHalf==="B" ? " active":"");
-    slotB.onclick=()=>{selectedBar=i;selectedHalf="B";bassMode=false;renderAll();};
-    slotB.innerHTML=`<div class="txt">${esc(bStr||"（後半）")}</div><div class="badge">B</div>`;
-
-    row.appendChild(idx); row.appendChild(slotA); row.appendChild(slotB);
-    grid.appendChild(row);
+  function log(msg){
+    el.status.textContent = `status: ${msg}`;
   }
-}
 
-function renderMeta(){
-  const g=$("metaGrid"); if(!g) return;
-  g.innerHTML="";
-  if(!lastLookup || !lastLookup.ok){
-    g.innerHTML=`<div class="muted">（未取得）</div>`;
-    return;
+  function norm(s){
+    return String(s ?? "").trim();
   }
-  const m=lastLookup.meta||{};
-  const items=[["Artist",m.Artist],["title",m.title],["words",m.words],["music",m.music],["arrange",m.arrange],["Year",m.Year],["original_key",m.original_key],["Quiz_key",m.Quiz_key],["row",lastLookup.rowIndex]];
-  for(const [k,v] of items){
-    const div=document.createElement("div");
-    div.className="metaItem";
-    div.innerHTML=`<div class="k">${esc(k)}</div><div class="v">${esc(v||"")}</div>`;
-    g.appendChild(div);
+
+  function findHeaderCI(target){
+    // case-insensitive / whitespace-insensitive match against headers
+    const t = norm(target).toLowerCase();
+    return headers.find(h => norm(h).toLowerCase() === t) ?? null;
   }
-}
 
-function renderPads(){
-  const rootPad=$("rootPad");
-  const qualPad=$("qualPad");
-  if(!rootPad || !qualPad) return; // ← DOM未完成なら何もしない
-
-  const roots=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B","D♭","E♭","G♭","A♭","B♭"];
-  rootPad.innerHTML="";
-  roots.forEach(r=>{
-    const b=document.createElement("button");
-    b.className="btn";
-    b.textContent=r;
-    b.onclick=()=>applyRoot(r);
-    rootPad.appendChild(b);
-  });
-
-  const quals=["","m","7","m7","maj7","mM7","dim","aug","sus4","m7-5","add9","9","6","m6"];
-  qualPad.innerHTML="";
-  quals.forEach(q=>{
-    const b=document.createElement("button");
-    b.className="btn";
-    b.textContent=(q===""?"（なし）":q);
-    b.onclick=()=>applyQuality(q);
-    qualPad.appendChild(b);
-  });
-}
-
-function renderAll(){
-  renderHalfButtons();
-  renderBars();
-  renderMeta();
-  document.title="Progression Entry ver1.0.3";
-}
-
-/* actions */
-function setHalf(h){ selectedHalf=h; bassMode=false; renderAll(); }
-function clearSelected(){ state[selectedBar-1][selectedHalf]={root:"",qual:"",bass:""}; bassMode=false; renderAll(); }
-function swapHalf(){ const bar=state[selectedBar-1]; const t=bar.A; bar.A=bar.B; bar.B=t; bassMode=false; renderAll(); }
-function toggleBassMode(){ bassMode=!bassMode; toast(bassMode?"オンベース：次にルート":"オンベース解除"); }
-function clearBass(){ slot().bass=""; bassMode=false; renderAll(); }
-function clearQuality(){ slot().qual=""; renderAll(); }
-function applyRoot(root){ const s=slot(); if(bassMode){ s.bass=root; bassMode=false; } else { s.root=root; } renderAll(); }
-function applyQuality(q){ slot().qual=q; renderAll(); }
-
-function parseToSlot_(chord, slotObj){
-  const s=String(chord||"").trim();
-  const slash=s.split("/");
-  const head=(slash[0]||"").trim();
-  const bass=(slash[1]||"").trim();
-  const m=head.match(/^([A-G](?:#|♭|b)?)(.*)$/);
-  slotObj.root = m ? m[1].replaceAll("b","♭") : "";
-  slotObj.qual = m ? (m[2]||"") : "";
-  slotObj.bass = bass ? bass.replaceAll("b","♭") : "";
-}
-
-function fillFromExisting(){
-  if(!lastLookup || !lastLookup.ok){ toast("先に取得"); return; }
-  const arr=(lastLookup.originalChords||[]).concat(["","","","","","","",""]).slice(0,8);
-  for(let i=0;i<8;i++){
-    state[i].A={root:"",qual:"",bass:""}; state[i].B={root:"",qual:"",bass:""};
-    const raw=String(arr[i]||"").trim();
-    if(!raw) continue;
-    const parts=raw.split("│").map(x=>x.trim()).filter(Boolean);
-    if(parts.length>=2){ parseToSlot_(parts[0],state[i].A); parseToSlot_(parts[1],state[i].B); }
-    else{ parseToSlot_(raw,state[i].A); }
-  }
-  toast("既存コードをBOXへ");
-  renderAll();
-}
-
-/* redirect flow */
-function lookup(){
-  const era=val("inEra"), rank=val("inRank"), part=val("inPart");
-  if(!era || !rank || !part){ toast("ERA/Rank/Part"); return; }
-  const url=new URL(WEBAPP_URL);
-  url.searchParams.set("action","lookup_redirect");
-  url.searchParams.set("era",era); url.searchParams.set("rank",rank); url.searchParams.set("part",part);
-  location.href=url.toString();
-}
-function applyUpdate(){
-  if(!lastLookup || !lastLookup.ok){ toast("先に取得"); return; }
-  const era=val("inEra"), rank=val("inRank"), part=val("inPart");
-  const url=new URL(WEBAPP_URL);
-  url.searchParams.set("action","update_redirect");
-  url.searchParams.set("era",era); url.searchParams.set("rank",rank); url.searchParams.set("part",part);
-  for(let i=1;i<=8;i++) url.searchParams.set("c"+i, buildBarChord(i-1));
-  location.href=url.toString();
-}
-function readPayloadFromHash_(){
-  const h=location.hash||"";
-  const m=h.match(/payload=([^&]+)/);
-  if(!m) return null;
-  try{
-    const b64=m[1];
-    const json=decodeURIComponent(escape(atob(b64.replace(/-/g,'+').replace(/_/g,'/'))));
-    return JSON.parse(json);
-  }catch(_e){ return null; }
-}
-function clearHash_(){ history.replaceState(null,"",location.pathname+location.search); }
-
-/* ===== init (DOM完成後) ===== */
-document.addEventListener("DOMContentLoaded", () => {
-  $("btnLookup").onclick = lookup;
-  $("btnFill").onclick = fillFromExisting;
-  $("btnUpdate").onclick = applyUpdate;
-
-  $("btnHalfA").onclick = ()=>setHalf("A");
-  $("btnHalfB").onclick = ()=>setHalf("B");
-  $("btnClearBar").onclick = clearSelected;
-  $("btnSwap").onclick = swapHalf;
-
-  $("btnBassMode").onclick = toggleBassMode;
-  $("btnBassClear").onclick = clearBass;
-  $("btnQualClear").onclick = clearQuality;
-
-  renderPads();
-
-  const payload = readPayloadFromHash_();
-  if(payload){
-    if(payload.ok && payload.action==="lookup"){
-      lastLookup = payload;
-      toast(`取得OK（行 ${payload.rowIndex}）`);
-      setStatus(`取得OK（行 ${payload.rowIndex}）`);
-    }else if(payload.ok && payload.action==="update"){
-      toast(`反映OK（行 ${payload.updatedRow}）`);
-      setStatus(`反映OK（行 ${payload.updatedRow}）`);
-    }else{
-      toast(payload.error ? `ERROR: ${payload.error}` : "ERROR");
-      setStatus(payload.error ? `ERROR: ${payload.error}` : "ERROR");
+  function findHeaderAny(candidates){
+    for (const c of candidates){
+      const h = findHeaderCI(c);
+      if (h) return h;
     }
-    clearHash_();
+    return null;
   }
 
-  renderAll();
-});
-</script>
+  function keyHeaders(){
+    // "Rank", "ERA", "Part", "ID", "number" の実ヘッダを推定
+    const hRank  = findHeaderAny(["Rank", "RANK", "rank"]);
+    const hEra   = findHeaderAny(["ERA", "Era", "era"]);
+    const hPart  = findHeaderAny(["Part", "PART", "part"]);
+    const hId    = findHeaderAny(["ID", "Id", "id"]);
+    const hNum   = findHeaderAny(["number", "Number", "NUMBER", "num", "Num"]);
+    return { hRank, hEra, hPart, hId, hNum };
+  }
 
+  function syncPartFromNumber(){
+    const n = parseInt(el.number.value, 10);
+    if (!Number.isFinite(n)) return;
+    const p = PART_BY_NUMBER[n];
+    if (p) el.part.value = p;
+
+    // 動的フォーム内のPartにも反映
+    const { hPart } = keyHeaders();
+    if (hPart){
+      const inp = document.querySelector(`[data-col="${cssEscape(hPart)}"]`);
+      if (inp) inp.value = p;
+    }
+
+    // number列があるならそれも反映
+    const { hNum } = keyHeaders();
+    if (hNum){
+      const inpNum = document.querySelector(`[data-col="${cssEscape(hNum)}"]`);
+      if (inpNum) inpNum.value = String(n);
+    }
+  }
+
+  // CSS.escape fallback
+  function cssEscape(str){
+    if (window.CSS && CSS.escape) return CSS.escape(str);
+    return String(str).replace(/["\\]/g, "\\$&");
+  }
+
+  function buildDynamicForm(){
+    el.dynamicForm.innerHTML = "";
+    if (!headers.length){
+      el.dynamicForm.innerHTML = `<div class="muted">未読込です。</div>`;
+      return;
+    }
+
+    const { hRank, hEra, hPart, hId, hNum } = keyHeaders();
+
+    const frag = document.createDocumentFragment();
+    const wrap = document.createElement("div");
+    wrap.className = "row";
+
+    // 2カラムで並べる：左・右に交互配置
+    const colA = document.createElement("div");
+    const colB = document.createElement("div");
+
+    headers.forEach((h, i) => {
+      const box = document.createElement("div");
+      box.style.marginBottom = "12px";
+
+      const lab = document.createElement("label");
+      lab.textContent = h;
+
+      let input;
+      // 長文っぽい列名はtextareaに
+      const hn = norm(h).toLowerCase();
+      const useTextarea =
+        hn.includes("note") || hn.includes("memo") || hn.includes("comment") || hn.includes("lyrics") || hn.includes("chord");
+
+      if (useTextarea){
+        input = document.createElement("textarea");
+      } else {
+        input = document.createElement("input");
+        input.type = "text";
+      }
+
+      input.dataset.col = h;
+      input.placeholder = h;
+
+      // キー列は上段フォームと連動
+      if (h === hRank){
+        input.addEventListener("input", () => el.rank.value = input.value);
+      }
+      if (h === hEra){
+        input.addEventListener("input", () => el.era.value = input.value);
+      }
+      if (h === hPart){
+        input.addEventListener("input", () => el.part.value = input.value);
+      }
+      if (h === hId){
+        input.readOnly = true; // IDは不偏（entry側でいじらない）
+      }
+
+      box.appendChild(lab);
+      box.appendChild(input);
+
+      (i % 2 === 0 ? colA : colB).appendChild(box);
+    });
+
+    wrap.appendChild(colA);
+    wrap.appendChild(colB);
+    frag.appendChild(wrap);
+
+    el.dynamicForm.appendChild(frag);
+
+    // 上段の number/part/rank/era/id を動的フォームへ初期反映
+    el.rank.dispatchEvent(new Event("input"));
+    el.era.dispatchEvent(new Event("input"));
+    el.part.dispatchEvent(new Event("input"));
+    // id は読み取り専用なので触らない
+  }
+
+  function setDynamicValue(header, value){
+    const inp = document.querySelector(`[data-col="${cssEscape(header)}"]`);
+    if (inp) inp.value = value ?? "";
+  }
+
+  function getDynamicValue(header){
+    const inp = document.querySelector(`[data-col="${cssEscape(header)}"]`);
+    return inp ? inp.value : "";
+  }
+
+  function clearForm(keepKeys=true){
+    // dynamic inputs
+    headers.forEach(h => {
+      const { hId } = keyHeaders();
+      if (h === hId) return; // IDは保持しない（検索結果に依存）
+      const inp = document.querySelector(`[data-col="${cssEscape(h)}"]`);
+      if (inp) inp.value = "";
+    });
+
+    if (!keepKeys){
+      el.rank.value = "";
+      el.era.value = "";
+      el.part.value = "";
+      el.number.value = "";
+    } else {
+      // keyは残すなら、上段は触らない
+    }
+    el.id.value = "";
+    currentIndex = -1;
+  }
+
+  function findRowIndexByKey(era, rank, part){
+    const { hRank, hEra, hPart } = keyHeaders();
+    if (!hRank || !hEra || !hPart) return -1;
+
+    const e = norm(era);
+    const r = norm(rank);
+    const p = norm(part);
+
+    return rows.findIndex(row =>
+      norm(row[hEra])  === e &&
+      norm(row[hRank]) === r &&
+      norm(row[hPart]) === p
+    );
+  }
+
+  function populateFormFromRow(row){
+    const { hId, hRank, hEra, hPart, hNum } = keyHeaders();
+
+    headers.forEach(h => setDynamicValue(h, row[h]));
+    // 上段キーも同期
+    if (hRank) el.rank.value = row[hRank] ?? "";
+    if (hEra)  el.era.value  = row[hEra] ?? "";
+    if (hPart) el.part.value = row[hPart] ?? "";
+    if (hId)   el.id.value   = row[hId] ?? "";
+
+    // number列があるなら、number UIも寄せる（存在しない/不正ならそのまま）
+    if (hNum){
+      const n = parseInt(row[hNum], 10);
+      if (Number.isFinite(n) && n >= 1 && n <= 4){
+        el.number.value = String(n);
+      }
+    } else {
+      // number列が無い場合でも、partから逆引きできるときだけ合わせる
+      const p = norm(el.part.value);
+      const inv = Object.entries(PART_BY_NUMBER).find(([k,v]) => v === p);
+      if (inv) el.number.value = String(inv[0]);
+    }
+  }
+
+  function buildRowFromFormPreserveId(existingRow){
+    const { hRank, hEra, hPart, hId, hNum } = keyHeaders();
+
+    const out = { ...(existingRow ?? {}) };
+
+    // まず、フォームの値を全部反映
+    headers.forEach(h => {
+      // IDは既存がある場合は絶対保持（不偏）
+      if (hId && h === hId){
+        if (existingRow && norm(existingRow[hId]) !== ""){
+          out[hId] = existingRow[hId];
+        } else {
+          // 新規の場合：ユーザーがDB側で採番する方針なら空のまま
+          // （ここで生成しない）
+          out[hId] = existingRow?.[hId] ?? out[hId] ?? "";
+        }
+        return;
+      }
+      out[h] = getDynamicValue(h);
+    });
+
+    // 上段キーは動的フォームより優先して確実に書き込む
+    if (hRank) out[hRank] = norm(el.rank.value);
+    if (hEra)  out[hEra]  = norm(el.era.value);
+    if (hPart) out[hPart] = norm(el.part.value);
+
+    // number列が存在するなら、number UIの値を反映（補助）
+    if (hNum){
+      const n = norm(el.number.value);
+      if (n) out[hNum] = n;
+    }
+
+    // 既存行があるならIDを最優先で固定
+    if (hId && existingRow && norm(existingRow[hId]) !== ""){
+      out[hId] = existingRow[hId];
+    }
+
+    return out;
+  }
+
+  function writeBackToWorkbook(){
+    if (!workbook || !sheetName) return false;
+
+    // rows -> worksheet
+    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+    // ヘッダ順を強制したいので !ref を調整（json_to_sheetで作られる）
+    workbook.Sheets[sheetName] = ws;
+    return true;
+  }
+
+  function downloadBlob(filename, blob){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 800);
+  }
+
+  function exportXlsx(){
+    if (!workbook) { log("XLSX未読込"); return; }
+    writeBackToWorkbook();
+    const out = XLSX.write(workbook, { bookType:"xlsx", type:"array" });
+    downloadBlob(`GoRockCampDB_updated_ver${VER}.xlsx`, new Blob([out], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    log("XLSXを書き出しました");
+  }
+
+  function exportJson(){
+    const out = JSON.stringify({ headers, rows }, null, 2);
+    downloadBlob(`GoRockCampDB_updated_ver${VER}.json`, new Blob([out], { type:"application/json" }));
+    log("JSONを書き出しました");
+  }
+
+  function exportCsv(){
+    if (!headers.length) { log("未読込"); return; }
+    // RFC4180簡易
+    const esc = (v) => {
+      const s = String(v ?? "");
+      if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+      return s;
+    };
+    const lines = [];
+    lines.push(headers.map(esc).join(","));
+    for (const row of rows){
+      lines.push(headers.map(h => esc(row[h])).join(","));
+    }
+    downloadBlob(`GoRockCampDB_updated_ver${VER}.csv`, new Blob([lines.join("\n")], { type:"text/csv;charset=utf-8" }));
+    log("CSVを書き出しました");
+  }
+
+  // events
+  el.number.addEventListener("change", syncPartFromNumber);
+
+  el.part.addEventListener("input", () => {
+    const { hPart } = keyHeaders();
+    if (hPart) setDynamicValue(hPart, el.part.value);
+  });
+  el.rank.addEventListener("input", () => {
+    const { hRank } = keyHeaders();
+    if (hRank) setDynamicValue(hRank, el.rank.value);
+  });
+  el.era.addEventListener("input", () => {
+    const { hEra } = keyHeaders();
+    if (hEra) setDynamicValue(hEra, el.era.value);
+  });
+
+  el.file.addEventListener("change", async (ev) => {
+    const f = ev.target.files?.[0];
+    if (!f){ return; }
+
+    try{
+      const buf = await f.arrayBuffer();
+      workbook = XLSX.read(buf, { type:"array" });
+
+      sheetName = workbook.SheetNames?.[0] ?? null;
+      if (!sheetName){
+        log("シートが見つかりませんでした");
+        return;
+      }
+
+      const ws = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(ws, { defval:"", raw:false });
+
+      rows = json;
+
+      // headers: 1行目ヘッダを優先しつつ、無い場合はjsonのキー集合
+      const range = XLSX.utils.decode_range(ws["!ref"]);
+      const firstRow = [];
+      for (let c = range.s.c; c <= range.e.c; c++){
+        const cell = ws[XLSX.utils.encode_cell({ r: range.s.r, c })];
+        firstRow.push(cell ? String(cell.v ?? "").trim() : "");
+      }
+      const headerFromSheet = firstRow.filter(x => x !== "");
+      if (headerFromSheet.length){
+        headers = headerFromSheet;
+      } else {
+        // fallback
+        const set = new Set();
+        rows.forEach(r => Object.keys(r).forEach(k => set.add(k)));
+        headers = Array.from(set);
+      }
+
+      // ヘッダ順に各rowを整形（欠けを埋める）
+      rows = rows.map(r => {
+        const out = {};
+        headers.forEach(h => out[h] = (h in r) ? r[h] : "");
+        return out;
+      });
+
+      // キー列必須チェック
+      const { hRank, hEra, hPart, hId } = keyHeaders();
+      const missing = [];
+      if (!hRank) missing.push("Rank");
+      if (!hEra) missing.push("ERA");
+      if (!hPart) missing.push("Part");
+      if (!hId) missing.push("ID（任意だが推奨）");
+
+      el.meta.value = `${sheetName} / ${rows.length} rows / ${headers.length} cols`;
+      buildDynamicForm();
+
+      log(
+        `読み込みOK: ${sheetName}\n` +
+        `列: Rank=${hRank ?? "?"}, ERA=${hEra ?? "?"}, Part=${hPart ?? "?"}, ID=${hId ?? "?"}\n` +
+        (missing.length ? `注意: 主要列が見つからない可能性 → ${missing.join(", ")}\n` : "") +
+        `検索キー=ERA+Rank+Part / IDは既存行があれば不変`
+      );
+
+    } catch (e){
+      console.error(e);
+      log("読み込みエラー: " + (e?.message ?? e));
+    }
+  });
+
+  el.btnSearch.addEventListener("click", () => {
+    if (!rows.length){ log("未読込"); return; }
+
+    const era = el.era.value;
+    const rank = el.rank.value;
+    const part = el.part.value;
+
+    const idx = findRowIndexByKey(era, rank, part);
+    currentIndex = idx;
+
+    if (idx >= 0){
+      populateFormFromRow(rows[idx]);
+      log(`ヒット: index=${idx}\n（ERA+Rank+Partで一致）\nIDは不変で維持します`);
+    } else {
+      // 見つからない場合：キーを残して他をクリア（新規入力を想定）
+      clearForm(true);
+      // キーは再投入（clearFormでdynamicも消えてるので戻す）
+      el.era.value = norm(era);
+      el.rank.value = norm(rank);
+      el.part.value = norm(part);
+      el.era.dispatchEvent(new Event("input"));
+      el.rank.dispatchEvent(new Event("input"));
+      el.part.dispatchEvent(new Event("input"));
+      log(`未ヒット: ERA+Rank+Partが見つかりません\n新規として入力→保存できます（IDは生成しません）`);
+    }
+  });
+
+  el.btnClear.addEventListener("click", () => {
+    clearForm(false);
+    log("フォームをクリアしました");
+  });
+
+  el.btnSave.addEventListener("click", () => {
+    if (!rows.length){ log("未読込"); return; }
+
+    const era = norm(el.era.value);
+    const rank = norm(el.rank.value);
+    const part = norm(el.part.value);
+
+    if (!era || !rank || !part){
+      log("保存できません: ERA / Rank / Part は必須です（検索キー）");
+      return;
+    }
+
+    // まず現状のキーで再検索（currentIndexが古い可能性があるため）
+    const idx = findRowIndexByKey(era, rank, part);
+
+    if (idx >= 0){
+      // update
+      const existing = rows[idx];
+      const updated = buildRowFromFormPreserveId(existing);
+      rows[idx] = updated;
+
+      // フォームへ再反映（ID固定が効いてることを見せる）
+      populateFormFromRow(rows[idx]);
+      currentIndex = idx;
+
+      log(`更新しました: index=${idx}\n検索キー=ERA+Rank+Part\nIDは既存のまま保持`);
+    } else {
+      // create
+      const created = buildRowFromFormPreserveId(null);
+
+      // 重複キー最終チェック（念のため）
+      const again = findRowIndexByKey(created[keyHeaders().hEra], created[keyHeaders().hRank], created[keyHeaders().hPart]);
+      if (again >= 0){
+        log("保存中に重複が検出されました（ERA+Rank+Part）。検索し直してから更新してください。");
+        return;
+      }
+
+      rows.push(created);
+      currentIndex = rows.length - 1;
+
+      // IDは空のままの可能性がある（DB側で採番する前提）
+      populateFormFromRow(created);
+      log(`新規追加しました: index=${currentIndex}\nIDは生成していません（不偏方針）`);
+    }
+  });
+
+  el.btnExport.addEventListener("click", exportXlsx);
+  el.btnExportJson.addEventListener("click", exportJson);
+  el.btnExportCsv.addEventListener("click", exportCsv);
+
+  // 初期
+  log(`未読込\nver=${VER}`);
+})();
+</script>
 </body>
 </html>
