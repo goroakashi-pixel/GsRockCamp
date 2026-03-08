@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Progression_ver1.3.1</title>
+<title>Progression_ver1.3.2</title>
 
 <style>
 body{
@@ -81,7 +81,7 @@ font-weight:bold;
 
 <body>
 
-<h2>Progression_ver1.3.1</h2>
+<h2>Progression_ver1.3.2</h2>
 
 <div style="text-align:right;"><button onclick="location.href='./songs.html'">楽曲リスト</button></div>
 
@@ -145,11 +145,6 @@ font-weight:bold;
 </div>
 
 <script>
-/* =========================
-   既存の音源再生プログラム（完全採用）
-   ※ただし # を含むファイル名を fetch するため、URLだけ %23 に変換して読む
-   ========================= */
-
 const ctx = new AudioContext()
 
 function urlForFetch(url){
@@ -193,7 +188,6 @@ if(buf.__loaded) return
 
 await safeLoadBuffer("drum", "./audio/Drum_loop.wav")
 
-/* bass (12) */
 await safeLoadBuffer("A#0_Bass", "./audio/A#0_Bass.wav")
 await safeLoadBuffer("A0_Bass",  "./audio/A0_Bass.wav")
 await safeLoadBuffer("B0_Bass",  "./audio/B0_Bass.wav")
@@ -207,7 +201,6 @@ await safeLoadBuffer("F0_Bass",  "./audio/F0_Bass.wav")
 await safeLoadBuffer("G#0_Bass", "./audio/G#0_Bass.wav")
 await safeLoadBuffer("G0_Bass",  "./audio/G0_Bass.wav")
 
-/* notes (12 x oct 2,3,4) + C5 */
 const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
 for(let o=2;o<=4;o++){
 for(const n of pcs){
@@ -227,15 +220,20 @@ const g = ctx.createGain()
 s.buffer = buffer
 s.connect(g)
 g.connect(ctx.destination)
+
 if(fade){
 g.gain.setValueAtTime(1, time)
 g.gain.setValueAtTime(1, time + 2.1)
 g.gain.linearRampToValueAtTime(0, time + 2.2)
 }
+
 s.start(time)
-if(typeof stopAfterSec === "number" && stopAfterSec>0){
-try{ s.stop(time + stopAfterSec) }catch(_e){}
+
+if(stopAfterSec!=null){
+const end = time + stopAfterSec
+try{ s.stop(end) }catch(_e){}
 }
+
 activeSources.push(s)
 return s
 }
@@ -279,11 +277,8 @@ function drum(time,fade=false){
 play(buf.drum,time,fade)
 }
 
-/* =========================
-   ゲーム部分
-   ========================= */
+/* ====== game ====== */
 
-/* ここで「クイズは4小節」「再生は8小節」を分離 */
 const QUIZ_BARS = 4
 const PLAY_BARS = 8
 
@@ -354,7 +349,6 @@ DB=[]
 return dbReadyPromise
 }
 
-/* chords/degrees は 8個ある前提（ただしクイズは先頭4個を使う） */
 function hasChordData(q){
 return q && Array.isArray(q.chords) && q.chords.length>=PLAY_BARS && q.chords.slice(0,PLAY_BARS).every(x=>String(x).trim().length>0)
 }
@@ -378,7 +372,6 @@ if(/7/.test(t) && !/^Ⅴ7?$/.test(t)) return true
 return false
 }
 
-/* n個ぶんだけ非ダイアトニックを判定（クイズ=4／表示=8で使い分け） */
 function collectNonDiatonicIndices(q, n){
 const idx=[]
 let hasFlagKey=false
@@ -466,7 +459,6 @@ suffix = (m[3]||"")
 return {base, suffix}
 }
 
-/* トニック：Ⅰ / Ⅵm / Ⅲm の入替 */
 function applyTonicSwap(degs, mode){
 const out = degs.slice()
 for(let i=0;i<out.length;i++){
@@ -498,7 +490,6 @@ out[i] = "Ⅰ"
 return out
 }
 
-/* サブドミ：Ⅳ ⇔ Ⅱm */
 function applySubdomSwap(degs){
 const out = degs.slice()
 for(let i=0;i<out.length;i++){
@@ -633,7 +624,6 @@ el.classList.remove("error-cell")
 }
 
 function renderStatusTable(){
-/* 8列クリア */
 for(let i=1;i<=PLAY_BARS;i++){
 setCell(`st_chord_${i}`,"")
 setCell(`st_degree_${i}`,"")
@@ -656,7 +646,6 @@ setCell(`st_chord_${col}`, String(ch[i]||""))
 setCell(`st_degree_${col}`, normalizeDegreeForDisplay(String(degs[i]||"")))
 setCell(`st_nd_${col}`, ndSet.has(i) ? "True" : "False")
 
-/* 表のPiano/Bassは、その小節の先頭コードで代表 */
 const seg = getBarSegments(ch[i])[0]
 const pn = pianoVoicing(seg.raw)
 setCell(`st_p1_${col}`, pn[0]||"")
@@ -794,7 +783,6 @@ stopAllPlaying()
 playProgression()
 }
 
-/* SFX */
 function playCorrect(){
 const a = new Audio("../../assets/correct.mp3")
 a.play()
@@ -806,10 +794,7 @@ const a = new Audio("../../assets/cheer"+n+".mp3")
 a.play()
 }
 
-/* =========================
-   進行の再生（DBの chord 8つを鳴らす）
-   BPM120 / 1小節2秒 / 最後だけフェード
-   ========================= */
+/* ====== playback ====== */
 
 function pcIndex(name){
 const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
@@ -945,11 +930,14 @@ const segFade = (isLastBar && j===segs.length-1)
 
 const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot)
 const bname = bassBufferName(rootPc)
-if(segs.length>=2 && j<segs.length-1){
-bassSplitFirstHalf(bname, segTime, seg.duration)
+
+if(segs.length>=2){
+// split小節（前半/後半）: ベースは両方とも 1.3s 鳴らし、最後0.1sでフェードアウト
+bassSplitFirstHalf(bname, segTime, 1.3)
 }else{
 bass(bname, segTime, segFade)
 }
+
 piano(pianoVoicing(seg.raw), segTime, segFade)
 }
 }
@@ -958,10 +946,8 @@ renderQuiz()
 renderStatusTable()
 }
 
-/* 起動時に先読み開始 */
 presetQid = getPresetQidFromUrl()
 warmup()
-
 </script>
 
 </body>
