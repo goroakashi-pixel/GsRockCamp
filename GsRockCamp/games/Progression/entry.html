@@ -3,146 +3,43 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.0.2</title>
+<title>Progression Entry ver1.0.3</title>
 <style>
   :root{
-    --text:#111;
-    --muted:#666;
-    --line:#ddd;
-    --bg:#fff;
-    --card:#fff;
-    --blue:#1d4ed8;
-    --warn:#b91c1c;
-    --btn-radius:14px;
-    --tap-min-h:44px;
+    --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
+    --blue:#1d4ed8; --warn:#b91c1c; --btn-radius:14px; --tap-min-h:44px;
   }
-  body{
-    font-family:-apple-system, system-ui, "Segoe UI", sans-serif;
-    margin:16px;
-    color:var(--text);
-    background:var(--bg);
-    padding-bottom:120px;
-  }
-  h2{ margin:0 0 10px; font-size:20px; }
-  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  .card{
-    border:1px solid var(--line);
-    border-radius:16px;
-    padding:12px;
-    background:var(--card);
-    margin:10px 0;
-  }
-  label{ font-size:13px; color:var(--muted); display:block; margin:8px 0 4px; }
-  input, select, textarea{
-    width:100%;
-    font-size:16px;
-    padding:10px 12px;
-    border:1px solid var(--line);
-    border-radius:12px;
-    min-height:var(--tap-min-h);
-    box-sizing:border-box;
-    background:#fff;
-  }
-  textarea{ min-height:80px; }
-  .grid{
-    display:grid;
-    grid-template-columns: 1fr;
-    gap:8px;
-  }
-  .bar{
-    display:grid;
-    grid-template-columns: 60px 1fr 1fr;
-    gap:8px;
-    align-items:stretch;
-  }
-  .bar .idx{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    border:1px solid var(--line);
-    border-radius:12px;
-    background:#fafafa;
-    font-weight:700;
-  }
-  .slot{
-    border:2px solid var(--line);
-    border-radius:12px;
-    padding:10px 10px;
-    min-height:var(--tap-min-h);
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:8px;
-    background:#fff;
-  }
-  .slot.active{
-    border-color: var(--blue);
-    box-shadow: 0 0 0 2px rgba(29,78,216,0.12);
-  }
-  .slot .txt{
-    font-size:16px;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-  }
-  .badge{
-    font-size:12px;
-    color:var(--muted);
-    border:1px solid var(--line);
-    padding:2px 8px;
-    border-radius:999px;
-    background:#f7f7f7;
-  }
-  .kbd{
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
-  }
-  .btn{
-    min-height:var(--tap-min-h);
-    padding:10px 12px;
-    border-radius:var(--btn-radius);
-    border:1px solid var(--line);
-    background:#fff;
-    font-size:16px;
-    cursor:pointer;
-  }
-  .btn.primary{
-    border:2px solid var(--blue);
-    color:var(--blue);
-    font-weight:700;
-  }
-  .btn.warn{
-    border:2px solid var(--warn);
-    color:var(--warn);
-    font-weight:700;
-  }
-  .btn.small{ font-size:14px; padding:8px 10px; min-height:40px; }
-  .muted{ color:var(--muted); font-size:13px; }
-  .hr{ margin:12px 0; border-top:1px solid var(--line); }
-  .metaGrid{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap:8px;
-    margin-top:10px;
-  }
-  .metaItem{
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:10px 12px;
-    background:#fafafa;
-  }
-  .metaItem .k{ font-size:12px; color:var(--muted); }
-  .metaItem .v{ font-size:15px; font-weight:600; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;margin:16px;color:var(--text);background:var(--bg);padding-bottom:120px;}
+  h2{margin:0 0 10px;font-size:20px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .card{border:1px solid var(--line);border-radius:16px;padding:12px;background:var(--card);margin:10px 0;}
+  label{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px;}
+  input,select{width:100%;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;min-height:var(--tap-min-h);box-sizing:border-box;background:#fff;}
+  .btn{min-height:var(--tap-min-h);padding:10px 12px;border-radius:var(--btn-radius);border:1px solid var(--line);background:#fff;font-size:16px;cursor:pointer;}
+  .btn.primary{border:2px solid var(--blue);color:var(--blue);font-weight:700;}
+  .btn.warn{border:2px solid var(--warn);color:var(--warn);font-weight:700;}
+  .btn.small{font-size:14px;padding:8px 10px;min-height:40px;}
+  .muted{color:var(--muted);font-size:13px;}
+  .hr{margin:12px 0;border-top:1px solid var(--line);}
+  .grid{display:grid;grid-template-columns:1fr;gap:8px;}
+  .bar{display:grid;grid-template-columns:60px 1fr 1fr;gap:8px;align-items:stretch;}
+  .bar .idx{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:12px;background:#fafafa;font-weight:700;}
+  .slot{border:2px solid var(--line);border-radius:12px;padding:10px 10px;min-height:var(--tap-min-h);display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;}
+  .slot.active{border-color:var(--blue);box-shadow:0 0 0 2px rgba(29,78,216,0.12);}
+  .slot .txt{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .badge{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:2px 8px;border-radius:999px;background:#f7f7f7;}
+  .kbd{display:flex;gap:8px;flex-wrap:wrap;}
+  .metaGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+  .metaItem{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fafafa;}
+  .metaItem .k{font-size:12px;color:var(--muted);}
+  .metaItem .v{font-size:15px;font-weight:600;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 </style>
 </head>
 
 <body>
 
-<h2>Progression Entry ver1.0.2</h2>
-<div class="muted">
-取得は「GASへ遷移→戻り」の方式（CORSなし）。ERA/Rank/Part → 取得 → コード入力 → 反映。
-</div>
+<h2>Progression Entry ver1.0.3</h2>
+<div class="muted">取得は「GASへ遷移→戻り」（CORSなし）。ERA/Rank/Part → 取得 → コード入力 → 反映。</div>
 
 <div class="card">
   <div class="row">
@@ -201,7 +98,6 @@
       <button class="btn small" id="btnSwap">A⇔B入替</button>
     </div>
   </div>
-
   <div class="grid" id="barGrid"></div>
 </div>
 
@@ -219,7 +115,6 @@
       <div class="kbd" id="qualPad"></div>
     </div>
   </div>
-
   <div style="height:10px;"></div>
   <div class="row">
     <button class="btn" id="btnBassMode">オンベース入力（/）</button>
@@ -230,96 +125,73 @@
 </div>
 
 <script>
-/* ===== 設定：あなたのGAS WebアプリURL ===== */
+/* ===== 設定 ===== */
 const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwLyrVpKlQSAWCJXRufi1HIRBfJYVrXg1NGCeCtP9lRqM0N-8TyevnsNKoV0n8UMb1D/exec";
 
 /* ===== State ===== */
 const PLAY_BARS = 8;
-const state = Array.from({length: PLAY_BARS}, () => ({
-  A:{root:"",qual:"",bass:""},
-  B:{root:"",qual:"",bass:""}
-}));
-let selectedBar = 1;
-let selectedHalf = "A";
-let bassMode = false;
-let lastLookup = null; // {ok, action, rowIndex, meta, originalChords}
+const state = Array.from({length: PLAY_BARS}, () => ({ A:{root:"",qual:"",bass:""}, B:{root:"",qual:"",bass:""} }));
+let selectedBar=1, selectedHalf="A", bassMode=false;
+let lastLookup=null;
 
-/* ===== helpers ===== */
 function $(id){ return document.getElementById(id); }
-function val(id){ return String($(id).value||"").trim(); }
+function val(id){ return String($(id)?.value||"").trim(); }
+function setStatus(msg){ const el=$("statusMsg"); if(el) el.textContent=msg||""; }
 
 function toast(msg){
   const d=document.createElement("div");
   d.textContent=msg;
-  d.style.position="fixed";
-  d.style.left="50%";
-  d.style.bottom="24px";
-  d.style.transform="translateX(-50%)";
-  d.style.background="#111";
-  d.style.color="#fff";
-  d.style.padding="10px 14px";
-  d.style.borderRadius="999px";
-  d.style.fontSize="14px";
-  d.style.opacity="0.95";
-  d.style.zIndex="9999";
+  d.style.position="fixed"; d.style.left="50%"; d.style.bottom="24px";
+  d.style.transform="translateX(-50%)"; d.style.background="#111"; d.style.color="#fff";
+  d.style.padding="10px 14px"; d.style.borderRadius="999px"; d.style.fontSize="14px";
+  d.style.opacity="0.95"; d.style.zIndex="9999";
   document.body.appendChild(d);
   setTimeout(()=>d.remove(),1400);
 }
 
-function setStatus(msg){ $("statusMsg").textContent = msg || ""; }
-
 function esc(s){
-  return String(s??"")
-    .replaceAll("&","&amp;").replaceAll("<","&lt;")
-    .replaceAll(">","&gt;").replaceAll('"',"&quot;")
-    .replaceAll("'","&#39;");
+  return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#39;");
 }
-
 function slot(){ return state[selectedBar-1][selectedHalf]; }
 
 function buildChordString(s){
   const r=(s.root||"").trim(), q=(s.qual||"").trim(), b=(s.bass||"").trim();
   if(!r) return "";
-  let out = r + q;
+  let out=r+q;
   if(b) out += "/" + b;
   return out;
 }
 function buildBarChord(i){
-  const a = buildChordString(state[i].A);
-  const b = buildChordString(state[i].B);
+  const a=buildChordString(state[i].A), b=buildChordString(state[i].B);
   if(a && b) return `${a}│${b}`;
   if(a) return a;
   if(b) return b;
   return "";
 }
 
-/* ===== UI render ===== */
 function renderHalfButtons(){
-  $("btnHalfA").classList.toggle("primary", selectedHalf==="A");
-  $("btnHalfB").classList.toggle("primary", selectedHalf==="B");
+  $("btnHalfA")?.classList.toggle("primary", selectedHalf==="A");
+  $("btnHalfB")?.classList.toggle("primary", selectedHalf==="B");
 }
 
 function renderBars(){
-  const grid = $("barGrid");
-  grid.innerHTML = "";
+  const grid=$("barGrid"); if(!grid) return;
+  grid.innerHTML="";
   for(let i=1;i<=PLAY_BARS;i++){
-    const row=document.createElement("div");
-    row.className="bar";
-
-    const idx=document.createElement("div");
-    idx.className="idx";
-    idx.textContent=i;
+    const row=document.createElement("div"); row.className="bar";
+    const idx=document.createElement("div"); idx.className="idx"; idx.textContent=i;
 
     const aStr=buildChordString(state[i-1].A);
     const bStr=buildChordString(state[i-1].B);
 
     const slotA=document.createElement("div");
-    slotA.className="slot"+(selectedBar===i && selectedHalf==="A" ? " active" : "");
+    slotA.className="slot"+(selectedBar===i && selectedHalf==="A" ? " active":"");
     slotA.onclick=()=>{selectedBar=i;selectedHalf="A";bassMode=false;renderAll();};
     slotA.innerHTML=`<div class="txt">${esc(aStr||"（前半）")}</div><div class="badge">A</div>`;
 
     const slotB=document.createElement("div");
-    slotB.className="slot"+(selectedBar===i && selectedHalf==="B" ? " active" : "");
+    slotB.className="slot"+(selectedBar===i && selectedHalf==="B" ? " active":"");
     slotB.onclick=()=>{selectedBar=i;selectedHalf="B";bassMode=false;renderAll();};
     slotB.innerHTML=`<div class="txt">${esc(bStr||"（後半）")}</div><div class="badge">B</div>`;
 
@@ -329,31 +201,28 @@ function renderBars(){
 }
 
 function renderMeta(){
-  const g = $("metaGrid");
-  g.innerHTML = "";
+  const g=$("metaGrid"); if(!g) return;
+  g.innerHTML="";
   if(!lastLookup || !lastLookup.ok){
-    g.innerHTML = `<div class="muted">（未取得）</div>`;
+    g.innerHTML=`<div class="muted">（未取得）</div>`;
     return;
   }
-  const m = lastLookup.meta || {};
-  const items = [
-    ["Artist", m.Artist], ["title", m.title],
-    ["words", m.words], ["music", m.music],
-    ["arrange", m.arrange], ["Year", m.Year],
-    ["original_key", m.original_key], ["Quiz_key", m.Quiz_key],
-    ["row", lastLookup.rowIndex]
-  ];
+  const m=lastLookup.meta||{};
+  const items=[["Artist",m.Artist],["title",m.title],["words",m.words],["music",m.music],["arrange",m.arrange],["Year",m.Year],["original_key",m.original_key],["Quiz_key",m.Quiz_key],["row",lastLookup.rowIndex]];
   for(const [k,v] of items){
     const div=document.createElement("div");
     div.className="metaItem";
-    div.innerHTML = `<div class="k">${esc(k)}</div><div class="v">${esc(v||"")}</div>`;
+    div.innerHTML=`<div class="k">${esc(k)}</div><div class="v">${esc(v||"")}</div>`;
     g.appendChild(div);
   }
 }
 
 function renderPads(){
-  const roots=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B","D♭","E♭","G♭","A♭","B♭"];
   const rootPad=$("rootPad");
+  const qualPad=$("qualPad");
+  if(!rootPad || !qualPad) return; // ← DOM未完成なら何もしない
+
+  const roots=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B","D♭","E♭","G♭","A♭","B♭"];
   rootPad.innerHTML="";
   roots.forEach(r=>{
     const b=document.createElement("button");
@@ -364,7 +233,6 @@ function renderPads(){
   });
 
   const quals=["","m","7","m7","maj7","mM7","dim","aug","sus4","m7-5","add9","9","6","m6"];
-  const qualPad=$("qualPad");
   qualPad.innerHTML="";
   quals.forEach(q=>{
     const b=document.createElement("button");
@@ -379,33 +247,25 @@ function renderAll(){
   renderHalfButtons();
   renderBars();
   renderMeta();
-  document.title = `Progression Entry ver1.0.2`;
+  document.title="Progression Entry ver1.0.3";
 }
 
-/* ===== input actions ===== */
+/* actions */
 function setHalf(h){ selectedHalf=h; bassMode=false; renderAll(); }
 function clearSelected(){ state[selectedBar-1][selectedHalf]={root:"",qual:"",bass:""}; bassMode=false; renderAll(); }
 function swapHalf(){ const bar=state[selectedBar-1]; const t=bar.A; bar.A=bar.B; bar.B=t; bassMode=false; renderAll(); }
-
 function toggleBassMode(){ bassMode=!bassMode; toast(bassMode?"オンベース：次にルート":"オンベース解除"); }
 function clearBass(){ slot().bass=""; bassMode=false; renderAll(); }
 function clearQuality(){ slot().qual=""; renderAll(); }
-
-function applyRoot(root){
-  const s=slot();
-  if(bassMode){ s.bass=root; bassMode=false; }
-  else{ s.root=root; }
-  renderAll();
-}
+function applyRoot(root){ const s=slot(); if(bassMode){ s.bass=root; bassMode=false; } else { s.root=root; } renderAll(); }
 function applyQuality(q){ slot().qual=q; renderAll(); }
 
 function parseToSlot_(chord, slotObj){
-  const s = String(chord||"").trim();
-  const slash = s.split("/");
-  const head = (slash[0]||"").trim();
-  const bass = (slash[1]||"").trim();
-
-  const m = head.match(/^([A-G](?:#|♭|b)?)(.*)$/);
+  const s=String(chord||"").trim();
+  const slash=s.split("/");
+  const head=(slash[0]||"").trim();
+  const bass=(slash[1]||"").trim();
+  const m=head.match(/^([A-G](?:#|♭|b)?)(.*)$/);
   slotObj.root = m ? m[1].replaceAll("b","♭") : "";
   slotObj.qual = m ? (m[2]||"") : "";
   slotObj.bass = bass ? bass.replaceAll("b","♭") : "";
@@ -426,82 +286,71 @@ function fillFromExisting(){
   renderAll();
 }
 
-/* ===== Redirect flow ===== */
+/* redirect flow */
 function lookup(){
   const era=val("inEra"), rank=val("inRank"), part=val("inPart");
   if(!era || !rank || !part){ toast("ERA/Rank/Part"); return; }
-  const url = new URL(WEBAPP_URL);
+  const url=new URL(WEBAPP_URL);
   url.searchParams.set("action","lookup_redirect");
-  url.searchParams.set("era", era);
-  url.searchParams.set("rank", rank);
-  url.searchParams.set("part", part);
-  location.href = url.toString();
+  url.searchParams.set("era",era); url.searchParams.set("rank",rank); url.searchParams.set("part",part);
+  location.href=url.toString();
 }
-
 function applyUpdate(){
   if(!lastLookup || !lastLookup.ok){ toast("先に取得"); return; }
   const era=val("inEra"), rank=val("inRank"), part=val("inPart");
-  const url = new URL(WEBAPP_URL);
+  const url=new URL(WEBAPP_URL);
   url.searchParams.set("action","update_redirect");
-  url.searchParams.set("era", era);
-  url.searchParams.set("rank", rank);
-  url.searchParams.set("part", part);
-  for(let i=1;i<=8;i++){
-    url.searchParams.set("c"+i, buildBarChord(i-1));
-  }
-  location.href = url.toString();
+  url.searchParams.set("era",era); url.searchParams.set("rank",rank); url.searchParams.set("part",part);
+  for(let i=1;i<=8;i++) url.searchParams.set("c"+i, buildBarChord(i-1));
+  location.href=url.toString();
 }
-
 function readPayloadFromHash_(){
-  const h = location.hash || "";
-  const m = h.match(/payload=([^&]+)/);
+  const h=location.hash||"";
+  const m=h.match(/payload=([^&]+)/);
   if(!m) return null;
   try{
-    const b64 = m[1];
-    const json = decodeURIComponent(escape(atob(b64.replace(/-/g,'+').replace(/_/g,'/'))));
+    const b64=m[1];
+    const json=decodeURIComponent(escape(atob(b64.replace(/-/g,'+').replace(/_/g,'/'))));
     return JSON.parse(json);
-  }catch(e){
-    return null;
+  }catch(_e){ return null; }
+}
+function clearHash_(){ history.replaceState(null,"",location.pathname+location.search); }
+
+/* ===== init (DOM完成後) ===== */
+document.addEventListener("DOMContentLoaded", () => {
+  $("btnLookup").onclick = lookup;
+  $("btnFill").onclick = fillFromExisting;
+  $("btnUpdate").onclick = applyUpdate;
+
+  $("btnHalfA").onclick = ()=>setHalf("A");
+  $("btnHalfB").onclick = ()=>setHalf("B");
+  $("btnClearBar").onclick = clearSelected;
+  $("btnSwap").onclick = swapHalf;
+
+  $("btnBassMode").onclick = toggleBassMode;
+  $("btnBassClear").onclick = clearBass;
+  $("btnQualClear").onclick = clearQuality;
+
+  renderPads();
+
+  const payload = readPayloadFromHash_();
+  if(payload){
+    if(payload.ok && payload.action==="lookup"){
+      lastLookup = payload;
+      toast(`取得OK（行 ${payload.rowIndex}）`);
+      setStatus(`取得OK（行 ${payload.rowIndex}）`);
+    }else if(payload.ok && payload.action==="update"){
+      toast(`反映OK（行 ${payload.updatedRow}）`);
+      setStatus(`反映OK（行 ${payload.updatedRow}）`);
+    }else{
+      toast(payload.error ? `ERROR: ${payload.error}` : "ERROR");
+      setStatus(payload.error ? `ERROR: ${payload.error}` : "ERROR");
+    }
+    clearHash_();
   }
-}
 
-function clearHash_(){
-  history.replaceState(null, "", location.pathname + location.search);
-}
-
-/* ===== wire & init ===== */
-$("btnLookup").onclick = lookup;
-$("btnFill").onclick = fillFromExisting;
-$("btnUpdate").onclick = applyUpdate;
-
-$("btnHalfA").onclick = ()=>setHalf("A");
-$("btnHalfB").onclick = ()=>setHalf("B");
-$("btnClearBar").onclick = clearSelected;
-$("btnSwap").onclick = swapHalf;
-
-$("btnBassMode").onclick = toggleBassMode;
-$("btnBassClear").onclick = clearBass;
-$("btnQualClear").onclick = clearQuality;
-
-renderPads();
-
-const payload = readPayloadFromHash_();
-if(payload){
-  if(payload.ok && payload.action==="lookup"){
-    lastLookup = payload;
-    toast(`取得OK（行 ${payload.rowIndex}）`);
-    setStatus(`取得OK（行 ${payload.rowIndex}）`);
-  }else if(payload.ok && payload.action==="update"){
-    toast(`反映OK（行 ${payload.updatedRow}）`);
-    setStatus(`反映OK（行 ${payload.updatedRow}）`);
-  }else{
-    toast(payload.error ? `ERROR: ${payload.error}` : "ERROR");
-    setStatus(payload.error ? `ERROR: ${payload.error}` : "ERROR");
-  }
-  clearHash_();
-}
-
-renderAll();
+  renderAll();
+});
 </script>
 
 </body>
