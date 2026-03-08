@@ -220,7 +220,7 @@ buf.__loaded = true
 
 }
 
-function play(buffer,time,fade=false){
+function play(buffer,time,fade=false,stopAfterSec=null){
 if(!buffer) return null
 const s = ctx.createBufferSource()
 const g = ctx.createGain()
@@ -233,6 +233,9 @@ g.gain.setValueAtTime(1, time + 2.1)
 g.gain.linearRampToValueAtTime(0, time + 2.2)
 }
 s.start(time)
+if(typeof stopAfterSec === "number" && stopAfterSec>0){
+try{ s.stop(time + stopAfterSec) }catch(_e){}
+}
 activeSources.push(s)
 return s
 }
@@ -250,6 +253,10 @@ notes.forEach(n=>{ play(buf[n],time,fade) })
 
 function bass(note,time,fade=false){
 play(buf[note],time,fade)
+}
+
+function bassWithDuration(note,time,durationSec,fade=false){
+play(buf[note],time,fade,durationSec)
 }
 
 function drum(time,fade=false){
@@ -922,7 +929,7 @@ const segFade = (isLastBar && j===segs.length-1)
 
 const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot)
 const bname = bassBufferName(rootPc)
-bass(bname, segTime, segFade)
+bassWithDuration(bname, segTime, seg.duration, segFade)
 piano(pianoVoicing(seg.raw), segTime, segFade)
 }
 }
