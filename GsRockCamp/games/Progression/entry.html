@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry (Tap UI)</title>
+<title>Progression Entry（取得→反映）</title>
 <style>
   :root{
     --text:#111;
@@ -13,8 +13,8 @@
     --card:#fff;
     --blue:#1d4ed8;
     --warn:#b91c1c;
-    --btn-radius:14px;
     --tap-min-h:44px;
+    --radius:16px;
   }
   body{
     font-family:-apple-system, system-ui, "Segoe UI", sans-serif;
@@ -24,14 +24,15 @@
     padding-bottom:120px;
   }
   h2{ margin:0 0 10px; font-size:20px; }
-  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .muted{ color:var(--muted); font-size:13px; }
   .card{
     border:1px solid var(--line);
-    border-radius:16px;
+    border-radius:var(--radius);
     padding:12px;
     background:var(--card);
     margin:10px 0;
   }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   label{ font-size:13px; color:var(--muted); display:block; margin:8px 0 4px; }
   input, select, textarea{
     width:100%;
@@ -41,20 +42,54 @@
     border-radius:12px;
     min-height:var(--tap-min-h);
     box-sizing:border-box;
+    background:#fff;
   }
-  textarea{ min-height:80px; }
-  .grid{
+  textarea{ min-height:70px; }
+  .btn{
+    min-height:var(--tap-min-h);
+    padding:10px 12px;
+    border-radius:14px;
+    border:1px solid var(--line);
+    background:#fff;
+    font-size:16px;
+    cursor:pointer;
+  }
+  .btn.primary{
+    border:2px solid var(--blue);
+    color:var(--blue);
+    font-weight:700;
+  }
+  .btn.warn{
+    border:2px solid var(--warn);
+    color:var(--warn);
+    font-weight:700;
+  }
+  .btn.small{ font-size:14px; padding:8px 10px; min-height:40px; }
+
+  /* meta view */
+  .metaGrid{
     display:grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
     gap:8px;
   }
+  .metaItem{
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px 12px;
+    background:#fafafa;
+  }
+  .metaItem .k{ font-size:12px; color:var(--muted); }
+  .metaItem .v{ font-size:15px; font-weight:600; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* bars */
+  .grid{ display:grid; grid-template-columns:1fr; gap:8px; }
   .bar{
     display:grid;
     grid-template-columns: 60px 1fr 1fr;
     gap:8px;
     align-items:stretch;
   }
-  .bar .idx{
+  .idx{
     display:flex;
     align-items:center;
     justify-content:center;
@@ -92,32 +127,7 @@
     border-radius:999px;
     background:#f7f7f7;
   }
-  .kbd{
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
-  }
-  .btn{
-    min-height:var(--tap-min-h);
-    padding:10px 12px;
-    border-radius:var(--btn-radius);
-    border:1px solid var(--line);
-    background:#fff;
-    font-size:16px;
-    cursor:pointer;
-  }
-  .btn.primary{
-    border:2px solid var(--blue);
-    color:var(--blue);
-    font-weight:700;
-  }
-  .btn.warn{
-    border:2px solid var(--warn);
-    color:var(--warn);
-    font-weight:700;
-  }
-  .btn.small{ font-size:14px; padding:8px 10px; min-height:40px; }
-  .muted{ color:var(--muted); font-size:13px; }
+  .kbd{ display:flex; gap:8px; flex-wrap:wrap; }
   .out{
     width:100%;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -128,17 +138,23 @@
     border:1px solid var(--line);
     border-radius:12px;
     overflow:auto;
-    max-height:260px;
+    max-height:220px;
     background:#fbfbfb;
   }
-  .splitHint{ font-size:13px; color:var(--muted); }
-  .pillRow{ display:flex; gap:8px; flex-wrap:wrap; }
+  .hr{ margin:12px 0; border-top:1px solid var(--line); }
 </style>
 </head>
 <body>
 
-<h2>Progression Entry（タップ即反映）</h2>
-<div class="muted">小節(A/B)を選ぶ → ルート → クオリティ。押した瞬間にBOXへ反映します（文字追加ではなく上書き）。</div>
+<h2>Progression Entry（取得→反映）</h2>
+<div class="muted">
+ERA / Rank / Part で「取得」→メタ表示 → コードをタップ入力 → 「反映」でスプシの original_Chord_1〜8 を更新します。
+</div>
+
+<script>
+  // ===== 設定：あなたのGAS WebアプリURL =====
+  const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwLyrVpKlQSAWCJXRufi1HIRBfJYVrXg1NGCeCtP9lRqM0N-8TyevnsNKoV0n8UMb1D/exec";
+</script>
 
 <div class="card">
   <div class="row">
@@ -147,25 +163,10 @@
     <button class="btn small" onclick="location.href='../../index.html'">ポータル</button>
   </div>
 
-  <label>Artist</label>
-  <input id="artist" placeholder="例：寺尾聰" />
-
-  <label>Title</label>
-  <input id="title" placeholder="例：ルビーの指環" />
-
   <div class="row">
     <div style="flex:1; min-width:180px;">
-      <label>Part</label>
-      <select id="part">
-        <option value="intro">intro</option>
-        <option value="Aメロ">Aメロ</option>
-        <option value="Bメロ">Bメロ</option>
-        <option value="サビ">サビ</option>
-      </select>
-    </div>
-    <div style="flex:1; min-width:180px;">
       <label>ERA</label>
-      <select id="era">
+      <select id="inEra">
         <option value="1970s">1970s</option>
         <option value="1980s" selected>1980s</option>
         <option value="1990s">1990s</option>
@@ -176,56 +177,37 @@
     </div>
     <div style="flex:1; min-width:140px;">
       <label>Rank</label>
-      <input id="rank" inputmode="numeric" placeholder="例：150" />
+      <input id="inRank" inputmode="numeric" placeholder="例：150" />
+    </div>
+    <div style="flex:1; min-width:160px;">
+      <label>Part</label>
+      <select id="inPart">
+        <option value="intro">intro</option>
+        <option value="Aメロ">Aメロ</option>
+        <option value="Bメロ">Bメロ</option>
+        <option value="サビ">サビ</option>
+      </select>
     </div>
   </div>
 
-  <div class="row">
-    <div style="flex:1; min-width:180px;">
-      <label>words</label>
-      <input id="words" placeholder="例：松本隆" />
-    </div>
-    <div style="flex:1; min-width:180px;">
-      <label>music</label>
-      <input id="music" placeholder="例：筒美京平" />
-    </div>
-    <div style="flex:1; min-width:180px;">
-      <label>arrange</label>
-      <input id="arrange" placeholder="例：井上鑑" />
-    </div>
+  <div class="row" style="margin-top:8px;">
+    <button class="btn primary" onclick="lookup()">取得</button>
+    <button class="btn" onclick="fillFromExisting()">既存コードをBOXへ（任意）</button>
+    <button class="btn warn" onclick="clearAll()">クリア</button>
+    <div class="muted" id="statusMsg"></div>
   </div>
+</div>
 
-  <div class="row">
-    <div style="flex:1; min-width:180px;">
-      <label>original_key</label>
-      <input id="okey" placeholder="例：E" />
-    </div>
-    <div style="flex:1; min-width:180px;">
-      <label>Quiz_key</label>
-      <input id="qkey" placeholder="例：C" value="C" />
-    </div>
-    <div style="flex:1; min-width:140px;">
-      <label>Year</label>
-      <input id="year" inputmode="numeric" placeholder="例：1981" />
-    </div>
-  </div>
-
-  <label>Tag（任意：4つまで）</label>
-  <div class="row">
-    <input id="tag1" placeholder="Tag1" style="flex:1; min-width:160px;">
-    <input id="tag2" placeholder="Tag2" style="flex:1; min-width:160px;">
-    <input id="tag3" placeholder="Tag3" style="flex:1; min-width:160px;">
-    <input id="tag4" placeholder="Tag4" style="flex:1; min-width:160px;">
-  </div>
-
-  <label>メモ（任意）</label>
-  <textarea id="comment" placeholder="耳トレ視点の一言など"></textarea>
+<div class="card">
+  <div class="muted">取得したメタ情報（表示のみ）</div>
+  <div class="hr"></div>
+  <div class="metaGrid" id="metaGrid"></div>
 </div>
 
 <div class="card">
   <div class="row" style="justify-content:space-between;">
-    <div class="splitHint">小節入力：前半(A)／後半(B)</div>
-    <div class="pillRow">
+    <div class="muted">小節入力：前半(A)／後半(B)　（押した瞬間にBOXへ反映）</div>
+    <div class="row">
       <button class="btn small" id="btnHalfA" onclick="setHalf('A')">前半(A)</button>
       <button class="btn small" id="btnHalfB" onclick="setHalf('B')">後半(B)</button>
       <button class="btn small warn" onclick="clearSelected()">選択小節クリア</button>
@@ -239,14 +221,14 @@
 <div class="card">
   <div class="row">
     <div style="flex:1;">
-      <div class="muted">①ルート（押すと即上書き反映）</div>
+      <div class="muted">①ルート（押すと即上書き）</div>
       <div class="kbd" id="rootPad"></div>
     </div>
   </div>
   <div style="height:10px;"></div>
   <div class="row">
     <div style="flex:1;">
-      <div class="muted">②クオリティ（押すと即上書き反映）</div>
+      <div class="muted">②クオリティ（押すと即上書き）</div>
       <div class="kbd" id="qualPad"></div>
     </div>
   </div>
@@ -262,45 +244,69 @@
 
 <div class="card">
   <div class="row">
-    <button class="btn primary" onclick="generateJson()">JSON生成</button>
-    <button class="btn" onclick="copyJson()">コピー</button>
-    <button class="btn primary" onclick="pushToSheet()">更新（スプシへ追記）</button>
-    <button class="btn" onclick="resetAll()">全部リセット</button>
+    <button class="btn primary" onclick="applyUpdate()">反映（スプシ更新）</button>
+    <button class="btn" onclick="preview()">プレビュー</button>
+    <button class="btn" onclick="copyPreview()">コピー</button>
   </div>
   <div style="height:10px;"></div>
-  <div class="out" id="outJson">{}</div>
-  <div class="muted">「更新」は Google Apps Script Webアプリを用意すると動きます（URLは下の設定）。</div>
+  <div class="out" id="outPreview">{}</div>
 </div>
 
 <script>
-  // ====== Settings ======
-  // ここに Apps Script の WebアプリURLを入れる（後述のGASをデプロイしたURL）
-  const SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwLyrVpKlQSAWCJXRufi1HIRBfJYVrXg1NGCeCtP9lRqM0N-8TyevnsNKoV0n8UMb1D/exec"; // 例: "https://script.google.com/macros/s/XXXX/exec"
-
+  // ===== State =====
   const PLAY_BARS = 8;
-
-  // ====== State ======
-  // 各スロットを「構造」で保持（文字の足し算はしない）
   const state = Array.from({length: PLAY_BARS}, () => ({
     A: {root:"", qual:"", bass:""},
     B: {root:"", qual:"", bass:""}
   }));
-
   let selectedBar = 1;
   let selectedHalf = "A";
-  let bassMode = false; // trueの時、次のルートはbassへ入れる
+  let bassMode = false;
+  let lastLookup = null; // {ok,rowIndex,meta,originalChords}
 
-  // ====== Helpers ======
+  // ===== Util =====
+  function $(id){ return document.getElementById(id); }
+  function val(id){ return String($(id).value||"").trim(); }
+
+  function toast(msg){
+    const d=document.createElement("div");
+    d.textContent=msg;
+    d.style.position="fixed";
+    d.style.left="50%";
+    d.style.bottom="24px";
+    d.style.transform="translateX(-50%)";
+    d.style.background="#111";
+    d.style.color="#fff";
+    d.style.padding="10px 14px";
+    d.style.borderRadius="999px";
+    d.style.fontSize="14px";
+    d.style.opacity="0.95";
+    d.style.zIndex="9999";
+    document.body.appendChild(d);
+    setTimeout(()=>{ d.remove(); }, 1400);
+  }
+
+  function setStatus(msg){
+    $("statusMsg").textContent = msg || "";
+  }
+
+  function esc(s){
+    return String(s??"")
+      .replaceAll("&","&amp;").replaceAll("<","&lt;")
+      .replaceAll(">","&gt;").replaceAll('"',"&quot;")
+      .replaceAll("'","&#39;");
+  }
+
   function slot(){ return state[selectedBar-1][selectedHalf]; }
 
-  function buildChordString(slotObj){
-    const r = (slotObj.root||"").trim();
-    const q = (slotObj.qual||"").trim();
-    const b = (slotObj.bass||"").trim();
+  function buildChordString(s){
+    const r=(s.root||"").trim();
+    const q=(s.qual||"").trim();
+    const b=(s.bass||"").trim();
     if(!r) return "";
-    let s = r + q;
-    if(b) s += "/" + b;
-    return s;
+    let out = r + q;
+    if(b) out += "/" + b;
+    return out;
   }
 
   function buildBarChord(i){
@@ -312,6 +318,100 @@
     return "";
   }
 
+  // ===== Render =====
+  function renderHalfButtons(){
+    $("btnHalfA").classList.toggle("primary", selectedHalf==="A");
+    $("btnHalfB").classList.toggle("primary", selectedHalf==="B");
+  }
+
+  function renderBars(){
+    const grid = $("barGrid");
+    grid.innerHTML = "";
+    for(let i=1;i<=PLAY_BARS;i++){
+      const row = document.createElement("div");
+      row.className = "bar";
+
+      const idx = document.createElement("div");
+      idx.className = "idx";
+      idx.textContent = i;
+
+      const aStr = buildChordString(state[i-1].A);
+      const bStr = buildChordString(state[i-1].B);
+
+      const slotA = document.createElement("div");
+      slotA.className = "slot" + (selectedBar===i && selectedHalf==="A" ? " active" : "");
+      slotA.onclick = ()=>{ selectedBar=i; selectedHalf="A"; bassMode=false; renderAll(); };
+      slotA.innerHTML = `<div class="txt">${esc(aStr || "（前半）")}</div><div class="badge">A</div>`;
+
+      const slotB = document.createElement("div");
+      slotB.className = "slot" + (selectedBar===i && selectedHalf==="B" ? " active" : "");
+      slotB.onclick = ()=>{ selectedBar=i; selectedHalf="B"; bassMode=false; renderAll(); };
+      slotB.innerHTML = `<div class="txt">${esc(bStr || "（後半）")}</div><div class="badge">B</div>`;
+
+      row.appendChild(idx);
+      row.appendChild(slotA);
+      row.appendChild(slotB);
+      grid.appendChild(row);
+    }
+  }
+
+  function renderMeta(){
+    const g = $("metaGrid");
+    g.innerHTML = "";
+    if(!lastLookup || !lastLookup.ok){
+      g.innerHTML = `<div class="muted">（未取得）</div>`;
+      return;
+    }
+    const m = lastLookup.meta || {};
+    const items = [
+      ["Artist", m.Artist], ["title", m.title],
+      ["words", m.words], ["music", m.music],
+      ["arrange", m.arrange], ["Year", m.Year],
+      ["original_key", m.original_key], ["Quiz_key", m.Quiz_key],
+      ["ID", m.ID], ["Rank", m.Rank],
+      ["number", m.number], ["row", lastLookup.rowIndex]
+    ];
+    for(const [k,v] of items){
+      const div=document.createElement("div");
+      div.className="metaItem";
+      div.innerHTML = `<div class="k">${esc(k)}</div><div class="v">${esc(v||"")}</div>`;
+      g.appendChild(div);
+    }
+  }
+
+  function renderPads(){
+    const roots = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B","D♭","E♭","G♭","A♭","B♭"];
+    const rootPad = $("rootPad");
+    rootPad.innerHTML = "";
+    roots.forEach(r=>{
+      const b=document.createElement("button");
+      b.className="btn";
+      b.textContent=r;
+      b.onclick=()=>applyRoot(r);
+      rootPad.appendChild(b);
+    });
+
+    // M7は削除、mM7追加
+    const quals = ["", "m", "7", "m7", "maj7", "mM7", "dim", "aug", "sus4", "m7-5", "add9", "9", "6", "m6"];
+    const qualPad = $("qualPad");
+    qualPad.innerHTML = "";
+    quals.forEach(q=>{
+      const b=document.createElement("button");
+      b.className="btn";
+      b.textContent = (q==="") ? "（なし）" : q;
+      b.onclick=()=>applyQuality(q);
+      qualPad.appendChild(b);
+    });
+  }
+
+  function renderAll(){
+    renderHalfButtons();
+    renderBars();
+    renderMeta();
+    document.title = buildChordString(slot()) ? `入力中: ${buildChordString(slot())}` : "Progression Entry（取得→反映）";
+  }
+
+  // ===== UI actions =====
   function setHalf(h){
     selectedHalf = h;
     bassMode = false;
@@ -333,6 +433,18 @@
     renderAll();
   }
 
+  function clearAll(){
+    for(let i=0;i<PLAY_BARS;i++){
+      state[i].A = {root:"", qual:"", bass:""};
+      state[i].B = {root:"", qual:"", bass:""};
+    }
+    lastLookup = null;
+    $("outPreview").textContent = "{}";
+    setStatus("");
+    bassMode=false;
+    renderAll();
+  }
+
   function clearQuality(){
     slot().qual = "";
     renderAll();
@@ -347,160 +459,187 @@
   function toggleBassMode(){
     bassMode = !bassMode;
     toast(bassMode ? "オンベース入力：次にルートを押してください" : "オンベース入力：解除");
-    renderAll();
   }
 
   function applyRoot(root){
     const s = slot();
     if(bassMode){
-      s.bass = root; // bassは上書き
+      s.bass = root; // 上書き
       bassMode = false;
     }else{
-      s.root = root; // rootは上書き
+      s.root = root; // 上書き
     }
     renderAll();
   }
 
   function applyQuality(qual){
-    // qualは上書き（押すたび置き換え）
-    const s = slot();
-    s.qual = qual;
+    slot().qual = qual; // 上書き
     renderAll();
   }
 
-  function escapeHtml(s){
-    return String(s??"")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#39;");
-  }
+  // ===== Lookup / Fill / Update =====
+  async function lookup(){
+    if(!WEBAPP_URL){
+      toast("WEBAPP_URL未設定");
+      return;
+    }
+    const era = val("inEra");
+    const rank = val("inRank");
+    const part = val("inPart");
+    if(!era || !rank || !part){
+      toast("ERA/Rank/Part を入れてください");
+      return;
+    }
+    setStatus("取得中...");
+    try{
+      const url = new URL(WEBAPP_URL);
+      url.searchParams.set("action","lookup");
+      url.searchParams.set("era", era);
+      url.searchParams.set("rank", rank);
+      url.searchParams.set("part", part);
 
-  function val(id){
-    const el=document.getElementById(id);
-    return (el && el.value!=null) ? String(el.value).trim() : "";
-  }
-  function numOrText(id){
-    const s = val(id);
-    if(s==="") return "";
-    const n = Number(s);
-    return Number.isFinite(n) ? n : s;
-  }
-
-  // ====== UI Render ======
-  function renderBars(){
-    const grid = document.getElementById("barGrid");
-    grid.innerHTML = "";
-    for(let i=1;i<=PLAY_BARS;i++){
-      const row = document.createElement("div");
-      row.className = "bar";
-
-      const idx = document.createElement("div");
-      idx.className = "idx";
-      idx.textContent = i;
-
-      const aStr = buildChordString(state[i-1].A);
-      const bStr = buildChordString(state[i-1].B);
-
-      const slotA = document.createElement("div");
-      slotA.className = "slot" + (selectedBar===i && selectedHalf==="A" ? " active" : "");
-      slotA.onclick = ()=>{ selectedBar=i; selectedHalf="A"; bassMode=false; renderAll(); };
-      slotA.innerHTML = `<div class="txt">${escapeHtml(aStr || "（前半）")}</div><div class="badge">A</div>`;
-
-      const slotB = document.createElement("div");
-      slotB.className = "slot" + (selectedBar===i && selectedHalf==="B" ? " active" : "");
-      slotB.onclick = ()=>{ selectedBar=i; selectedHalf="B"; bassMode=false; renderAll(); };
-      slotB.innerHTML = `<div class="txt">${escapeHtml(bStr || "（後半）")}</div><div class="badge">B</div>`;
-
-      row.appendChild(idx);
-      row.appendChild(slotA);
-      row.appendChild(slotB);
-      grid.appendChild(row);
+      const r = await fetch(url.toString(), { method:"GET" });
+      const txt = await r.text();
+      if(!r.ok){
+        console.error(txt);
+        setStatus("取得失敗");
+        toast("取得失敗");
+        return;
+      }
+      let data = null;
+      try{ data = JSON.parse(txt); }catch(e){ data=null; }
+      if(!data || data.ok !== true){
+        console.error(txt);
+        lastLookup = data;
+        renderMeta();
+        setStatus("見つかりません");
+        toast("該当行なし");
+        return;
+      }
+      lastLookup = data;
+      setStatus(`取得OK（行 ${data.rowIndex}）`);
+      toast("取得OK");
+      renderAll();
+    }catch(e){
+      console.error(e);
+      setStatus("取得失敗（通信）");
+      toast("取得失敗（通信）");
     }
   }
 
-  function renderPads(){
-    // ルート：#と♭両方入れる（入力しやすさ重視）
-    const roots = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B","D♭","E♭","G♭","A♭","B♭"];
-    const rootPad = document.getElementById("rootPad");
-    rootPad.innerHTML = "";
-    roots.forEach(r=>{
-      const b=document.createElement("button");
-      b.className="btn";
-      b.textContent=r;
-      b.onclick=()=>applyRoot(r);
-      rootPad.appendChild(b);
-    });
-
-    // クオリティ：M7削除、mM7追加
-    const quals = [
-      "", "m", "7", "m7", "maj7", "mM7", "dim", "aug",
-      "sus4", "m7-5", "add9", "9", "6", "m6"
-    ];
-    const qualPad = document.getElementById("qualPad");
-    qualPad.innerHTML = "";
-    quals.forEach(q=>{
-      const b=document.createElement("button");
-      b.className="btn";
-      b.textContent = (q==="") ? "（なし）" : q;
-      b.onclick=()=>applyQuality(q);
-      qualPad.appendChild(b);
-    });
+  // 既存の originalChords を BOXへ展開したい時用（任意）
+  function fillFromExisting(){
+    if(!lastLookup || !lastLookup.ok){
+      toast("先に取得してください");
+      return;
+    }
+    const arr = (lastLookup.originalChords || []).concat(["","","","","","","",""]).slice(0,8);
+    for(let i=0;i<8;i++){
+      // "A│B" なら分割して入れる。それ以外はAだけに入れる。
+      const raw = String(arr[i]||"").trim();
+      state[i].A = {root:"", qual:"", bass:""};
+      state[i].B = {root:"", qual:"", bass:""};
+      if(!raw) continue;
+      const parts = raw.split("│").map(x=>x.trim()).filter(Boolean);
+      if(parts.length>=2){
+        parseToSlot_(parts[0], state[i].A);
+        parseToSlot_(parts[1], state[i].B);
+      }else{
+        parseToSlot_(raw, state[i].A);
+      }
+    }
+    toast("既存コードをBOXへ反映");
+    renderAll();
   }
 
-  function renderHalfButtons(){
-    document.getElementById("btnHalfA").classList.toggle("primary", selectedHalf==="A");
-    document.getElementById("btnHalfB").classList.toggle("primary", selectedHalf==="B");
+  // chord文字列を slotに分解（簡易：root + rest / bass）
+  function parseToSlot_(chord, slotObj){
+    // 例: "Em7/B" "C#maj7" "F#m7-5"
+    const s = String(chord||"").trim();
+    const slash = s.split("/");
+    const head = (slash[0]||"").trim();
+    const bass = (slash[1]||"").trim();
+
+    const m = head.match(/^([A-G](?:#|♭|b)?)(.*)$/);
+    slotObj.root = m ? m[1].replaceAll("b","♭") : "";
+    slotObj.qual = m ? (m[2]||"") : "";
+    slotObj.bass = bass ? bass.replaceAll("b","♭") : "";
   }
 
-  function renderTitle(){
-    const s = slot();
-    const now = buildChordString(s);
-    document.title = now ? `入力中: ${now}` : "Progression Entry (Tap UI)";
-  }
+  async function applyUpdate(){
+    if(!WEBAPP_URL){
+      toast("WEBAPP_URL未設定");
+      return;
+    }
+    if(!lastLookup || !lastLookup.ok){
+      toast("先に取得してください");
+      return;
+    }
+    const era = val("inEra");
+    const rank = val("inRank");
+    const part = val("inPart");
 
-  function renderAll(){
-    renderBars();
-    renderHalfButtons();
-    renderTitle();
-  }
-
-  // ====== JSON / Copy / Push ======
-  function generateJson(){
+    // 8小節ぶん組み立て
     const chords = [];
-    for(let i=0;i<PLAY_BARS;i++){
+    for(let i=0;i<8;i++){
       chords.push(buildBarChord(i));
     }
 
-    const obj = {
-      artist: val("artist"),
-      title: val("title"),
-      part: val("part"),
-      ERA: val("era"),
-      rank: numOrText("rank"),
-      year: numOrText("year"),
-      words: val("words"),
-      music: val("music"),
-      arrange: val("arrange"),
-      original_key: val("okey"),
-      quiz_key: val("qkey") || "C",
-      tag1: val("tag1"),
-      tag2: val("tag2"),
-      tag3: val("tag3"),
-      tag4: val("tag4"),
-      comment: val("comment"),
-      chords: chords,
-      // degreesは今は空（必要になったら同様にタップUI化できます）
-      degrees: ["","","","","","","",""]
-    };
+    setStatus("反映中...");
+    try{
+      const params = new URLSearchParams();
+      params.set("action","update");
+      params.set("era", era);
+      params.set("rank", rank);
+      params.set("part", part);
+      for(let i=1;i<=8;i++){
+        params.set("c"+i, chords[i-1] || "");
+      }
 
-    document.getElementById("outJson").textContent = JSON.stringify(obj, null, 2);
-    return obj;
+      // ★ヘッダは付けない（preflight回避）
+      const r = await fetch(WEBAPP_URL, { method:"POST", body: params });
+      const txt = await r.text();
+      if(!r.ok){
+        console.error(txt);
+        setStatus("反映失敗");
+        toast("反映失敗");
+        return;
+      }
+      let data = null;
+      try{ data = JSON.parse(txt); }catch(_e){ data=null; }
+      if(data && data.ok === true){
+        setStatus(`反映OK（行 ${data.updatedRow}）`);
+        toast("反映OK");
+      }else{
+        console.error(txt);
+        setStatus("反映失敗（応答）");
+        toast("反映失敗（応答）");
+      }
+    }catch(e){
+      console.error(e);
+      setStatus("反映失敗（通信）");
+      toast("反映失敗（通信）");
+    }
   }
 
-  async function copyJson(){
-    const txt = document.getElementById("outJson").textContent;
+  function preview(){
+    const era = val("inEra");
+    const rank = val("inRank");
+    const part = val("inPart");
+    const chords = [];
+    for(let i=0;i<8;i++){
+      chords.push(buildBarChord(i));
+    }
+    const obj = {
+      key: { era, rank, part },
+      row: lastLookup ? lastLookup.rowIndex : null,
+      original_Chord_1_8: chords
+    };
+    $("outPreview").textContent = JSON.stringify(obj, null, 2);
+  }
+
+  async function copyPreview(){
+    const txt = $("outPreview").textContent;
     try{
       await navigator.clipboard.writeText(txt);
       toast("コピーしました");
@@ -511,61 +650,8 @@
       ta.select();
       document.execCommand("copy");
       document.body.removeChild(ta);
-      toast("コピーしました（互換モード）");
+      toast("コピーしました（互換）");
     }
-  }
-
-  async function pushToSheet(){
-    const obj = generateJson();
-    if(!SHEET_WEBAPP_URL){
-      toast("SHEET_WEBAPP_URL が未設定です");
-      return;
-    }
-    try{
-      const r = await fetch(SHEET_WEBAPP_URL, {
-        method:"POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(obj)
-      });
-      const t = await r.text();
-      if(!r.ok){
-        console.error(t);
-        toast("更新失敗（ログ参照）");
-        return;
-      }
-      toast("スプシに追記しました");
-    }catch(e){
-      console.error(e);
-      toast("更新失敗（通信エラー）");
-    }
-  }
-
-  function resetAll(){
-    for(let i=0;i<PLAY_BARS;i++){
-      state[i].A = {root:"", qual:"", bass:""};
-      state[i].B = {root:"", qual:"", bass:""};
-    }
-    document.getElementById("outJson").textContent="{}";
-    bassMode=false;
-    renderAll();
-  }
-
-  function toast(msg){
-    const d=document.createElement("div");
-    d.textContent=msg;
-    d.style.position="fixed";
-    d.style.left="50%";
-    d.style.bottom="24px";
-    d.style.transform="translateX(-50%)";
-    d.style.background="#111";
-    d.style.color="#fff";
-    d.style.padding="10px 14px";
-    d.style.borderRadius="999px";
-    d.style.fontSize="14px";
-    d.style.opacity="0.95";
-    d.style.zIndex="9999";
-    document.body.appendChild(d);
-    setTimeout(()=>{ d.remove(); }, 1400);
   }
 
   // init
