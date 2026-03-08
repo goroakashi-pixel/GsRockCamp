@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Progression_ver1.2.9</title>
+<title>Progression_ver1.2.10</title>
 
 <style>
 body{
@@ -81,11 +81,15 @@ font-weight:bold;
 
 <body>
 
-<h2>Progression_ver1.2.9</h2>
+<h2>Progression_ver1.2.10</h2>
 
 <div style="text-align:right;"><button onclick="location.href='./songs.html'">楽曲リスト</button></div>
 
-<button onclick="location.href='../../index.html'">ポータルへ戻る</button> <button onclick="newQuestion()">出題</button> <button onclick="playProgression()">PLAY!</button> <button id="hintBtn" onclick="hint()">ヒント</button> <button onclick="replay()">もう一回</button>
+<button onclick="location.href='../../index.html'">ポータルへ戻る</button>
+<button onclick="newQuestion()">出題</button>
+<button onclick="playProgression()">PLAY!</button>
+<button id="hintBtn" onclick="hint()">ヒント</button>
+<button onclick="replay()">もう一回</button>
 
 <div id="meta"></div>
 <div class="hr"></div>
@@ -97,23 +101,50 @@ font-weight:bold;
 <div id="statusWrap">
 <table id="statusTable">
 <thead>
-<tr><th>項目</th><th>1</th><th>2</th><th>3</th><th>4</th></tr>
+<tr>
+  <th>項目</th>
+  <th>1</th><th>2</th><th>3</th><th>4</th>
+  <th>5</th><th>6</th><th>7</th><th>8</th>
+</tr>
 </thead>
 <tbody>
-<tr><th>Chord</th><td id="st_chord_1"></td><td id="st_chord_2"></td><td id="st_chord_3"></td><td id="st_chord_4"></td></tr>
-<tr><th>degree</th><td id="st_degree_1"></td><td id="st_degree_2"></td><td id="st_degree_3"></td><td id="st_degree_4"></td></tr>
-<tr><th>non_diatonic</th><td id="st_nd_1"></td><td id="st_nd_2"></td><td id="st_nd_3"></td><td id="st_nd_4"></td></tr>
-<tr><th>PIANO1</th><td id="st_p1_1"></td><td id="st_p1_2"></td><td id="st_p1_3"></td><td id="st_p1_4"></td></tr>
-<tr><th>PIANO2</th><td id="st_p2_1"></td><td id="st_p2_2"></td><td id="st_p2_3"></td><td id="st_p2_4"></td></tr>
-<tr><th>PIANO3</th><td id="st_p3_1"></td><td id="st_p3_2"></td><td id="st_p3_3"></td><td id="st_p3_4"></td></tr>
-<tr><th>PIANO4</th><td id="st_p4_1"></td><td id="st_p4_2"></td><td id="st_p4_3"></td><td id="st_p4_4"></td></tr>
-<tr><th>BASS</th><td id="st_bass_1"></td><td id="st_bass_2"></td><td id="st_bass_3"></td><td id="st_bass_4"></td></tr>
+<tr><th>Chord</th>
+  <td id="st_chord_1"></td><td id="st_chord_2"></td><td id="st_chord_3"></td><td id="st_chord_4"></td>
+  <td id="st_chord_5"></td><td id="st_chord_6"></td><td id="st_chord_7"></td><td id="st_chord_8"></td>
+</tr>
+<tr><th>degree</th>
+  <td id="st_degree_1"></td><td id="st_degree_2"></td><td id="st_degree_3"></td><td id="st_degree_4"></td>
+  <td id="st_degree_5"></td><td id="st_degree_6"></td><td id="st_degree_7"></td><td id="st_degree_8"></td>
+</tr>
+<tr><th>non_diatonic</th>
+  <td id="st_nd_1"></td><td id="st_nd_2"></td><td id="st_nd_3"></td><td id="st_nd_4"></td>
+  <td id="st_nd_5"></td><td id="st_nd_6"></td><td id="st_nd_7"></td><td id="st_nd_8"></td>
+</tr>
+<tr><th>PIANO1</th>
+  <td id="st_p1_1"></td><td id="st_p1_2"></td><td id="st_p1_3"></td><td id="st_p1_4"></td>
+  <td id="st_p1_5"></td><td id="st_p1_6"></td><td id="st_p1_7"></td><td id="st_p1_8"></td>
+</tr>
+<tr><th>PIANO2</th>
+  <td id="st_p2_1"></td><td id="st_p2_2"></td><td id="st_p2_3"></td><td id="st_p2_4"></td>
+  <td id="st_p2_5"></td><td id="st_p2_6"></td><td id="st_p2_7"></td><td id="st_p2_8"></td>
+</tr>
+<tr><th>PIANO3</th>
+  <td id="st_p3_1"></td><td id="st_p3_2"></td><td id="st_p3_3"></td><td id="st_p3_4"></td>
+  <td id="st_p3_5"></td><td id="st_p3_6"></td><td id="st_p3_7"></td><td id="st_p3_8"></td>
+</tr>
+<tr><th>PIANO4</th>
+  <td id="st_p4_1"></td><td id="st_p4_2"></td><td id="st_p4_3"></td><td id="st_p4_4"></td>
+  <td id="st_p4_5"></td><td id="st_p4_6"></td><td id="st_p4_7"></td><td id="st_p4_8"></td>
+</tr>
+<tr><th>BASS</th>
+  <td id="st_bass_1"></td><td id="st_bass_2"></td><td id="st_bass_3"></td><td id="st_bass_4"></td>
+  <td id="st_bass_5"></td><td id="st_bass_6"></td><td id="st_bass_7"></td><td id="st_bass_8"></td>
+</tr>
 </tbody>
 </table>
 </div>
 
 <script>
-
 /* =========================
    既存の音源再生プログラム（完全採用）
    ※ただし # を含むファイル名を fetch するため、URLだけ %23 に変換して読む
@@ -229,6 +260,10 @@ play(buf.drum,time,fade)
    ゲーム部分
    ========================= */
 
+/* ここで「クイズは4小節」「再生は8小節」を分離 */
+const QUIZ_BARS = 4
+const PLAY_BARS = 8
+
 const NON_DIATONIC_CANDIDATES = ["Ⅳm","Ⅲ7","Ⅱ7","Ⅵ7","♭Ⅶ","♭Ⅲ","♭Ⅵ","dim","aug"]
 
 let DB=[]
@@ -296,12 +331,13 @@ DB=[]
 return dbReadyPromise
 }
 
+/* chords/degrees は 8個ある前提（ただしクイズは先頭4個を使う） */
 function hasChordData(q){
-return q && Array.isArray(q.chords) && q.chords.length===4 && q.chords.every(x=>String(x).trim().length>0)
+return q && Array.isArray(q.chords) && q.chords.length>=PLAY_BARS && q.chords.slice(0,PLAY_BARS).every(x=>String(x).trim().length>0)
 }
 
 function hasDegreeData(q){
-return q && Array.isArray(q.degrees) && q.degrees.length===4 && q.degrees.every(x=>String(x).trim().length>0)
+return q && Array.isArray(q.degrees) && q.degrees.length>=PLAY_BARS && q.degrees.slice(0,PLAY_BARS).every(x=>String(x).trim().length>0)
 }
 
 function truthyNonDiatonic(v){
@@ -319,10 +355,11 @@ if(/7/.test(t) && !/^Ⅴ7?$/.test(t)) return true
 return false
 }
 
-function collectNonDiatonicIndices(q){
+/* n個ぶんだけ非ダイアトニックを判定（クイズ=4／表示=8で使い分け） */
+function collectNonDiatonicIndices(q, n){
 const idx=[]
 let hasFlagKey=false
-for(let i=1;i<=4;i++){
+for(let i=1;i<=n;i++){
 const key = `non_diatonic_${i}`
 if(Object.prototype.hasOwnProperty.call(q,key)){
 hasFlagKey=true
@@ -330,7 +367,7 @@ if(truthyNonDiatonic(q[key])) idx.push(i-1)
 }
 }
 if(hasFlagKey) return idx
-const degs = hasDegreeData(q) ? q.degrees : []
+const degs = (q && Array.isArray(q.degrees)) ? q.degrees.slice(0,n) : []
 for(let i=0;i<degs.length;i++){
 if(fallbackIsNonDiatonicDegree(degs[i])) idx.push(i)
 }
@@ -357,8 +394,8 @@ return arr.map(normalizeDegreeForDisplay).join(" → ")
 }
 
 function buildPatternAQuiz(q){
-const degs = q.degrees.slice(0,4)
-const nonDiaIdx = collectNonDiatonicIndices(q)
+const degs = q.degrees.slice(0,QUIZ_BARS)
+const nonDiaIdx = collectNonDiatonicIndices(q, QUIZ_BARS)
 if(nonDiaIdx.length===0) return null
 const hiddenIndex = chooseRandom(nonDiaIdx)
 const correct = normalizeDegreeForDisplay(String(degs[hiddenIndex]).trim())
@@ -457,7 +494,7 @@ return out
 }
 
 function buildPatternBQuiz(q){
-const degs = q.degrees.slice(0,4)
+const degs = q.degrees.slice(0,QUIZ_BARS)
 const correct = degreeString(degs)
 const choiceSet = new Set([correct])
 const generated = [
@@ -473,10 +510,10 @@ choiceSet.add(g)
 }
 
 if(choiceSet.size<4){
-const dbPool = shuffle(DB.filter(row=>hasDegreeData(row) && collectNonDiatonicIndices(row).length===0))
+const dbPool = shuffle(DB.filter(row=>hasDegreeData(row) && collectNonDiatonicIndices(row,QUIZ_BARS).length===0))
 for(const row of dbPool){
 if(choiceSet.size>=4) break
-choiceSet.add(degreeString(row.degrees.slice(0,4)))
+choiceSet.add(degreeString(row.degrees.slice(0,QUIZ_BARS)))
 }
 }
 
@@ -510,7 +547,7 @@ questionText:""
 
 function buildQuizForQuestion(q){
 if(!hasDegreeData(q)) return null
-const nonDiaIdx = collectNonDiatonicIndices(q)
+const nonDiaIdx = collectNonDiatonicIndices(q, QUIZ_BARS)
 if(nonDiaIdx.length>0){
 return buildPatternAQuiz(q)
 }
@@ -573,7 +610,8 @@ el.classList.remove("error-cell")
 }
 
 function renderStatusTable(){
-for(let i=1;i<=4;i++){
+/* 8列クリア */
+for(let i=1;i<=PLAY_BARS;i++){
 setCell(`st_chord_${i}`,"")
 setCell(`st_degree_${i}`,"")
 setCell(`st_nd_${i}`,"")
@@ -585,15 +623,17 @@ setCell(`st_bass_${i}`,"")
 }
 if(!current) return
 
-const degs = current.degrees.slice(0,4)
-const ch = current.chords.slice(0,4)
-const ndSet = new Set(collectNonDiatonicIndices(current))
+const degs = current.degrees.slice(0,PLAY_BARS)
+const ch = current.chords.slice(0,PLAY_BARS)
+const ndSet = new Set(collectNonDiatonicIndices(current, PLAY_BARS))
 
-for(let i=0;i<4;i++){
+for(let i=0;i<PLAY_BARS;i++){
 const col = i+1
 setCell(`st_chord_${col}`, String(ch[i]||""))
 setCell(`st_degree_${col}`, normalizeDegreeForDisplay(String(degs[i]||"")))
 setCell(`st_nd_${col}`, ndSet.has(i) ? "True" : "False")
+
+/* 表のPiano/Bassは、その小節の先頭コードで代表 */
 const seg = getBarSegments(ch[i])[0]
 const pn = pianoVoicing(seg.raw)
 setCell(`st_p1_${col}`, pn[0]||"")
@@ -744,7 +784,7 @@ a.play()
 }
 
 /* =========================
-   進行の再生（DBの chord 4つを鳴らす）
+   進行の再生（DBの chord 8つを鳴らす）
    BPM120 / 1小節2秒 / 最後だけフェード
    ========================= */
 
@@ -863,25 +903,30 @@ if(!current || !currentQuiz) return
 if(!hasChordData(current)) return
 await prepareAudioForGesture()
 stopAllPlaying()
+
 let t = ctx.currentTime + 0.1
 let bar = 2.0
-const ch = current.chords.slice(0,4)
-for(let i=0;i<4;i++){
+
+const ch = current.chords.slice(0,PLAY_BARS)
+for(let i=0;i<PLAY_BARS;i++){
 const baseTime = t + bar*i
-const isLastBar = (i===3)
+const isLastBar = (i===PLAY_BARS-1)
 const segs = getBarSegments(ch[i])
 
 drum(baseTime, isLastBar)
+
 for(let j=0;j<segs.length;j++){
 const seg = segs[j]
 const segTime = baseTime + seg.offset
 const segFade = (isLastBar && j===segs.length-1)
+
 const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot)
 const bname = bassBufferName(rootPc)
 bass(bname, segTime, segFade)
 piano(pianoVoicing(seg.raw), segTime, segFade)
 }
 }
+
 renderQuiz()
 renderStatusTable()
 }
