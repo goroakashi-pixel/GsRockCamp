@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>Progression_ver1.2.10</title>
+<title>Progression_ver1.3.1</title>
 
 <style>
 body{
@@ -81,7 +81,7 @@ font-weight:bold;
 
 <body>
 
-<h2>Progression_ver1.2.10</h2>
+<h2>Progression_ver1.3.1</h2>
 
 <div style="text-align:right;"><button onclick="location.href='./songs.html'">楽曲リスト</button></div>
 
@@ -255,8 +255,24 @@ function bass(note,time,fade=false){
 play(buf[note],time,fade)
 }
 
-function bassWithDuration(note,time,durationSec,fade=false){
-play(buf[note],time,fade,durationSec)
+function bassSplitFirstHalf(note,time,durationSec){
+const buffer = buf[note]
+if(!buffer) return
+const s = ctx.createBufferSource()
+const g = ctx.createGain()
+s.buffer = buffer
+s.connect(g)
+g.connect(ctx.destination)
+
+const fadeSec = 0.1
+const fadeStart = time + Math.max(0, durationSec - fadeSec)
+g.gain.setValueAtTime(1, time)
+g.gain.setValueAtTime(1, fadeStart)
+g.gain.linearRampToValueAtTime(0, time + durationSec)
+
+s.start(time)
+try{ s.stop(time + durationSec) }catch(_e){}
+activeSources.push(s)
 }
 
 function drum(time,fade=false){
@@ -929,7 +945,11 @@ const segFade = (isLastBar && j===segs.length-1)
 
 const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot)
 const bname = bassBufferName(rootPc)
-bassWithDuration(bname, segTime, seg.duration, segFade)
+if(segs.length>=2 && j<segs.length-1){
+bassSplitFirstHalf(bname, segTime, seg.duration)
+}else{
+bass(bname, segTime, segFade)
+}
 piano(pianoVoicing(seg.raw), segTime, segFade)
 }
 }
