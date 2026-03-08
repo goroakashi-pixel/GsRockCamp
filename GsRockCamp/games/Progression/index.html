@@ -220,7 +220,7 @@ buf.__loaded = true
 
 }
 
-function play(buffer,time,fade=false){
+function play(buffer,time,fade=false,stopAfterSec=null){
 if(!buffer) return null
 const s = ctx.createBufferSource()
 const g = ctx.createGain()
@@ -233,6 +233,9 @@ g.gain.setValueAtTime(1, time + 2.1)
 g.gain.linearRampToValueAtTime(0, time + 2.2)
 }
 s.start(time)
+if(typeof stopAfterSec === "number" && stopAfterSec>0){
+try{ s.stop(time + stopAfterSec) }catch(_e){}
+}
 activeSources.push(s)
 return s
 }
