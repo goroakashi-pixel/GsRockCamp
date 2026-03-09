@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.8</title>
+<title>Progression Entry ver1.3.9</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -20,26 +20,29 @@
   .btn.warn{border:2px solid var(--warn);color:var(--warn);font-weight:700;}
   .btn.small{font-size:14px;padding:8px 10px;min-height:40px;}
   .muted{color:var(--muted);font-size:13px;}
-  .hr{margin:12px 0;border-top:1px solid var(--line);}
-  .grid{display:grid;grid-template-columns:1fr;gap:8px;}
-  .bar{display:grid;grid-template-columns:60px 1fr 1fr;gap:8px;align-items:stretch;}
-  .bar .idx{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:12px;background:#fafafa;font-weight:700;}
-  .slot{border:2px solid var(--line);border-radius:12px;padding:10px 10px;min-height:var(--tap-min-h);display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;}
+  .grid{display:grid;grid-template-columns:1fr;gap:6px;}
+  .bar{display:grid;grid-template-columns:46px 1fr 1fr;gap:6px;align-items:stretch;}
+  .bar .idx{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:10px;background:#fafafa;font-weight:700;font-size:14px;min-height:26px;}
+  .slot{border:2px solid var(--line);border-radius:10px;padding:4px 8px;min-height:26px;display:flex;align-items:center;justify-content:space-between;gap:6px;background:#fff;}
   .slot.active{border-color:var(--blue);box-shadow:0 0 0 2px rgba(29,78,216,0.12);}
-  .slot .txt{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .badge{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:2px 8px;border-radius:999px;background:#f7f7f7;}
+  .slot.playing{border-color:#111;background:#f6f6f6;}
+  .slot .txt{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .badge{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:1px 6px;border-radius:999px;background:#f7f7f7;line-height:1.2;}
   .kbd{display:flex;gap:8px;flex-wrap:wrap;}
   .metaGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
   .metaItem{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fafafa;}
   .metaItem .k{font-size:12px;color:var(--muted);}
   .metaItem .v{font-size:15px;font-weight:600;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .toneBox{margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#fafafa;}
+  .toneTitle{font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .toneValue{font-size:15px;font-weight:600;min-height:20px;}
 </style>
 </head>
 
 <body>
 
-<h2>Progression Entry ver1.3.8</h2>
-<div class="muted">ERA/Rank/Part → 取得 → コード入力 → 反映。</div>
+<h2>Progression Entry ver1.3.9</h2>
+<div class="muted">ERA/Rank/Part → 取得 → コード入力 → 視聴 / 反映。</div>
 
 <div class="card">
   <div class="row">
@@ -77,8 +80,6 @@
 
   <div class="row" style="margin-top:8px;">
     <button class="btn primary" id="btnLookup">取得</button>
-    <button class="btn" id="btnFill">既存コードをBOXへ（任意）</button>
-    <button class="btn primary" id="btnUpdate">反映（更新）</button>
     <span class="muted" id="statusMsg"></span>
   </div>
 </div>
@@ -92,13 +93,16 @@
   <div class="row" style="justify-content:space-between;">
     <div class="muted">小節入力：前半(A)／後半(B)</div>
     <div class="row">
-      <button class="btn small" id="btnHalfA">前半(A)</button>
-      <button class="btn small" id="btnHalfB">後半(B)</button>
+      <button class="btn small" id="btnPreview">視聴</button>
+      <button class="btn small primary" id="btnUpdate">反映（更新）</button>
       <button class="btn small warn" id="btnClearBar">選択小節クリア</button>
-      <button class="btn small" id="btnSwap">A⇔B入替</button>
     </div>
   </div>
-  <div class="grid" id="barGrid"></div>
+  <div class="toneBox">
+    <div class="toneTitle">構成音</div>
+    <div class="toneValue" id="toneView">（停止中）</div>
+  </div>
+  <div class="grid" id="barGrid" style="margin-top:8px;"></div>
 </div>
 
 <div class="card">
@@ -134,6 +138,11 @@ const state = Array.from({length: PLAY_BARS}, () => ({ A:{root:"",qual:"",bass:"
 let selectedBar=1, selectedHalf="A", bassMode=false;
 let lastLookup=null;
 let requestSeq=0;
+let audioCtx=null;
+let previewRunId=0;
+let currentPlayingBar=0;
+let currentPlayingHalf="";
+let lastConditionKey="";
 
 function $(id){ return document.getElementById(id); }
 function val(id){ return String($(id)?.value||"").trim(); }
@@ -156,6 +165,37 @@ function esc(s){
 }
 function slot(){ return state[selectedBar-1][selectedHalf]; }
 
+function currentConditionKey(){
+  return [val("inEra"), val("inRank"), val("inPart")].join("|");
+}
+
+function resetStateData_(){
+  for(let i=0;i<PLAY_BARS;i++){
+    state[i].A={root:"",qual:"",bass:""};
+    state[i].B={root:"",qual:"",bass:""};
+  }
+  lastLookup=null;
+  bassMode=false;
+  selectedBar=1;
+  selectedHalf="A";
+  stopPreview();
+  setToneView("（停止中）");
+  renderAll();
+}
+
+function maybeResetByConditionChange_(){
+  const nowKey=currentConditionKey();
+  if(lastConditionKey!=="" && lastConditionKey!==nowKey){
+    resetStateData_();
+    setStatus("");
+  }
+  lastConditionKey=nowKey;
+}
+
+function setToneView(text){
+  $("toneView").textContent=text || "";
+}
+
 function buildChordString(s){
   const r=(s.root||"").trim(), q=(s.qual||"").trim(), b=(s.bass||"").trim();
   if(!r) return "";
@@ -171,11 +211,6 @@ function buildBarChord(i){
   return "";
 }
 
-function renderHalfButtons(){
-  $("btnHalfA")?.classList.toggle("primary", selectedHalf==="A");
-  $("btnHalfB")?.classList.toggle("primary", selectedHalf==="B");
-}
-
 function renderBars(){
   const grid=$("barGrid"); if(!grid) return;
   grid.innerHTML="";
@@ -187,12 +222,12 @@ function renderBars(){
     const bStr=buildChordString(state[i-1].B);
 
     const slotA=document.createElement("div");
-    slotA.className="slot"+(selectedBar===i && selectedHalf==="A" ? " active":"");
+    slotA.className="slot"+(selectedBar===i && selectedHalf==="A" ? " active":"")+(currentPlayingBar===i && currentPlayingHalf==="A" ? " playing":"");
     slotA.onclick=()=>{selectedBar=i;selectedHalf="A";bassMode=false;renderAll();};
     slotA.innerHTML=`<div class="txt">${esc(aStr||"（前半）")}</div><div class="badge">A</div>`;
 
     const slotB=document.createElement("div");
-    slotB.className="slot"+(selectedBar===i && selectedHalf==="B" ? " active":"");
+    slotB.className="slot"+(selectedBar===i && selectedHalf==="B" ? " active":"")+(currentPlayingBar===i && currentPlayingHalf==="B" ? " playing":"");
     slotB.onclick=()=>{selectedBar=i;selectedHalf="B";bassMode=false;renderAll();};
     slotB.innerHTML=`<div class="txt">${esc(bStr||"（後半）")}</div><div class="badge">B</div>`;
 
@@ -245,16 +280,13 @@ function renderPads(){
 }
 
 function renderAll(){
-  renderHalfButtons();
   renderBars();
   renderMeta();
-  document.title="Progression Entry ver1.3.8";
+  document.title="Progression Entry ver1.3.9";
 }
 
 /* actions */
-function setHalf(h){ selectedHalf=h; bassMode=false; renderAll(); }
 function clearSelected(){ state[selectedBar-1][selectedHalf]={root:"",qual:"",bass:""}; bassMode=false; renderAll(); }
-function swapHalf(){ const bar=state[selectedBar-1]; const t=bar.A; bar.A=bar.B; bar.B=t; bassMode=false; renderAll(); }
 function toggleBassMode(){ bassMode=!bassMode; toast(bassMode?"オンベース：次にルート":"オンベース解除"); }
 function clearBass(){ slot().bass=""; bassMode=false; renderAll(); }
 function clearQuality(){ slot().qual=""; renderAll(); }
@@ -272,19 +304,21 @@ function parseToSlot_(chord, slotObj){
   slotObj.bass = bass ? bass.replaceAll("b","♭") : "";
 }
 
-function fillFromExisting(){
-  if(!lastLookup || !lastLookup.ok){ toast("先に取得"); return; }
-  const arr=(lastLookup.originalChords||[]).concat(["","","","","","","",""]).slice(0,8);
+function fillFromExistingAuto_(payload){
+  const arr=(payload.originalChords||[]).concat(["","","","","","","",""]).slice(0,8);
   for(let i=0;i<8;i++){
-    state[i].A={root:"",qual:"",bass:""}; state[i].B={root:"",qual:"",bass:""};
+    state[i].A={root:"",qual:"",bass:""};
+    state[i].B={root:"",qual:"",bass:""};
     const raw=String(arr[i]||"").trim();
     if(!raw) continue;
     const parts=raw.split("│").map(x=>x.trim()).filter(Boolean);
-    if(parts.length>=2){ parseToSlot_(parts[0],state[i].A); parseToSlot_(parts[1],state[i].B); }
-    else{ parseToSlot_(raw,state[i].A); }
+    if(parts.length>=2){
+      parseToSlot_(parts[0],state[i].A);
+      parseToSlot_(parts[1],state[i].B);
+    }else{
+      parseToSlot_(raw,state[i].A);
+    }
   }
-  toast("既存コードをBOXへ");
-  renderAll();
 }
 
 function cleanupJsonp_(callbackName, scriptEl){
@@ -327,6 +361,7 @@ function lookup(){
     function(payload){
       if(payload && payload.ok && payload.action==="lookup"){
         lastLookup = payload;
+        fillFromExistingAuto_(payload);
         toast(`取得OK（行 ${payload.rowIndex}）`);
         setStatus(`取得OK（行 ${payload.rowIndex}）`);
       }else{
@@ -361,22 +396,233 @@ function applyUpdate(){
   );
 }
 
+/* ===== audition ===== */
+function ensureAudio_(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(audioCtx.state === "suspended"){
+    return audioCtx.resume();
+  }
+  return Promise.resolve();
+}
+
+function noteNameToMidi_(name, octave){
+  const map = {
+    "C":0,"C#":1,"D♭":1,"D":2,"D#":3,"E♭":3,"E":4,"F":5,"F#":6,"G♭":6,"G":7,"G#":8,"A♭":8,"A":9,"A#":10,"B♭":10,"B":11
+  };
+  if(map[name]==null) return null;
+  return (octave + 1) * 12 + map[name];
+}
+
+function midiToFreq_(midi){
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+function chordMidiList_(slotObj){
+  const root = String(slotObj.root||"").trim();
+  if(!root) return [];
+  const qual = String(slotObj.qual||"").trim();
+  const bass = String(slotObj.bass||"").trim();
+
+  const rootMidi = noteNameToMidi_(root, 4);
+  if(rootMidi==null) return [];
+
+  let intervals = [0,4,7];
+  if(qual==="") intervals=[0,4,7];
+  else if(qual==="m") intervals=[0,3,7];
+  else if(qual==="7") intervals=[0,4,7,10];
+  else if(qual==="m7") intervals=[0,3,7,10];
+  else if(qual==="maj7") intervals=[0,4,7,11];
+  else if(qual==="mM7") intervals=[0,3,7,11];
+  else if(qual==="dim") intervals=[0,3,6];
+  else if(qual==="aug") intervals=[0,4,8];
+  else if(qual==="sus4") intervals=[0,5,7];
+  else if(qual==="m7-5") intervals=[0,3,6,10];
+  else if(qual==="add9") intervals=[0,4,7,14];
+  else if(qual==="9") intervals=[0,4,7,10,14];
+  else if(qual==="6") intervals=[0,4,7,9];
+  else if(qual==="m6") intervals=[0,3,7,9];
+
+  const mids = intervals.map(n=>rootMidi+n);
+  if(bass){
+    const bassMidi = noteNameToMidi_(bass, 3);
+    if(bassMidi!=null){
+      return [bassMidi].concat(mids);
+    }
+  }
+  return mids;
+}
+
+function toneNamesFromMidi_(midiList){
+  const names=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  const uniq=[];
+  midiList.forEach(m=>{
+    const n=names[((m%12)+12)%12];
+    if(!uniq.includes(n)) uniq.push(n);
+  });
+  return uniq.join(" / ");
+}
+
+function playKick_(start, dur){
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  osc.type="sine";
+  osc.frequency.setValueAtTime(120, start);
+  osc.frequency.exponentialRampToValueAtTime(45, start+Math.min(0.12,dur));
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.8, start+0.002);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start+Math.min(0.15,dur));
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(start);
+  osc.stop(start+Math.min(0.18,dur));
+}
+
+function playHat_(start, dur){
+  const buffer=audioCtx.createBuffer(1, Math.max(1, Math.floor(audioCtx.sampleRate*0.06)), audioCtx.sampleRate);
+  const data=buffer.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i]=(Math.random()*2-1)*(1-i/data.length);
+  const src=audioCtx.createBufferSource();
+  const filter=audioCtx.createBiquadFilter();
+  const gain=audioCtx.createGain();
+  src.buffer=buffer;
+  filter.type="highpass";
+  filter.frequency.value=5000;
+  gain.gain.setValueAtTime(0.16,start);
+  gain.gain.exponentialRampToValueAtTime(0.0001,start+Math.min(0.06,dur));
+  src.connect(filter).connect(gain).connect(audioCtx.destination);
+  src.start(start);
+}
+
+function playSnare_(start, dur){
+  const buffer=audioCtx.createBuffer(1, Math.max(1, Math.floor(audioCtx.sampleRate*0.12)), audioCtx.sampleRate);
+  const data=buffer.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i]=(Math.random()*2-1)*(1-i/data.length);
+  const src=audioCtx.createBufferSource();
+  const filter=audioCtx.createBiquadFilter();
+  const gain=audioCtx.createGain();
+  src.buffer=buffer;
+  filter.type="bandpass";
+  filter.frequency.value=1800;
+  gain.gain.setValueAtTime(0.0001,start);
+  gain.gain.exponentialRampToValueAtTime(0.35,start+0.002);
+  gain.gain.exponentialRampToValueAtTime(0.0001,start+Math.min(0.12,dur));
+  src.connect(filter).connect(gain).connect(audioCtx.destination);
+  src.start(start);
+}
+
+function playBass_(midi, start, dur){
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  osc.type="triangle";
+  osc.frequency.value=midiToFreq_(midi);
+  gain.gain.setValueAtTime(0.0001,start);
+  gain.gain.exponentialRampToValueAtTime(0.18,start+0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001,start+Math.max(0.12,dur*0.92));
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(start);
+  osc.stop(start+dur);
+}
+
+function playPianoChord_(midiList, start, dur){
+  midiList.forEach((m, idx)=>{
+    const osc=audioCtx.createOscillator();
+    const gain=audioCtx.createGain();
+    osc.type="sine";
+    osc.frequency.value=midiToFreq_(m + (idx===0 ? 0 : 12));
+    gain.gain.setValueAtTime(0.0001,start);
+    gain.gain.exponentialRampToValueAtTime(0.08,start+0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001,start+Math.max(0.18,dur*0.95));
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(start);
+    osc.stop(start+dur);
+  });
+}
+
+function buildPreviewSequence_(){
+  const seq=[];
+  for(let i=0;i<PLAY_BARS;i++){
+    const a=state[i].A;
+    const b=state[i].B;
+    if(buildChordString(a)) seq.push({bar:i+1,half:"A",slotObj:a});
+    if(buildChordString(b)) seq.push({bar:i+1,half:"B",slotObj:b});
+  }
+  return seq;
+}
+
+function stopPreview(){
+  previewRunId += 1;
+  currentPlayingBar=0;
+  currentPlayingHalf="";
+  setToneView("（停止中）");
+  renderAll();
+  $("btnPreview").textContent="視聴";
+}
+
+async function previewPlay(){
+  const seq=buildPreviewSequence_();
+  if(!seq.length){ toast("コード未入力"); return; }
+
+  if($("btnPreview").textContent==="停止"){
+    stopPreview();
+    return;
+  }
+
+  await ensureAudio_();
+
+  const runId=++previewRunId;
+  $("btnPreview").textContent="停止";
+  const stepDur=0.72;
+  const baseTime=audioCtx.currentTime+0.05;
+
+  seq.forEach((item, index)=>{
+    const start=baseTime + index*stepDur;
+    const midiList=chordMidiList_(item.slotObj);
+    if(!midiList.length) return;
+
+    const bassMidi=Math.min.apply(null,midiList);
+    playKick_(start, stepDur);
+    playHat_(start, stepDur);
+    playHat_(start + stepDur/2, stepDur/2);
+    if(index%2===1) playSnare_(start, stepDur);
+    playBass_(bassMidi, start, stepDur*0.95);
+    playPianoChord_(midiList, start, stepDur*0.9);
+
+    const delayMs=Math.max(0, (start - audioCtx.currentTime) * 1000);
+    setTimeout(()=>{
+      if(runId!==previewRunId) return;
+      currentPlayingBar=item.bar;
+      currentPlayingHalf=item.half;
+      setToneView(toneNamesFromMidi_(midiList));
+      renderAll();
+    }, delayMs);
+  });
+
+  setTimeout(()=>{
+    if(runId!==previewRunId) return;
+    stopPreview();
+  }, seq.length * stepDur * 1000 + 120);
+}
+
 /* ===== init (DOM完成後) ===== */
 document.addEventListener("DOMContentLoaded", () => {
   $("btnLookup").onclick = lookup;
-  $("btnFill").onclick = fillFromExisting;
   $("btnUpdate").onclick = applyUpdate;
+  $("btnPreview").onclick = previewPlay;
 
-  $("btnHalfA").onclick = ()=>setHalf("A");
-  $("btnHalfB").onclick = ()=>setHalf("B");
   $("btnClearBar").onclick = clearSelected;
-  $("btnSwap").onclick = swapHalf;
 
   $("btnBassMode").onclick = toggleBassMode;
   $("btnBassClear").onclick = clearBass;
   $("btnQualClear").onclick = clearQuality;
 
+  $("inEra").addEventListener("change", maybeResetByConditionChange_);
+  $("inRank").addEventListener("change", maybeResetByConditionChange_);
+  $("inRank").addEventListener("input", maybeResetByConditionChange_);
+  $("inPart").addEventListener("change", maybeResetByConditionChange_);
+
   renderPads();
+  lastConditionKey=currentConditionKey();
   renderAll();
 });
 </script>
