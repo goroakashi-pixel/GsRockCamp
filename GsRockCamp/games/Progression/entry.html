@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.12</title>
+<title>Progression Entry ver1.3.13</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -41,7 +41,7 @@
 
 <body>
 
-<h2>Progression Entry ver1.3.12</h2>
+<h2>Progression Entry ver1.3.13</h2>
 <div class="muted">ERA/Rank/Part → 取得 → コード入力 → 視聴 / 反映。</div>
 
 <div class="card">
@@ -93,6 +93,7 @@
   <div class="row" style="justify-content:space-between;">
     <div class="muted">小節入力：前半(A)／後半(B)</div>
     <div class="row">
+      <button class="btn small" id="btn4barRep">4barRep.</button>
       <button class="btn small" id="btnPreview">視聴</button>
       <button class="btn small primary" id="btnUpdate">反映（更新）</button>
       <button class="btn small warn" id="btnClearBar">選択小節クリア</button>
@@ -300,6 +301,14 @@ function currentConditionKey(){
   return [val("inEra"), val("inRank"), val("inPart")].join("|");
 }
 
+function cloneSlot_(src){
+  return {
+    root: String(src.root || ""),
+    qual: String(src.qual || ""),
+    bass: String(src.bass || "")
+  };
+}
+
 function resetStateData_(){
   for(let i=0;i<PLAY_BARS;i++){
     state[i].A={root:"",qual:"",bass:""};
@@ -413,7 +422,7 @@ function renderPads(){
 function renderAll(){
   renderBars();
   renderMeta();
-  document.title="Progression Entry ver1.3.12";
+  document.title="Progression Entry ver1.3.13";
 }
 
 /* actions */
@@ -423,6 +432,14 @@ function clearBass(){ slot().bass=""; bassMode=false; renderAll(); }
 function clearQuality(){ slot().qual=""; renderAll(); }
 function applyRoot(root){ const s=slot(); if(bassMode){ s.bass=root; bassMode=false; } else { s.root=root; } renderAll(); }
 function applyQuality(q){ slot().qual=q; renderAll(); }
+function fourBarRepeat(){
+  for(let i=0;i<4;i++){
+    state[i+4].A = cloneSlot_(state[i].A);
+    state[i+4].B = cloneSlot_(state[i].B);
+  }
+  toast("1〜4小節を5〜8小節へコピー");
+  renderAll();
+}
 
 function parseToSlot_(chord, slotObj){
   const s=String(chord||"").trim();
@@ -767,6 +784,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("btnLookup").onclick = lookup;
   $("btnUpdate").onclick = applyUpdate;
   $("btnPreview").onclick = previewPlay;
+  $("btn4barRep").onclick = fourBarRepeat;
 
   $("btnClearBar").onclick = clearSelected;
 
