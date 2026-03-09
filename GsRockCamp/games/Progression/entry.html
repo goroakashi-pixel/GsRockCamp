@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.0.3</title>
+<title>Progression Entry ver1.3.5</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -38,7 +38,7 @@
 
 <body>
 
-<h2>Progression Entry ver1.0.3</h2>
+<h2>Progression Entry ver1.3.5</h2>
 <div class="muted">取得は「GASへ遷移→戻り」（CORSなし）。ERA/Rank/Part → 取得 → コード入力 → 反映。</div>
 
 <div class="card">
@@ -247,7 +247,7 @@ function renderAll(){
   renderHalfButtons();
   renderBars();
   renderMeta();
-  document.title="Progression Entry ver1.0.3";
+  document.title="Progression Entry ver1.3.5";
 }
 
 /* actions */
@@ -292,7 +292,10 @@ function lookup(){
   if(!era || !rank || !part){ toast("ERA/Rank/Part"); return; }
   const url=new URL(WEBAPP_URL);
   url.searchParams.set("action","lookup_redirect");
-  url.searchParams.set("era",era); url.searchParams.set("rank",rank); url.searchParams.set("part",part);
+  url.searchParams.set("era",era);
+  url.searchParams.set("rank",rank);
+  url.searchParams.set("part",part);
+  url.searchParams.set("returnUrl",location.origin + location.pathname);
   location.href=url.toString();
 }
 function applyUpdate(){
@@ -300,7 +303,10 @@ function applyUpdate(){
   const era=val("inEra"), rank=val("inRank"), part=val("inPart");
   const url=new URL(WEBAPP_URL);
   url.searchParams.set("action","update_redirect");
-  url.searchParams.set("era",era); url.searchParams.set("rank",rank); url.searchParams.set("part",part);
+  url.searchParams.set("era",era);
+  url.searchParams.set("rank",rank);
+  url.searchParams.set("part",part);
+  url.searchParams.set("returnUrl",location.origin + location.pathname);
   for(let i=1;i<=8;i++) url.searchParams.set("c"+i, buildBarChord(i-1));
   location.href=url.toString();
 }
