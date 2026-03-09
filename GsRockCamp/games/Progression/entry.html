@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.6</title>
+<title>Progression Entry ver1.3.7</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -38,7 +38,7 @@
 
 <body>
 
-<h2>Progression Entry ver1.3.6</h2>
+<h2>Progression Entry ver1.3.7</h2>
 <div class="muted">取得は「GASへ遷移→戻り」（CORSなし）。ERA/Rank/Part → 取得 → コード入力 → 反映。</div>
 
 <div class="card">
@@ -247,7 +247,7 @@ function renderAll(){
   renderHalfButtons();
   renderBars();
   renderMeta();
-  document.title="Progression Entry ver1.3.6";
+  document.title="Progression Entry ver1.3.7";
 }
 
 /* actions */
@@ -310,13 +310,20 @@ function applyUpdate(){
   for(let i=1;i<=8;i++) url.searchParams.set("c"+i, buildBarChord(i-1));
   location.href=url.toString();
 }
+
+function decodeBase64Utf8_(b64){
+  const bin = atob(b64.replace(/-/g,'+').replace(/_/g,'/'));
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
 function readPayloadFromHash_(){
   const h=location.hash||"";
   const m=h.match(/payload=([^&]+)/);
   if(!m) return null;
   try{
-    const b64=m[1];
-    const json=decodeURIComponent(escape(atob(b64.replace(/-/g,'+').replace(/_/g,'/'))));
+    const json=decodeBase64Utf8_(m[1]);
     return JSON.parse(json);
   }catch(_e){ return null; }
 }
