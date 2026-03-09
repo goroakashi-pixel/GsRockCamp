@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.14</title>
+<title>Progression Entry ver1.3.15</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -41,7 +41,7 @@
 
 <body>
 
-<h2>Progression Entry ver1.3.14</h2>
+<h2>Progression Entry ver1.3.15</h2>
 <div class="muted">ERA/Rank/Part → 取得 → コード入力 → 視聴 / 反映。</div>
 
 <div class="card">
@@ -97,6 +97,7 @@
       <button class="btn small" id="btnPreview">視聴</button>
       <button class="btn small primary" id="btnUpdate">反映（更新）</button>
       <button class="btn small warn" id="btnClearBar">選択小節クリア</button>
+      <button class="btn small warn" id="btnResetAll">リセット</button>
     </div>
   </div>
   <div class="toneBox">
@@ -288,7 +289,6 @@ let requestSeq=0;
 let previewRunId=0;
 let currentPlayingBar=0;
 let currentPlayingHalf="";
-let lastConditionKey="";
 let previewUiTimers=[];
 
 function $(id){ return document.getElementById(id); }
@@ -312,10 +312,6 @@ function esc(s){
 }
 function slot(){ return state[selectedBar-1][selectedHalf]; }
 
-function currentConditionKey(){
-  return [val("inEra"), val("inRank"), val("inPart")].join("|");
-}
-
 function cloneSlot_(src){
   return {
     root: String(src.root || ""),
@@ -324,27 +320,18 @@ function cloneSlot_(src){
   };
 }
 
-function resetStateData_(){
+function resetAllBoxes(){
   for(let i=0;i<PLAY_BARS;i++){
     state[i].A={root:"",qual:"",bass:""};
     state[i].B={root:"",qual:"",bass:""};
   }
-  lastLookup=null;
   bassMode=false;
   selectedBar=1;
   selectedHalf="A";
   stopPreview();
   setToneView("（停止中）");
+  toast("全小節リセット");
   renderAll();
-}
-
-function maybeResetByConditionChange_(){
-  const nowKey=currentConditionKey();
-  if(lastConditionKey!=="" && lastConditionKey!==nowKey){
-    resetStateData_();
-    setStatus("");
-  }
-  lastConditionKey=nowKey;
 }
 
 function setToneView(text){
@@ -437,7 +424,7 @@ function renderPads(){
 function renderAll(){
   renderBars();
   renderMeta();
-  document.title="Progression Entry ver1.3.14";
+  document.title="Progression Entry ver1.3.15";
 }
 
 /* actions */
@@ -806,6 +793,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("btnUpdate").onclick = applyUpdate;
   $("btnPreview").onclick = previewPlay;
   $("btn4barRep").onclick = fourBarRepeat;
+  $("btnResetAll").onclick = resetAllBoxes;
 
   $("btnClearBar").onclick = clearSelected;
 
@@ -813,13 +801,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("btnBassClear").onclick = clearBass;
   $("btnQualClear").onclick = clearQuality;
 
-  $("inEra").addEventListener("change", maybeResetByConditionChange_);
-  $("inRank").addEventListener("change", maybeResetByConditionChange_);
-  $("inRank").addEventListener("input", maybeResetByConditionChange_);
-  $("inPart").addEventListener("change", maybeResetByConditionChange_);
-
   renderPads();
-  lastConditionKey=currentConditionKey();
   renderAll();
 });
 </script>
