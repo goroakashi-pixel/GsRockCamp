@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.10</title>
+<title>Progression Entry ver1.3.11</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -41,7 +41,7 @@
 
 <body>
 
-<h2>Progression Entry ver1.3.10</h2>
+<h2>Progression Entry ver1.3.11</h2>
 <div class="muted">ERA/Rank/Part → 取得 → コード入力 → 視聴 / 反映。</div>
 
 <div class="card">
@@ -131,10 +131,137 @@
 <script>
 /* ===== 設定 ===== */
 const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwLyrVpKlQSAWCJXRufi1HIRBfJYVrXg1NGCeCtP9lRqM0N-8TyevnsNKoV0n8UMb1D/exec";
-const AUDIO_BASE = "./audio/";
-const DRUM_LOOP_FILE = AUDIO_BASE + "Drum_loop.wav";
-const BAR_MS = 2000;
-const HALF_BAR_MS = BAR_MS / 2;
+const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+/* ===== audio ===== */
+function urlForFetch(url){
+  return String(url).replaceAll("#","%23");
+}
+
+async function loadBuffer(url){
+  const r = await fetch(urlForFetch(url));
+  if(!r.ok) throw new Error(`fetch failed: ${url}`);
+  const a = await r.arrayBuffer();
+  return await ctx.decodeAudioData(a);
+}
+
+let buf = {};
+let bufferErrors = {};
+let activeSources = [];
+
+function markBufferError(name){
+  bufferErrors[name] = true;
+}
+
+async function safeLoadBuffer(key, url){
+  try{
+    buf[key] = await loadBuffer(url);
+  }catch(e){
+    console.error(e);
+    markBufferError(key);
+    buf[key] = null;
+  }
+}
+
+async function loadAll(){
+  if(buf.__loaded) return;
+
+  await safeLoadBuffer("drum", "./audio/Drum_loop.wav");
+
+  await safeLoadBuffer("A#0_Bass", "./audio/A#0_Bass.wav");
+  await safeLoadBuffer("A0_Bass",  "./audio/A0_Bass.wav");
+  await safeLoadBuffer("B0_Bass",  "./audio/B0_Bass.wav");
+  await safeLoadBuffer("C#1_Bass", "./audio/C#1_Bass.wav");
+  await safeLoadBuffer("C1_Bass",  "./audio/C1_Bass.wav");
+  await safeLoadBuffer("D#1_Bass", "./audio/D#1_Bass.wav");
+  await safeLoadBuffer("D1_Bass",  "./audio/D1_Bass.wav");
+  await safeLoadBuffer("E0_Bass",  "./audio/E0_Bass.wav");
+  await safeLoadBuffer("F#0_Bass", "./audio/F#0_Bass.wav");
+  await safeLoadBuffer("F0_Bass",  "./audio/F0_Bass.wav");
+  await safeLoadBuffer("G#0_Bass", "./audio/G#0_Bass.wav");
+  await safeLoadBuffer("G0_Bass",  "./audio/G0_Bass.wav");
+
+  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  for(let o=2;o<=4;o++){
+    for(const n of pcs){
+      await safeLoadBuffer(`${n}${o}`, `./audio/${n}${o}.wav`);
+    }
+  }
+  await safeLoadBuffer("C5", "./audio/C5.wav");
+
+  buf.__loaded = true;
+}
+
+function play(buffer,time,fade=false,stopAfterSec=null){
+  if(!buffer) return null;
+  const s = ctx.createBufferSource();
+  const g = ctx.createGain();
+  s.buffer = buffer;
+  s.connect(g);
+  g.connect(ctx.destination);
+
+  if(fade){
+    g.gain.setValueAtTime(1, time);
+    g.gain.setValueAtTime(1, time + 2.1);
+    g.gain.linearRampToValueAtTime(0, time + 2.2);
+  }
+
+  s.start(time);
+
+  if(stopAfterSec!=null){
+    const end = time + stopAfterSec;
+    try{ s.stop(end); }catch(_e){}
+  }
+
+  activeSources.push(s);
+  return s;
+}
+
+function stopAllPlaying(){
+  for(const s of activeSources){
+    try{ s.stop(0); }catch(_e){}
+  }
+  activeSources = [];
+}
+
+function piano(notes,time,fade=false){
+  notes.forEach(n=>{ play(buf[n],time,fade); });
+}
+
+function bass(note,time,fade=false){
+  play(buf[note],time,fade);
+}
+
+function bassSplitFirstHalf(note,time,durationSec){
+  const buffer = buf[note];
+  if(!buffer) return;
+  const s = ctx.createBufferSource();
+  const g = ctx.createGain();
+  s.buffer = buffer;
+  s.connect(g);
+  g.connect(ctx.destination);
+
+  const fadeSec = 0.1;
+  const fadeStart = time + Math.max(0, durationSec - fadeSec);
+  g.gain.setValueAtTime(1, time);
+  g.gain.setValueAtTime(1, fadeStart);
+  g.gain.linearRampToValueAtTime(0, time + durationSec);
+
+  s.start(time);
+  try{ s.stop(time + durationSec); }catch(_e){}
+  activeSources.push(s);
+}
+
+function drum(time,fade=false){
+  play(buf.drum,time,fade);
+}
+
+async function prepareAudioForGesture(){
+  if(ctx.state === "suspended"){
+    await ctx.resume();
+  }
+  await loadAll();
+}
 
 /* ===== State ===== */
 const PLAY_BARS = 8;
@@ -146,8 +273,7 @@ let previewRunId=0;
 let currentPlayingBar=0;
 let currentPlayingHalf="";
 let lastConditionKey="";
-let previewTimers=[];
-let previewAudios=[];
+let previewUiTimers=[];
 
 function $(id){ return document.getElementById(id); }
 function val(id){ return String($(id)?.value||"").trim(); }
@@ -287,7 +413,7 @@ function renderPads(){
 function renderAll(){
   renderBars();
   renderMeta();
-  document.title="Progression Entry ver1.3.10";
+  document.title="Progression Entry ver1.3.11";
 }
 
 /* actions */
@@ -401,109 +527,160 @@ function applyUpdate(){
   );
 }
 
-/* ===== preview audio ===== */
-function normalizeNoteName_(name){
+/* ===== preview logic ===== */
+function pcIndex(name){
+  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  return pcs.indexOf(name);
+}
+
+function idxToPc(i){
+  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  return pcs[(i%12+12)%12];
+}
+
+function normalizeAccidentalRoot(root){
   const map = {
-    "D♭":"C#","E♭":"D#","G♭":"F#","A♭":"G#","B♭":"A#",
-    "Db":"C#","Eb":"D#","Gb":"F#","Ab":"G#","Bb":"A#"
+    "Cb":"B",
+    "Db":"C#", "D♭":"C#",
+    "Eb":"D#", "E♭":"D#",
+    "Fb":"E",
+    "Gb":"F#", "G♭":"F#",
+    "Ab":"G#", "A♭":"G#",
+    "Bb":"A#", "B♭":"A#",
+    "E#":"F",
+    "B#":"C"
   };
-  return map[name] || name;
+  return map[root] || root;
 }
 
-function noteNameToMidi_(name, octave){
-  const n = normalizeNoteName_(name);
-  const map = {"C":0,"C#":1,"D":2,"D#":3,"E":4,"F":5,"F#":6,"G":7,"G#":8,"A":9,"A#":10,"B":11};
-  if(map[n]==null) return null;
-  return (octave + 1) * 12 + map[n];
+function parseChordSymbol(sym){
+  sym = String(sym||"").trim();
+  const slashSplit = sym.split("/");
+  const baseSym = (slashSplit[0]||"").trim();
+  const slashBass = slashSplit[1] ? String(slashSplit[1]).trim() : "";
+  const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/);
+  const root = m ? m[1] : "C";
+  const rest = m ? m[2] : "";
+
+  let quality = "maj";
+  if(rest.startsWith("m") && !rest.startsWith("maj")) quality = "min";
+  if(rest.startsWith("dim")) quality = "dim";
+  if(rest.startsWith("aug")) quality = "aug";
+
+  let seventh = null;
+  if(/mM7/.test(rest)) seventh = "maj7";
+  else if(/maj7|M7/.test(rest)) seventh = "maj7";
+  else if(/m7/.test(rest)) seventh = "m7";
+  else if(/(^|[^a-zA-Z])7/.test(rest)) seventh = "7";
+
+  const sixth = /6/.test(rest);
+  const ninth = /9/.test(rest);
+  const bassRoot = slashBass ? slashBass : root;
+
+  return {root, bassRoot, quality, seventh, sixth, ninth};
 }
 
-function midiToNoteObj_(midi){
-  const names=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-  return { name:names[((midi%12)+12)%12], octave:Math.floor(midi/12)-1 };
+function chordToPitchClasses(sym){
+  const p = parseChordSymbol(sym);
+  const rootNorm = normalizeAccidentalRoot(p.root);
+  const r = pcIndex(rootNorm);
+  if(r<0) return ["C","E","G"];
+
+  let third = 4;
+  let fifth = 7;
+  if(p.quality==="min"){ third = 3; fifth = 7; }
+  if(p.quality==="aug"){ third = 4; fifth = 8; }
+  if(p.quality==="dim"){ third = 3; fifth = 6; }
+
+  const pcs = [ idxToPc(r), idxToPc(r+third), idxToPc(r+fifth) ];
+  if(p.sixth) pcs.push(idxToPc(r+9));
+  if(p.seventh==="7") pcs.push(idxToPc(r+10));
+  if(p.seventh==="maj7") pcs.push(idxToPc(r+11));
+  if(p.seventh==="m7") pcs.push(idxToPc(r+10));
+  if(p.ninth) pcs.push(idxToPc(r+14));
+
+  const uniq = [];
+  for(const x of pcs){
+    if(!uniq.includes(x)) uniq.push(x);
+  }
+  return uniq;
 }
 
-function chordMidiList_(slotObj){
-  const root = String(slotObj.root||"").trim();
-  if(!root) return [];
-  const qual = String(slotObj.qual||"").trim();
-  const rootMidi = noteNameToMidi_(root, 3);
-  if(rootMidi==null) return [];
-
-  let intervals = [0,4,7];
-  if(qual==="") intervals=[0,4,7];
-  else if(qual==="m") intervals=[0,3,7];
-  else if(qual==="7") intervals=[0,4,7,10];
-  else if(qual==="m7") intervals=[0,3,7,10];
-  else if(qual==="maj7") intervals=[0,4,7,11];
-  else if(qual==="mM7") intervals=[0,3,7,11];
-  else if(qual==="dim") intervals=[0,3,6];
-  else if(qual==="aug") intervals=[0,4,8];
-  else if(qual==="sus4") intervals=[0,5,7];
-  else if(qual==="m7-5") intervals=[0,3,6,10];
-  else if(qual==="add9") intervals=[0,4,7,14];
-  else if(qual==="9") intervals=[0,4,7,10,14];
-  else if(qual==="6") intervals=[0,4,7,9];
-  else if(qual==="m6") intervals=[0,3,7,9];
-
-  const mids = intervals.map(n=>rootMidi+n);
-  return mids.map(m=>{
-    while(m<48) m+=12;
-    while(m>71) m-=12;
-    return m;
-  });
+function bassBufferName(rootPc){
+  if(rootPc==="C") return "C1_Bass";
+  if(rootPc==="C#" || rootPc==="D" || rootPc==="D#") return rootPc + "1_Bass";
+  return rootPc + "0_Bass";
 }
 
-function toneNamesFromMidi_(midiList){
-  const names=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-  const uniq=[];
-  midiList.forEach(m=>{
-    const n=names[((m%12)+12)%12];
-    if(!uniq.includes(n)) uniq.push(n);
-  });
-  return uniq.join(" / ");
+function pianoVoicing(sym){
+  const p = parseChordSymbol(sym);
+  const rootNorm = normalizeAccidentalRoot(p.root);
+  const rootIdx = pcIndex(rootNorm);
+  let pcs = chordToPitchClasses(sym);
+
+  if(p.ninth){
+    const n9 = idxToPc(rootIdx+14);
+    pcs = pcs.filter(x=>x!==n9);
+    pcs.push(n9);
+  }
+  if(p.seventh){
+    const sev = p.seventh==="maj7" ? idxToPc(rootIdx+11) : idxToPc(rootIdx+10);
+    pcs = pcs.filter(x=>x!==sev);
+    pcs.push(sev);
+  }
+
+  while(pcs.length<3){ pcs.push(idxToPc(rootIdx+7)); }
+  if(pcs.length>4){
+    if(p.ninth){
+      pcs = [pcs[0], pcs[1], pcs[2], idxToPc(rootIdx+14)];
+    }else if(p.seventh){
+      const sev = p.seventh==="maj7" ? idxToPc(rootIdx+11) : idxToPc(rootIdx+10);
+      pcs = [pcs[0], pcs[1], pcs[2], sev];
+    }else{
+      pcs = pcs.slice(0,4);
+    }
+  }
+
+  return pcs.slice(0,4).map(x=>x+"3");
 }
 
-function bassFileForNote_(noteName){
-  const n = normalizeNoteName_(noteName);
-  const bassMap = {
-    "C":"C1_Bass.wav","C#":"C#1_Bass.wav","D":"D1_Bass.wav","D#":"D#1_Bass.wav",
-    "E":"E0_Bass.wav","F":"F0_Bass.wav","F#":"F#0_Bass.wav","G":"G0_Bass.wav",
-    "G#":"G#0_Bass.wav","A":"A0_Bass.wav","A#":"A#0_Bass.wav","B":"B0_Bass.wav"
-  };
-  return bassMap[n] ? AUDIO_BASE + bassMap[n] : "";
+function getBarSegments(chordText){
+  const raw = String(chordText||"");
+  const parts = raw.split("│").map(x=>x.trim()).filter(Boolean);
+  if(parts.length>=2){
+    return [
+      {raw:parts[0], offset:0.0, duration:1.0, half:"A"},
+      {raw:parts[1], offset:1.0, duration:1.0, half:"B"}
+    ];
+  }
+  return [{raw:raw.trim(), offset:0.0, duration:2.0, half:(raw.trim() ? "A" : "")}];
 }
 
-function pianoFileForMidi_(midi){
-  let note = midiToNoteObj_(midi);
-  let octave = note.octave;
-  if(octave < 2) octave = 2;
-  if(octave > 4) octave = 4;
-  return AUDIO_BASE + note.name + octave + ".wav";
+function toneNamesFromSym_(sym){
+  const pcs = chordToPitchClasses(sym);
+  return pcs.join(" / ");
 }
 
-function addPreviewTimer_(fn, ms){
-  const id = setTimeout(fn, ms);
-  previewTimers.push(id);
-  return id;
+function clearPreviewUiTimers_(){
+  previewUiTimers.forEach(id=>clearTimeout(id));
+  previewUiTimers = [];
 }
 
-function stopAllPreviewAudio_(){
-  previewAudios.forEach(a=>{
-    try{ a.pause(); }catch(_e){}
-    try{ a.currentTime = 0; }catch(_e){}
-  });
-  previewAudios = [];
-}
-
-function clearAllPreviewTimers_(){
-  previewTimers.forEach(id=>clearTimeout(id));
-  previewTimers = [];
+function schedulePreviewUi_(runId, delayMs, barNo, half, sym){
+  const id = setTimeout(()=>{
+    if(runId!==previewRunId) return;
+    currentPlayingBar = barNo;
+    currentPlayingHalf = half;
+    setToneView(sym ? toneNamesFromSym_(sym) : "（停止中）");
+    renderAll();
+  }, Math.max(0, delayMs));
+  previewUiTimers.push(id);
 }
 
 function stopPreview(){
   previewRunId += 1;
-  clearAllPreviewTimers_();
-  stopAllPreviewAudio_();
+  clearPreviewUiTimers_();
+  stopAllPlaying();
   currentPlayingBar=0;
   currentPlayingHalf="";
   setToneView("（停止中）");
@@ -511,128 +688,70 @@ function stopPreview(){
   $("btnPreview").textContent="視聴";
 }
 
-function registerPreviewAudio_(audio, stopAfterMs){
-  previewAudios.push(audio);
-  const playPromise = audio.play();
-  if(playPromise && typeof playPromise.catch === "function"){
-    playPromise.catch(()=>{});
+async function previewPlay(){
+  const ch = Array.from({length:PLAY_BARS}, (_,i)=>buildBarChord(i));
+  if(!ch.some(x=>String(x||"").trim())){
+    toast("コード未入力");
+    return;
   }
-  if(stopAfterMs > 0){
-    addPreviewTimer_(()=>{
-      try{ audio.pause(); }catch(_e){}
-      try{ audio.currentTime = 0; }catch(_e){}
-    }, stopAfterMs);
-  }
-}
-
-function playSample_(src, volume, stopAfterMs){
-  const audio = new Audio(src);
-  audio.preload = "auto";
-  audio.volume = volume;
-  audio.playsInline = true;
-  registerPreviewAudio_(audio, stopAfterMs);
-}
-
-function playDrumForBar_(durationMs){
-  playSample_(DRUM_LOOP_FILE, 0.55, durationMs);
-}
-
-function playChordEvent_(slotObj, durationMs){
-  const midiList = chordMidiList_(slotObj);
-  if(!midiList.length) return;
-
-  const bassNote = String(slotObj.bass||"").trim() || String(slotObj.root||"").trim();
-  const bassFile = bassFileForNote_(bassNote);
-  if(bassFile) playSample_(bassFile, 0.72, durationMs);
-
-  midiList.forEach(midi=>{
-    playSample_(pianoFileForMidi_(midi), 0.40, durationMs);
-  });
-}
-
-function buildPreviewBars_(){
-  const bars=[];
-  for(let i=0;i<PLAY_BARS;i++){
-    const aStr = buildChordString(state[i].A);
-    const bStr = buildChordString(state[i].B);
-    if(!aStr && !bStr) continue;
-    bars.push({
-      bar:i+1,
-      hasA:!!aStr,
-      hasB:!!bStr,
-      A:state[i].A,
-      B:state[i].B
-    });
-  }
-  return bars;
-}
-
-function playBarEvent_(barData, offsetMs, runId){
-  addPreviewTimer_(()=>{
-    if(runId!==previewRunId) return;
-    playDrumForBar_(BAR_MS);
-  }, offsetMs);
-
-  if(barData.hasA && barData.hasB){
-    addPreviewTimer_(()=>{
-      if(runId!==previewRunId) return;
-      currentPlayingBar=barData.bar;
-      currentPlayingHalf="A";
-      setToneView(toneNamesFromMidi_(chordMidiList_(barData.A)));
-      renderAll();
-      playChordEvent_(barData.A, HALF_BAR_MS);
-    }, offsetMs);
-
-    addPreviewTimer_(()=>{
-      if(runId!==previewRunId) return;
-      currentPlayingBar=barData.bar;
-      currentPlayingHalf="B";
-      setToneView(toneNamesFromMidi_(chordMidiList_(barData.B)));
-      renderAll();
-      playChordEvent_(barData.B, HALF_BAR_MS);
-    }, offsetMs + HALF_BAR_MS);
-  }else if(barData.hasA){
-    addPreviewTimer_(()=>{
-      if(runId!==previewRunId) return;
-      currentPlayingBar=barData.bar;
-      currentPlayingHalf="A";
-      setToneView(toneNamesFromMidi_(chordMidiList_(barData.A)));
-      renderAll();
-      playChordEvent_(barData.A, BAR_MS);
-    }, offsetMs);
-  }else if(barData.hasB){
-    addPreviewTimer_(()=>{
-      if(runId!==previewRunId) return;
-      currentPlayingBar=barData.bar;
-      currentPlayingHalf="B";
-      setToneView(toneNamesFromMidi_(chordMidiList_(barData.B)));
-      renderAll();
-      playChordEvent_(barData.B, BAR_MS);
-    }, offsetMs);
-  }
-}
-
-function previewPlay(){
-  const bars = buildPreviewBars_();
-  if(!bars.length){ toast("コード未入力"); return; }
 
   if($("btnPreview").textContent==="停止"){
     stopPreview();
     return;
   }
 
+  await prepareAudioForGesture();
   stopPreview();
+
   const runId = ++previewRunId;
   $("btnPreview").textContent="停止";
 
-  bars.forEach((barData, index)=>{
-    playBarEvent_(barData, index * BAR_MS, runId);
-  });
+  let t = ctx.currentTime + 0.1;
+  let bar = 2.0;
 
-  addPreviewTimer_(()=>{
+  for(let i=0;i<PLAY_BARS;i++){
+    const baseTime = t + bar*i;
+    const isLastBar = (i===PLAY_BARS-1);
+    const segs = getBarSegments(ch[i]);
+
+    if(!segs.length || !String(ch[i]||"").trim()) continue;
+
+    drum(baseTime, isLastBar);
+
+    for(let j=0;j<segs.length;j++){
+      const seg = segs[j];
+      if(!seg.raw) continue;
+
+      const segTime = baseTime + seg.offset;
+      const segFade = (isLastBar && j===segs.length-1);
+
+      const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot);
+      const bname = bassBufferName(rootPc);
+
+      if(segs.length>=2){
+        bassSplitFirstHalf(bname, segTime, 1.3);
+      }else{
+        bass(bname, segTime, segFade);
+      }
+
+      piano(pianoVoicing(seg.raw), segTime, segFade);
+
+      schedulePreviewUi_(
+        runId,
+        (segTime - ctx.currentTime) * 1000,
+        i + 1,
+        seg.half,
+        seg.raw
+      );
+    }
+  }
+
+  schedulePreviewUi_(runId, (bar * PLAY_BARS + 0.15) * 1000, 0, "", "");
+  const stopId = setTimeout(()=>{
     if(runId!==previewRunId) return;
     stopPreview();
-  }, bars.length * BAR_MS + 80);
+  }, (bar * PLAY_BARS + 0.2) * 1000);
+  previewUiTimers.push(stopId);
 }
 
 /* ===== init (DOM完成後) ===== */
