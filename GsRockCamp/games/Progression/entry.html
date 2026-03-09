@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.5</title>
+<title>Progression Entry ver1.3.6</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -38,7 +38,7 @@
 
 <body>
 
-<h2>Progression Entry ver1.3.5</h2>
+<h2>Progression Entry ver1.3.6</h2>
 <div class="muted">取得は「GASへ遷移→戻り」（CORSなし）。ERA/Rank/Part → 取得 → コード入力 → 反映。</div>
 
 <div class="card">
@@ -52,12 +52,12 @@
     <div style="flex:1; min-width:180px;">
       <label>ERA</label>
       <select id="inEra">
-        <option value="1970s">1970s</option>
-        <option value="1980s" selected>1980s</option>
-        <option value="1990s">1990s</option>
-        <option value="2000s">2000s</option>
-        <option value="2010s">2010s</option>
-        <option value="2020s">2020s</option>
+        <option value="1970">1970</option>
+        <option value="1980" selected>1980</option>
+        <option value="1990">1990</option>
+        <option value="2000">2000</option>
+        <option value="2010">2010</option>
+        <option value="2020">2020</option>
       </select>
     </div>
     <div style="flex:1; min-width:140px;">
@@ -247,7 +247,7 @@ function renderAll(){
   renderHalfButtons();
   renderBars();
   renderMeta();
-  document.title="Progression Entry ver1.3.5";
+  document.title="Progression Entry ver1.3.6";
 }
 
 /* actions */
