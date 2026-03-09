@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.11</title>
+<title>Progression Entry ver1.3.12</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -41,7 +41,7 @@
 
 <body>
 
-<h2>Progression Entry ver1.3.11</h2>
+<h2>Progression Entry ver1.3.12</h2>
 <div class="muted">ERA/Rank/Part → 取得 → コード入力 → 視聴 / 反映。</div>
 
 <div class="card">
@@ -413,7 +413,7 @@ function renderPads(){
 function renderAll(){
   renderBars();
   renderMeta();
-  document.title="Progression Entry ver1.3.11";
+  document.title="Progression Entry ver1.3.12";
 }
 
 /* actions */
@@ -677,6 +677,13 @@ function schedulePreviewUi_(runId, delayMs, barNo, half, sym){
   previewUiTimers.push(id);
 }
 
+function getLastFilledBarIndex_(){
+  for(let i=PLAY_BARS-1;i>=0;i--){
+    if(String(buildBarChord(i)||"").trim()) return i;
+  }
+  return -1;
+}
+
 function stopPreview(){
   previewRunId += 1;
   clearPreviewUiTimers_();
@@ -689,8 +696,8 @@ function stopPreview(){
 }
 
 async function previewPlay(){
-  const ch = Array.from({length:PLAY_BARS}, (_,i)=>buildBarChord(i));
-  if(!ch.some(x=>String(x||"").trim())){
+  const lastFilledBar = getLastFilledBarIndex_();
+  if(lastFilledBar < 0){
     toast("コード未入力");
     return;
   }
@@ -709,12 +716,13 @@ async function previewPlay(){
   let t = ctx.currentTime + 0.1;
   let bar = 2.0;
 
-  for(let i=0;i<PLAY_BARS;i++){
+  for(let i=0;i<=lastFilledBar;i++){
     const baseTime = t + bar*i;
-    const isLastBar = (i===PLAY_BARS-1);
-    const segs = getBarSegments(ch[i]);
+    const isLastBar = (i===lastFilledBar);
+    const barText = buildBarChord(i);
+    const segs = getBarSegments(barText);
 
-    if(!segs.length || !String(ch[i]||"").trim()) continue;
+    if(!String(barText||"").trim()) continue;
 
     drum(baseTime, isLastBar);
 
@@ -728,7 +736,7 @@ async function previewPlay(){
       const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot);
       const bname = bassBufferName(rootPc);
 
-      if(segs.length>=2){
+      if(segs.length>=2 && j===0){
         bassSplitFirstHalf(bname, segTime, 1.3);
       }else{
         bass(bname, segTime, segFade);
@@ -746,11 +754,11 @@ async function previewPlay(){
     }
   }
 
-  schedulePreviewUi_(runId, (bar * PLAY_BARS + 0.15) * 1000, 0, "", "");
+  schedulePreviewUi_(runId, ((bar * (lastFilledBar + 1)) + 0.15) * 1000, 0, "", "");
   const stopId = setTimeout(()=>{
     if(runId!==previewRunId) return;
     stopPreview();
-  }, (bar * PLAY_BARS + 0.2) * 1000);
+  }, ((bar * (lastFilledBar + 1)) + 0.2) * 1000);
   previewUiTimers.push(stopId);
 }
 
