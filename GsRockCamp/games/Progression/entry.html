@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.9</title>
+<title>Progression Entry ver1.3.10</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -41,7 +41,7 @@
 
 <body>
 
-<h2>Progression Entry ver1.3.9</h2>
+<h2>Progression Entry ver1.3.10</h2>
 <div class="muted">ERA/Rank/Part → 取得 → コード入力 → 視聴 / 反映。</div>
 
 <div class="card">
@@ -131,6 +131,10 @@
 <script>
 /* ===== 設定 ===== */
 const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwLyrVpKlQSAWCJXRufi1HIRBfJYVrXg1NGCeCtP9lRqM0N-8TyevnsNKoV0n8UMb1D/exec";
+const AUDIO_BASE = "./audio/";
+const DRUM_LOOP_FILE = AUDIO_BASE + "Drum_loop.wav";
+const BAR_MS = 2000;
+const HALF_BAR_MS = BAR_MS / 2;
 
 /* ===== State ===== */
 const PLAY_BARS = 8;
@@ -138,11 +142,12 @@ const state = Array.from({length: PLAY_BARS}, () => ({ A:{root:"",qual:"",bass:"
 let selectedBar=1, selectedHalf="A", bassMode=false;
 let lastLookup=null;
 let requestSeq=0;
-let audioCtx=null;
 let previewRunId=0;
 let currentPlayingBar=0;
 let currentPlayingHalf="";
 let lastConditionKey="";
+let previewTimers=[];
+let previewAudios=[];
 
 function $(id){ return document.getElementById(id); }
 function val(id){ return String($(id)?.value||"").trim(); }
@@ -282,7 +287,7 @@ function renderPads(){
 function renderAll(){
   renderBars();
   renderMeta();
-  document.title="Progression Entry ver1.3.9";
+  document.title="Progression Entry ver1.3.10";
 }
 
 /* actions */
@@ -396,36 +401,32 @@ function applyUpdate(){
   );
 }
 
-/* ===== audition ===== */
-function ensureAudio_(){
-  if(!audioCtx){
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if(audioCtx.state === "suspended"){
-    return audioCtx.resume();
-  }
-  return Promise.resolve();
+/* ===== preview audio ===== */
+function normalizeNoteName_(name){
+  const map = {
+    "D♭":"C#","E♭":"D#","G♭":"F#","A♭":"G#","B♭":"A#",
+    "Db":"C#","Eb":"D#","Gb":"F#","Ab":"G#","Bb":"A#"
+  };
+  return map[name] || name;
 }
 
 function noteNameToMidi_(name, octave){
-  const map = {
-    "C":0,"C#":1,"D♭":1,"D":2,"D#":3,"E♭":3,"E":4,"F":5,"F#":6,"G♭":6,"G":7,"G#":8,"A♭":8,"A":9,"A#":10,"B♭":10,"B":11
-  };
-  if(map[name]==null) return null;
-  return (octave + 1) * 12 + map[name];
+  const n = normalizeNoteName_(name);
+  const map = {"C":0,"C#":1,"D":2,"D#":3,"E":4,"F":5,"F#":6,"G":7,"G#":8,"A":9,"A#":10,"B":11};
+  if(map[n]==null) return null;
+  return (octave + 1) * 12 + map[n];
 }
 
-function midiToFreq_(midi){
-  return 440 * Math.pow(2, (midi - 69) / 12);
+function midiToNoteObj_(midi){
+  const names=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  return { name:names[((midi%12)+12)%12], octave:Math.floor(midi/12)-1 };
 }
 
 function chordMidiList_(slotObj){
   const root = String(slotObj.root||"").trim();
   if(!root) return [];
   const qual = String(slotObj.qual||"").trim();
-  const bass = String(slotObj.bass||"").trim();
-
-  const rootMidi = noteNameToMidi_(root, 4);
+  const rootMidi = noteNameToMidi_(root, 3);
   if(rootMidi==null) return [];
 
   let intervals = [0,4,7];
@@ -445,13 +446,11 @@ function chordMidiList_(slotObj){
   else if(qual==="m6") intervals=[0,3,7,9];
 
   const mids = intervals.map(n=>rootMidi+n);
-  if(bass){
-    const bassMidi = noteNameToMidi_(bass, 3);
-    if(bassMidi!=null){
-      return [bassMidi].concat(mids);
-    }
-  }
-  return mids;
+  return mids.map(m=>{
+    while(m<48) m+=12;
+    while(m>71) m-=12;
+    return m;
+  });
 }
 
 function toneNamesFromMidi_(midiList){
@@ -464,94 +463,47 @@ function toneNamesFromMidi_(midiList){
   return uniq.join(" / ");
 }
 
-function playKick_(start, dur){
-  const osc=audioCtx.createOscillator();
-  const gain=audioCtx.createGain();
-  osc.type="sine";
-  osc.frequency.setValueAtTime(120, start);
-  osc.frequency.exponentialRampToValueAtTime(45, start+Math.min(0.12,dur));
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(0.8, start+0.002);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start+Math.min(0.15,dur));
-  osc.connect(gain).connect(audioCtx.destination);
-  osc.start(start);
-  osc.stop(start+Math.min(0.18,dur));
+function bassFileForNote_(noteName){
+  const n = normalizeNoteName_(noteName);
+  const bassMap = {
+    "C":"C1_Bass.wav","C#":"C#1_Bass.wav","D":"D1_Bass.wav","D#":"D#1_Bass.wav",
+    "E":"E0_Bass.wav","F":"F0_Bass.wav","F#":"F#0_Bass.wav","G":"G0_Bass.wav",
+    "G#":"G#0_Bass.wav","A":"A0_Bass.wav","A#":"A#0_Bass.wav","B":"B0_Bass.wav"
+  };
+  return bassMap[n] ? AUDIO_BASE + bassMap[n] : "";
 }
 
-function playHat_(start, dur){
-  const buffer=audioCtx.createBuffer(1, Math.max(1, Math.floor(audioCtx.sampleRate*0.06)), audioCtx.sampleRate);
-  const data=buffer.getChannelData(0);
-  for(let i=0;i<data.length;i++) data[i]=(Math.random()*2-1)*(1-i/data.length);
-  const src=audioCtx.createBufferSource();
-  const filter=audioCtx.createBiquadFilter();
-  const gain=audioCtx.createGain();
-  src.buffer=buffer;
-  filter.type="highpass";
-  filter.frequency.value=5000;
-  gain.gain.setValueAtTime(0.16,start);
-  gain.gain.exponentialRampToValueAtTime(0.0001,start+Math.min(0.06,dur));
-  src.connect(filter).connect(gain).connect(audioCtx.destination);
-  src.start(start);
+function pianoFileForMidi_(midi){
+  let note = midiToNoteObj_(midi);
+  let octave = note.octave;
+  if(octave < 2) octave = 2;
+  if(octave > 4) octave = 4;
+  return AUDIO_BASE + note.name + octave + ".wav";
 }
 
-function playSnare_(start, dur){
-  const buffer=audioCtx.createBuffer(1, Math.max(1, Math.floor(audioCtx.sampleRate*0.12)), audioCtx.sampleRate);
-  const data=buffer.getChannelData(0);
-  for(let i=0;i<data.length;i++) data[i]=(Math.random()*2-1)*(1-i/data.length);
-  const src=audioCtx.createBufferSource();
-  const filter=audioCtx.createBiquadFilter();
-  const gain=audioCtx.createGain();
-  src.buffer=buffer;
-  filter.type="bandpass";
-  filter.frequency.value=1800;
-  gain.gain.setValueAtTime(0.0001,start);
-  gain.gain.exponentialRampToValueAtTime(0.35,start+0.002);
-  gain.gain.exponentialRampToValueAtTime(0.0001,start+Math.min(0.12,dur));
-  src.connect(filter).connect(gain).connect(audioCtx.destination);
-  src.start(start);
+function addPreviewTimer_(fn, ms){
+  const id = setTimeout(fn, ms);
+  previewTimers.push(id);
+  return id;
 }
 
-function playBass_(midi, start, dur){
-  const osc=audioCtx.createOscillator();
-  const gain=audioCtx.createGain();
-  osc.type="triangle";
-  osc.frequency.value=midiToFreq_(midi);
-  gain.gain.setValueAtTime(0.0001,start);
-  gain.gain.exponentialRampToValueAtTime(0.18,start+0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001,start+Math.max(0.12,dur*0.92));
-  osc.connect(gain).connect(audioCtx.destination);
-  osc.start(start);
-  osc.stop(start+dur);
-}
-
-function playPianoChord_(midiList, start, dur){
-  midiList.forEach((m, idx)=>{
-    const osc=audioCtx.createOscillator();
-    const gain=audioCtx.createGain();
-    osc.type="sine";
-    osc.frequency.value=midiToFreq_(m + (idx===0 ? 0 : 12));
-    gain.gain.setValueAtTime(0.0001,start);
-    gain.gain.exponentialRampToValueAtTime(0.08,start+0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001,start+Math.max(0.18,dur*0.95));
-    osc.connect(gain).connect(audioCtx.destination);
-    osc.start(start);
-    osc.stop(start+dur);
+function stopAllPreviewAudio_(){
+  previewAudios.forEach(a=>{
+    try{ a.pause(); }catch(_e){}
+    try{ a.currentTime = 0; }catch(_e){}
   });
+  previewAudios = [];
 }
 
-function buildPreviewSequence_(){
-  const seq=[];
-  for(let i=0;i<PLAY_BARS;i++){
-    const a=state[i].A;
-    const b=state[i].B;
-    if(buildChordString(a)) seq.push({bar:i+1,half:"A",slotObj:a});
-    if(buildChordString(b)) seq.push({bar:i+1,half:"B",slotObj:b});
-  }
-  return seq;
+function clearAllPreviewTimers_(){
+  previewTimers.forEach(id=>clearTimeout(id));
+  previewTimers = [];
 }
 
 function stopPreview(){
   previewRunId += 1;
+  clearAllPreviewTimers_();
+  stopAllPreviewAudio_();
   currentPlayingBar=0;
   currentPlayingHalf="";
   setToneView("（停止中）");
@@ -559,49 +511,128 @@ function stopPreview(){
   $("btnPreview").textContent="視聴";
 }
 
-async function previewPlay(){
-  const seq=buildPreviewSequence_();
-  if(!seq.length){ toast("コード未入力"); return; }
+function registerPreviewAudio_(audio, stopAfterMs){
+  previewAudios.push(audio);
+  const playPromise = audio.play();
+  if(playPromise && typeof playPromise.catch === "function"){
+    playPromise.catch(()=>{});
+  }
+  if(stopAfterMs > 0){
+    addPreviewTimer_(()=>{
+      try{ audio.pause(); }catch(_e){}
+      try{ audio.currentTime = 0; }catch(_e){}
+    }, stopAfterMs);
+  }
+}
+
+function playSample_(src, volume, stopAfterMs){
+  const audio = new Audio(src);
+  audio.preload = "auto";
+  audio.volume = volume;
+  audio.playsInline = true;
+  registerPreviewAudio_(audio, stopAfterMs);
+}
+
+function playDrumForBar_(durationMs){
+  playSample_(DRUM_LOOP_FILE, 0.55, durationMs);
+}
+
+function playChordEvent_(slotObj, durationMs){
+  const midiList = chordMidiList_(slotObj);
+  if(!midiList.length) return;
+
+  const bassNote = String(slotObj.bass||"").trim() || String(slotObj.root||"").trim();
+  const bassFile = bassFileForNote_(bassNote);
+  if(bassFile) playSample_(bassFile, 0.72, durationMs);
+
+  midiList.forEach(midi=>{
+    playSample_(pianoFileForMidi_(midi), 0.40, durationMs);
+  });
+}
+
+function buildPreviewBars_(){
+  const bars=[];
+  for(let i=0;i<PLAY_BARS;i++){
+    const aStr = buildChordString(state[i].A);
+    const bStr = buildChordString(state[i].B);
+    if(!aStr && !bStr) continue;
+    bars.push({
+      bar:i+1,
+      hasA:!!aStr,
+      hasB:!!bStr,
+      A:state[i].A,
+      B:state[i].B
+    });
+  }
+  return bars;
+}
+
+function playBarEvent_(barData, offsetMs, runId){
+  addPreviewTimer_(()=>{
+    if(runId!==previewRunId) return;
+    playDrumForBar_(BAR_MS);
+  }, offsetMs);
+
+  if(barData.hasA && barData.hasB){
+    addPreviewTimer_(()=>{
+      if(runId!==previewRunId) return;
+      currentPlayingBar=barData.bar;
+      currentPlayingHalf="A";
+      setToneView(toneNamesFromMidi_(chordMidiList_(barData.A)));
+      renderAll();
+      playChordEvent_(barData.A, HALF_BAR_MS);
+    }, offsetMs);
+
+    addPreviewTimer_(()=>{
+      if(runId!==previewRunId) return;
+      currentPlayingBar=barData.bar;
+      currentPlayingHalf="B";
+      setToneView(toneNamesFromMidi_(chordMidiList_(barData.B)));
+      renderAll();
+      playChordEvent_(barData.B, HALF_BAR_MS);
+    }, offsetMs + HALF_BAR_MS);
+  }else if(barData.hasA){
+    addPreviewTimer_(()=>{
+      if(runId!==previewRunId) return;
+      currentPlayingBar=barData.bar;
+      currentPlayingHalf="A";
+      setToneView(toneNamesFromMidi_(chordMidiList_(barData.A)));
+      renderAll();
+      playChordEvent_(barData.A, BAR_MS);
+    }, offsetMs);
+  }else if(barData.hasB){
+    addPreviewTimer_(()=>{
+      if(runId!==previewRunId) return;
+      currentPlayingBar=barData.bar;
+      currentPlayingHalf="B";
+      setToneView(toneNamesFromMidi_(chordMidiList_(barData.B)));
+      renderAll();
+      playChordEvent_(barData.B, BAR_MS);
+    }, offsetMs);
+  }
+}
+
+function previewPlay(){
+  const bars = buildPreviewBars_();
+  if(!bars.length){ toast("コード未入力"); return; }
 
   if($("btnPreview").textContent==="停止"){
     stopPreview();
     return;
   }
 
-  await ensureAudio_();
-
-  const runId=++previewRunId;
+  stopPreview();
+  const runId = ++previewRunId;
   $("btnPreview").textContent="停止";
-  const stepDur=0.72;
-  const baseTime=audioCtx.currentTime+0.05;
 
-  seq.forEach((item, index)=>{
-    const start=baseTime + index*stepDur;
-    const midiList=chordMidiList_(item.slotObj);
-    if(!midiList.length) return;
-
-    const bassMidi=Math.min.apply(null,midiList);
-    playKick_(start, stepDur);
-    playHat_(start, stepDur);
-    playHat_(start + stepDur/2, stepDur/2);
-    if(index%2===1) playSnare_(start, stepDur);
-    playBass_(bassMidi, start, stepDur*0.95);
-    playPianoChord_(midiList, start, stepDur*0.9);
-
-    const delayMs=Math.max(0, (start - audioCtx.currentTime) * 1000);
-    setTimeout(()=>{
-      if(runId!==previewRunId) return;
-      currentPlayingBar=item.bar;
-      currentPlayingHalf=item.half;
-      setToneView(toneNamesFromMidi_(midiList));
-      renderAll();
-    }, delayMs);
+  bars.forEach((barData, index)=>{
+    playBarEvent_(barData, index * BAR_MS, runId);
   });
 
-  setTimeout(()=>{
+  addPreviewTimer_(()=>{
     if(runId!==previewRunId) return;
     stopPreview();
-  }, seq.length * stepDur * 1000 + 120);
+  }, bars.length * BAR_MS + 80);
 }
 
 /* ===== init (DOM完成後) ===== */
