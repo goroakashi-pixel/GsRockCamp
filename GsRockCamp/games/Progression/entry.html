@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.13</title>
+<title>Progression Entry ver1.3.14</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -41,7 +41,7 @@
 
 <body>
 
-<h2>Progression Entry ver1.3.13</h2>
+<h2>Progression Entry ver1.3.14</h2>
 <div class="muted">ERA/Rank/Part → 取得 → コード入力 → 視聴 / 反映。</div>
 
 <div class="card">
@@ -218,6 +218,27 @@ function play(buffer,time,fade=false,stopAfterSec=null){
   return s;
 }
 
+function playWithCustomFade(buffer, time, holdSec, fadeSec){
+  if(!buffer) return null;
+  const s = ctx.createBufferSource();
+  const g = ctx.createGain();
+  s.buffer = buffer;
+  s.connect(g);
+  g.connect(ctx.destination);
+
+  const fadeStart = time + holdSec;
+  const endTime = fadeStart + fadeSec;
+
+  g.gain.setValueAtTime(1, time);
+  g.gain.setValueAtTime(1, fadeStart);
+  g.gain.linearRampToValueAtTime(0, endTime);
+
+  s.start(time);
+  try{ s.stop(endTime); }catch(_e){}
+  activeSources.push(s);
+  return s;
+}
+
 function stopAllPlaying(){
   for(const s of activeSources){
     try{ s.stop(0); }catch(_e){}
@@ -229,28 +250,22 @@ function piano(notes,time,fade=false){
   notes.forEach(n=>{ play(buf[n],time,fade); });
 }
 
+function pianoWithCustomFade(notes,time,holdSec,fadeSec){
+  notes.forEach(n=>{ playWithCustomFade(buf[n],time,holdSec,fadeSec); });
+}
+
 function bass(note,time,fade=false){
   play(buf[note],time,fade);
 }
 
-function bassSplitFirstHalf(note,time,durationSec){
+function bassHalfSegment(note,time,isLastBarSecondHalf=false){
   const buffer = buf[note];
   if(!buffer) return;
-  const s = ctx.createBufferSource();
-  const g = ctx.createGain();
-  s.buffer = buffer;
-  s.connect(g);
-  g.connect(ctx.destination);
-
-  const fadeSec = 0.1;
-  const fadeStart = time + Math.max(0, durationSec - fadeSec);
-  g.gain.setValueAtTime(1, time);
-  g.gain.setValueAtTime(1, fadeStart);
-  g.gain.linearRampToValueAtTime(0, time + durationSec);
-
-  s.start(time);
-  try{ s.stop(time + durationSec); }catch(_e){}
-  activeSources.push(s);
+  if(isLastBarSecondHalf){
+    playWithCustomFade(buffer, time, 1.3, 0.1);
+  }else{
+    playWithCustomFade(buffer, time, 1.2, 0.1);
+  }
 }
 
 function drum(time,fade=false){
@@ -422,7 +437,7 @@ function renderPads(){
 function renderAll(){
   renderBars();
   renderMeta();
-  document.title="Progression Entry ver1.3.13";
+  document.title="Progression Entry ver1.3.14";
 }
 
 /* actions */
@@ -753,13 +768,18 @@ async function previewPlay(){
       const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot);
       const bname = bassBufferName(rootPc);
 
-      if(segs.length>=2 && j===0){
-        bassSplitFirstHalf(bname, segTime, 1.3);
+      if(segs.length>=2){
+        const isLastBarSecondHalf = isLastBar && j===1;
+        bassHalfSegment(bname, segTime, isLastBarSecondHalf);
+        if(isLastBarSecondHalf){
+          pianoWithCustomFade(pianoVoicing(seg.raw), segTime, 1.3, 0.1);
+        }else{
+          piano(pianoVoicing(seg.raw), segTime, false);
+        }
       }else{
         bass(bname, segTime, segFade);
+        piano(pianoVoicing(seg.raw), segTime, segFade);
       }
-
-      piano(pianoVoicing(seg.raw), segTime, segFade);
 
       schedulePreviewUi_(
         runId,
@@ -771,11 +791,12 @@ async function previewPlay(){
     }
   }
 
-  schedulePreviewUi_(runId, ((bar * (lastFilledBar + 1)) + 0.15) * 1000, 0, "", "");
+  const stopDelaySec = (bar * (lastFilledBar + 1)) + 0.6;
+  schedulePreviewUi_(runId, (stopDelaySec - 0.05) * 1000, 0, "", "");
   const stopId = setTimeout(()=>{
     if(runId!==previewRunId) return;
     stopPreview();
-  }, ((bar * (lastFilledBar + 1)) + 0.2) * 1000);
+  }, stopDelaySec * 1000);
   previewUiTimers.push(stopId);
 }
 
