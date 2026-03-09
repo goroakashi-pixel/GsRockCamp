@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.7</title>
+<title>Progression Entry ver1.3.8</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -38,8 +38,8 @@
 
 <body>
 
-<h2>Progression Entry ver1.3.7</h2>
-<div class="muted">取得は「GASへ遷移→戻り」（CORSなし）。ERA/Rank/Part → 取得 → コード入力 → 反映。</div>
+<h2>Progression Entry ver1.3.8</h2>
+<div class="muted">ERA/Rank/Part → 取得 → コード入力 → 反映。</div>
 
 <div class="card">
   <div class="row">
@@ -133,6 +133,7 @@ const PLAY_BARS = 8;
 const state = Array.from({length: PLAY_BARS}, () => ({ A:{root:"",qual:"",bass:""}, B:{root:"",qual:"",bass:""} }));
 let selectedBar=1, selectedHalf="A", bassMode=false;
 let lastLookup=null;
+let requestSeq=0;
 
 function $(id){ return document.getElementById(id); }
 function val(id){ return String($(id)?.value||"").trim(); }
@@ -247,7 +248,7 @@ function renderAll(){
   renderHalfButtons();
   renderBars();
   renderMeta();
-  document.title="Progression Entry ver1.3.7";
+  document.title="Progression Entry ver1.3.8";
 }
 
 /* actions */
@@ -286,48 +287,79 @@ function fillFromExisting(){
   renderAll();
 }
 
-/* redirect flow */
+function cleanupJsonp_(callbackName, scriptEl){
+  try{ if(scriptEl && scriptEl.parentNode) scriptEl.parentNode.removeChild(scriptEl); }catch(_e){}
+  try{ delete window[callbackName]; }catch(_e){ window[callbackName]=undefined; }
+}
+
+function jsonpRequest_(params, onDone){
+  requestSeq += 1;
+  const callbackName = "__grc_jsonp_" + requestSeq;
+  const url = new URL(WEBAPP_URL);
+  Object.keys(params).forEach(key => url.searchParams.set(key, params[key]));
+  url.searchParams.set("callback", callbackName);
+  url.searchParams.set("_", String(Date.now()));
+
+  const script = document.createElement("script");
+
+  window[callbackName] = function(payload){
+    cleanupJsonp_(callbackName, script);
+    onDone(payload);
+  };
+
+  script.onerror = function(){
+    cleanupJsonp_(callbackName, script);
+    onDone({ ok:false, error:"network error" });
+  };
+
+  script.src = url.toString();
+  document.body.appendChild(script);
+}
+
+/* data flow */
 function lookup(){
   const era=val("inEra"), rank=val("inRank"), part=val("inPart");
   if(!era || !rank || !part){ toast("ERA/Rank/Part"); return; }
-  const url=new URL(WEBAPP_URL);
-  url.searchParams.set("action","lookup_redirect");
-  url.searchParams.set("era",era);
-  url.searchParams.set("rank",rank);
-  url.searchParams.set("part",part);
-  url.searchParams.set("returnUrl",location.origin + location.pathname);
-  location.href=url.toString();
+
+  setStatus("取得中...");
+  jsonpRequest_(
+    { action:"lookup_jsonp", era, rank, part },
+    function(payload){
+      if(payload && payload.ok && payload.action==="lookup"){
+        lastLookup = payload;
+        toast(`取得OK（行 ${payload.rowIndex}）`);
+        setStatus(`取得OK（行 ${payload.rowIndex}）`);
+      }else{
+        toast(payload && payload.error ? `ERROR: ${payload.error}` : "ERROR");
+        setStatus(payload && payload.error ? `ERROR: ${payload.error}` : "ERROR");
+      }
+      renderAll();
+    }
+  );
 }
+
 function applyUpdate(){
   if(!lastLookup || !lastLookup.ok){ toast("先に取得"); return; }
+
   const era=val("inEra"), rank=val("inRank"), part=val("inPart");
-  const url=new URL(WEBAPP_URL);
-  url.searchParams.set("action","update_redirect");
-  url.searchParams.set("era",era);
-  url.searchParams.set("rank",rank);
-  url.searchParams.set("part",part);
-  url.searchParams.set("returnUrl",location.origin + location.pathname);
-  for(let i=1;i<=8;i++) url.searchParams.set("c"+i, buildBarChord(i-1));
-  location.href=url.toString();
-}
+  const params={ action:"update_jsonp", era, rank, part };
+  for(let i=1;i<=8;i++) params["c"+i]=buildBarChord(i-1);
 
-function decodeBase64Utf8_(b64){
-  const bin = atob(b64.replace(/-/g,'+').replace(/_/g,'/'));
-  const bytes = new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
-  return new TextDecoder("utf-8").decode(bytes);
+  setStatus("反映中...");
+  jsonpRequest_(
+    params,
+    function(payload){
+      if(payload && payload.ok && payload.action==="update"){
+        toast(`反映OK（行 ${payload.updatedRow}）`);
+        setStatus(`反映OK（行 ${payload.updatedRow}）`);
+      }else{
+        toast(payload && payload.error ? `ERROR: ${payload.error}` : "ERROR");
+        setStatus(payload && payload.error ? `ERROR: ${payload.error}` : "ERROR");
+      }
+      renderAll();
+    }
+  );
 }
-
-function readPayloadFromHash_(){
-  const h=location.hash||"";
-  const m=h.match(/payload=([^&]+)/);
-  if(!m) return null;
-  try{
-    const json=decodeBase64Utf8_(m[1]);
-    return JSON.parse(json);
-  }catch(_e){ return null; }
-}
-function clearHash_(){ history.replaceState(null,"",location.pathname+location.search); }
 
 /* ===== init (DOM完成後) ===== */
 document.addEventListener("DOMContentLoaded", () => {
@@ -345,23 +377,6 @@ document.addEventListener("DOMContentLoaded", () => {
   $("btnQualClear").onclick = clearQuality;
 
   renderPads();
-
-  const payload = readPayloadFromHash_();
-  if(payload){
-    if(payload.ok && payload.action==="lookup"){
-      lastLookup = payload;
-      toast(`取得OK（行 ${payload.rowIndex}）`);
-      setStatus(`取得OK（行 ${payload.rowIndex}）`);
-    }else if(payload.ok && payload.action==="update"){
-      toast(`反映OK（行 ${payload.updatedRow}）`);
-      setStatus(`反映OK（行 ${payload.updatedRow}）`);
-    }else{
-      toast(payload.error ? `ERROR: ${payload.error}` : "ERROR");
-      setStatus(payload.error ? `ERROR: ${payload.error}` : "ERROR");
-    }
-    clearHash_();
-  }
-
   renderAll();
 });
 </script>
