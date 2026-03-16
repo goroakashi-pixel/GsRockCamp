@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.15</title>
+<title>Progression Entry ver1.3.16</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -41,7 +41,7 @@
 
 <body>
 
-<h2>Progression Entry ver1.3.15</h2>
+<h2>Progression Entry ver1.3.16</h2>
 <div class="muted">ERA/Rank/Part → 取得 → コード入力 → 視聴 / 反映。</div>
 
 <div class="card">
@@ -80,6 +80,7 @@
 
   <div class="row" style="margin-top:8px;">
     <button class="btn primary" id="btnLookup">取得</button>
+    <button class="btn primary" id="btnUpdate">反映（更新）</button>
     <span class="muted" id="statusMsg"></span>
   </div>
 </div>
@@ -93,18 +94,14 @@
   <div class="row" style="justify-content:space-between;">
     <div class="muted">小節入力：前半(A)／後半(B)</div>
     <div class="row">
-      <button class="btn small" id="btn4barRep">4barRep.</button>
-      <button class="btn small" id="btnPreview">視聴</button>
-      <button class="btn small primary" id="btnUpdate">反映（更新）</button>
+      <button class="btn small" id="btnHalfA">前半(A)</button>
+      <button class="btn small" id="btnHalfB">前半(B)</button>
       <button class="btn small warn" id="btnClearBar">選択小節クリア</button>
-      <button class="btn small warn" id="btnResetAll">リセット</button>
+      <button class="btn small" id="btnSwap">A⇔B入替</button>
+      <button class="btn small" id="btn4BarRep">4barRep</button>
     </div>
   </div>
-  <div class="toneBox">
-    <div class="toneTitle">構成音</div>
-    <div class="toneValue" id="toneView">（停止中）</div>
-  </div>
-  <div class="grid" id="barGrid" style="margin-top:8px;"></div>
+  <div class="grid" id="barGrid"></div>
 </div>
 
 <div class="card">
@@ -128,280 +125,209 @@
     <button class="btn warn" id="btnQualClear">クオリティ解除</button>
   </div>
   <div class="muted">オンベース：押す→次にルートで /Root（例：C/E）</div>
+
+  <div class="toneBox">
+    <div class="toneTitle">構成音（選択中スロット）</div>
+    <div class="toneValue" id="toneInfo">—</div>
+  </div>
+
+  <div class="row" style="margin-top:10px;">
+    <button class="btn" id="btnPreview">視聴</button>
+    <button class="btn warn" id="btnStopPreview">停止</button>
+  </div>
 </div>
 
 <script>
 /* ===== 設定 ===== */
 const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwLyrVpKlQSAWCJXRufi1HIRBfJYVrXg1NGCeCtP9lRqM0N-8TyevnsNKoV0n8UMb1D/exec";
-const ctx = new (window.AudioContext || window.webkitAudioContext)();
+const ENTRY_VER = "1.3.16";
 
-/* ===== audio ===== */
-function urlForFetch(url){
-  return String(url).replaceAll("#","%23");
-}
+/* ===== Part ⇔ number ===== */
+const PART_TO_NUMBER = {
+  "intro": "1",
+  "Aメロ": "2",
+  "Bメロ": "3",
+  "サビ": "4"
+};
 
-async function loadBuffer(url){
-  const r = await fetch(urlForFetch(url));
-  if(!r.ok) throw new Error(`fetch failed: ${url}`);
-  const a = await r.arrayBuffer();
-  return await ctx.decodeAudioData(a);
-}
-
-let buf = {};
-let bufferErrors = {};
-let activeSources = [];
-
-function markBufferError(name){
-  bufferErrors[name] = true;
-}
-
-async function safeLoadBuffer(key, url){
-  try{
-    buf[key] = await loadBuffer(url);
-  }catch(e){
-    console.error(e);
-    markBufferError(key);
-    buf[key] = null;
-  }
-}
-
-async function loadAll(){
-  if(buf.__loaded) return;
-
-  await safeLoadBuffer("drum", "./audio/Drum_loop.wav");
-
-  await safeLoadBuffer("A#0_Bass", "./audio/A#0_Bass.wav");
-  await safeLoadBuffer("A0_Bass",  "./audio/A0_Bass.wav");
-  await safeLoadBuffer("B0_Bass",  "./audio/B0_Bass.wav");
-  await safeLoadBuffer("C#1_Bass", "./audio/C#1_Bass.wav");
-  await safeLoadBuffer("C1_Bass",  "./audio/C1_Bass.wav");
-  await safeLoadBuffer("D#1_Bass", "./audio/D#1_Bass.wav");
-  await safeLoadBuffer("D1_Bass",  "./audio/D1_Bass.wav");
-  await safeLoadBuffer("E0_Bass",  "./audio/E0_Bass.wav");
-  await safeLoadBuffer("F#0_Bass", "./audio/F#0_Bass.wav");
-  await safeLoadBuffer("F0_Bass",  "./audio/F0_Bass.wav");
-  await safeLoadBuffer("G#0_Bass", "./audio/G#0_Bass.wav");
-  await safeLoadBuffer("G0_Bass",  "./audio/G0_Bass.wav");
-
-  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-  for(let o=2;o<=4;o++){
-    for(const n of pcs){
-      await safeLoadBuffer(`${n}${o}`, `./audio/${n}${o}.wav`);
-    }
-  }
-  await safeLoadBuffer("C5", "./audio/C5.wav");
-
-  buf.__loaded = true;
-}
-
-function play(buffer,time,fade=false,stopAfterSec=null){
-  if(!buffer) return null;
-  const s = ctx.createBufferSource();
-  const g = ctx.createGain();
-  s.buffer = buffer;
-  s.connect(g);
-  g.connect(ctx.destination);
-
-  if(fade){
-    g.gain.setValueAtTime(1, time);
-    g.gain.setValueAtTime(1, time + 2.1);
-    g.gain.linearRampToValueAtTime(0, time + 2.2);
-  }
-
-  s.start(time);
-
-  if(stopAfterSec!=null){
-    const end = time + stopAfterSec;
-    try{ s.stop(end); }catch(_e){}
-  }
-
-  activeSources.push(s);
-  return s;
-}
-
-function playWithCustomFade(buffer, time, holdSec, fadeSec){
-  if(!buffer) return null;
-  const s = ctx.createBufferSource();
-  const g = ctx.createGain();
-  s.buffer = buffer;
-  s.connect(g);
-  g.connect(ctx.destination);
-
-  const fadeStart = time + holdSec;
-  const endTime = fadeStart + fadeSec;
-
-  g.gain.setValueAtTime(1, time);
-  g.gain.setValueAtTime(1, fadeStart);
-  g.gain.linearRampToValueAtTime(0, endTime);
-
-  s.start(time);
-  try{ s.stop(endTime); }catch(_e){}
-  activeSources.push(s);
-  return s;
-}
-
-function stopAllPlaying(){
-  for(const s of activeSources){
-    try{ s.stop(0); }catch(_e){}
-  }
-  activeSources = [];
-}
-
-function piano(notes,time,fade=false){
-  notes.forEach(n=>{ play(buf[n],time,fade); });
-}
-
-function pianoWithCustomFade(notes,time,holdSec,fadeSec){
-  notes.forEach(n=>{ playWithCustomFade(buf[n],time,holdSec,fadeSec); });
-}
-
-function bass(note,time,fade=false){
-  play(buf[note],time,fade);
-}
-
-function bassHalfSegment(note,time,isLastBarSecondHalf=false){
-  const buffer = buf[note];
-  if(!buffer) return;
-  if(isLastBarSecondHalf){
-    playWithCustomFade(buffer, time, 1.3, 0.1);
-  }else{
-    playWithCustomFade(buffer, time, 1.2, 0.1);
-  }
-}
-
-function drum(time,fade=false){
-  play(buf.drum,time,fade);
-}
-
-async function prepareAudioForGesture(){
-  if(ctx.state === "suspended"){
-    await ctx.resume();
-  }
-  await loadAll();
-}
+const NUMBER_TO_PART = {
+  "1": "intro",
+  "2": "Aメロ",
+  "3": "Bメロ",
+  "4": "サビ"
+};
 
 /* ===== State ===== */
 const PLAY_BARS = 8;
-const state = Array.from({length: PLAY_BARS}, () => ({ A:{root:"",qual:"",bass:""}, B:{root:"",qual:"",bass:""} }));
-let selectedBar=1, selectedHalf="A", bassMode=false;
-let lastLookup=null;
-let requestSeq=0;
-let previewRunId=0;
-let currentPlayingBar=0;
-let currentPlayingHalf="";
-let previewUiTimers=[];
+const state = Array.from({length:PLAY_BARS},()=>({A:{root:"",qual:"",bass:""},B:{root:"",qual:"",bass:""}}));
+let selectedBar = 1, selectedHalf = "A", bassMode = false;
+let lastLookup = null;
+let requestSeq = 0;
+
+/* ===== Audio ===== */
+let audioCtx = null;
+let activeNodes = [];
+let playTimer = null;
+let isPreviewPlaying = false;
 
 function $(id){ return document.getElementById(id); }
-function val(id){ return String($(id)?.value||"").trim(); }
-function setStatus(msg){ const el=$("statusMsg"); if(el) el.textContent=msg||""; }
+function val(id){ return String($(id)?.value || "").trim(); }
+function setStatus(msg){ const el = $("statusMsg"); if(el) el.textContent = msg || ""; }
+
+function getSelectedPart(){
+  return val("inPart");
+}
+
+function getSelectedNumber(){
+  const part = getSelectedPart();
+  return PART_TO_NUMBER[part] || "";
+}
 
 function toast(msg){
   const d=document.createElement("div");
   d.textContent=msg;
-  d.style.position="fixed"; d.style.left="50%"; d.style.bottom="24px";
-  d.style.transform="translateX(-50%)"; d.style.background="#111"; d.style.color="#fff";
-  d.style.padding="10px 14px"; d.style.borderRadius="999px"; d.style.fontSize="14px";
-  d.style.opacity="0.95"; d.style.zIndex="9999";
+  d.style.position="fixed";
+  d.style.left="50%";
+  d.style.bottom="24px";
+  d.style.transform="translateX(-50%)";
+  d.style.background="#111";
+  d.style.color="#fff";
+  d.style.padding="10px 14px";
+  d.style.borderRadius="999px";
+  d.style.fontSize="14px";
+  d.style.opacity="0.95";
+  d.style.zIndex="9999";
   document.body.appendChild(d);
   setTimeout(()=>d.remove(),1400);
 }
 
 function esc(s){
-  return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">", "&gt;")
-    .replaceAll('"',"&quot;").replaceAll("'","&#39;");
+  return String(s??"")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#39;");
 }
+
 function slot(){ return state[selectedBar-1][selectedHalf]; }
 
-function cloneSlot_(src){
-  return {
-    root: String(src.root || ""),
-    qual: String(src.qual || ""),
-    bass: String(src.bass || "")
-  };
-}
-
-function resetAllBoxes(){
-  for(let i=0;i<PLAY_BARS;i++){
-    state[i].A={root:"",qual:"",bass:""};
-    state[i].B={root:"",qual:"",bass:""};
-  }
-  bassMode=false;
-  selectedBar=1;
-  selectedHalf="A";
-  stopPreview();
-  setToneView("（停止中）");
-  toast("全小節リセット");
-  renderAll();
-}
-
-function setToneView(text){
-  $("toneView").textContent=text || "";
+function cloneSlot_(s){
+  return { root:s.root||"", qual:s.qual||"", bass:s.bass||"" };
 }
 
 function buildChordString(s){
-  const r=(s.root||"").trim(), q=(s.qual||"").trim(), b=(s.bass||"").trim();
+  const r=(s.root||"").trim();
+  const q=(s.qual||"").trim();
+  const b=(s.bass||"").trim();
   if(!r) return "";
-  let out=r+q;
+  let out = r + q;
   if(b) out += "/" + b;
   return out;
 }
+
 function buildBarChord(i){
-  const a=buildChordString(state[i].A), b=buildChordString(state[i].B);
+  const a=buildChordString(state[i].A);
+  const b=buildChordString(state[i].B);
   if(a && b) return `${a}│${b}`;
   if(a) return a;
   if(b) return b;
   return "";
 }
 
+function renderHalfButtons(){
+  $("btnHalfA")?.classList.toggle("primary", selectedHalf==="A");
+  $("btnHalfB")?.classList.toggle("primary", selectedHalf==="B");
+}
+
 function renderBars(){
-  const grid=$("barGrid"); if(!grid) return;
-  grid.innerHTML="";
+  const grid = $("barGrid");
+  if(!grid) return;
+  grid.innerHTML = "";
   for(let i=1;i<=PLAY_BARS;i++){
-    const row=document.createElement("div"); row.className="bar";
-    const idx=document.createElement("div"); idx.className="idx"; idx.textContent=i;
+    const row = document.createElement("div");
+    row.className = "bar";
 
-    const aStr=buildChordString(state[i-1].A);
-    const bStr=buildChordString(state[i-1].B);
+    const idx = document.createElement("div");
+    idx.className = "idx";
+    idx.textContent = i;
 
-    const slotA=document.createElement("div");
-    slotA.className="slot"+(selectedBar===i && selectedHalf==="A" ? " active":"")+(currentPlayingBar===i && currentPlayingHalf==="A" ? " playing":"");
-    slotA.onclick=()=>{selectedBar=i;selectedHalf="A";bassMode=false;renderAll();};
-    slotA.innerHTML=`<div class="txt">${esc(aStr||"（前半）")}</div><div class="badge">A</div>`;
+    const aStr = buildChordString(state[i-1].A);
+    const bStr = buildChordString(state[i-1].B);
 
-    const slotB=document.createElement("div");
-    slotB.className="slot"+(selectedBar===i && selectedHalf==="B" ? " active":"")+(currentPlayingBar===i && currentPlayingHalf==="B" ? " playing":"");
-    slotB.onclick=()=>{selectedBar=i;selectedHalf="B";bassMode=false;renderAll();};
-    slotB.innerHTML=`<div class="txt">${esc(bStr||"（後半）")}</div><div class="badge">B</div>`;
+    const slotA = document.createElement("div");
+    slotA.className = "slot" + (selectedBar===i && selectedHalf==="A" ? " active" : "");
+    slotA.onclick = ()=>{
+      selectedBar=i;
+      selectedHalf="A";
+      bassMode=false;
+      renderAll();
+    };
+    slotA.innerHTML = `<div class="txt">${esc(aStr || "（前半）")}</div><div class="badge">A</div>`;
 
-    row.appendChild(idx); row.appendChild(slotA); row.appendChild(slotB);
+    const slotB = document.createElement("div");
+    slotB.className = "slot" + (selectedBar===i && selectedHalf==="B" ? " active" : "");
+    slotB.onclick = ()=>{
+      selectedBar=i;
+      selectedHalf="B";
+      bassMode=false;
+      renderAll();
+    };
+    slotB.innerHTML = `<div class="txt">${esc(bStr || "（後半）")}</div><div class="badge">B</div>`;
+
+    if(isPreviewPlaying){
+      if(i === selectedBar && selectedHalf === "A") slotA.classList.add("playing");
+      if(i === selectedBar && selectedHalf === "B") slotB.classList.add("playing");
+    }
+
+    row.appendChild(idx);
+    row.appendChild(slotA);
+    row.appendChild(slotB);
     grid.appendChild(row);
   }
 }
 
 function renderMeta(){
-  const g=$("metaGrid"); if(!g) return;
-  g.innerHTML="";
+  const g = $("metaGrid");
+  if(!g) return;
+  g.innerHTML = "";
+
   if(!lastLookup || !lastLookup.ok){
-    g.innerHTML=`<div class="muted">（未取得）</div>`;
+    g.innerHTML = `<div class="muted">（未取得）</div>`;
     return;
   }
-  const m=lastLookup.meta||{};
-  const items=[["Artist",m.Artist],["title",m.title],["words",m.words],["music",m.music],["arrange",m.arrange],["Year",m.Year],["original_key",m.original_key],["Quiz_key",m.Quiz_key],["row",lastLookup.rowIndex]];
+
+  const m = lastLookup.meta || {};
+  const items = [
+    ["Artist", m.Artist],
+    ["title", m.title],
+    ["words", m.words],
+    ["music", m.music],
+    ["arrange", m.arrange],
+    ["Year", m.Year],
+    ["original_key", m.original_key],
+    ["Quiz_key", m.Quiz_key],
+    ["number", m.number],
+    ["Part", m.Part],
+    ["Data", m.Data],
+    ["row", lastLookup.rowIndex]
+  ];
+
   for(const [k,v] of items){
-    const div=document.createElement("div");
-    div.className="metaItem";
-    div.innerHTML=`<div class="k">${esc(k)}</div><div class="v">${esc(v||"")}</div>`;
+    const div = document.createElement("div");
+    div.className = "metaItem";
+    div.innerHTML = `<div class="k">${esc(k)}</div><div class="v">${esc(v || "")}</div>`;
     g.appendChild(div);
   }
 }
 
 function renderPads(){
-  const rootPad=$("rootPad");
-  const qualPad=$("qualPad");
+  const rootPad = $("rootPad");
+  const qualPad = $("qualPad");
   if(!rootPad || !qualPad) return;
 
-  const roots=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B","D♭","E♭","G♭","A♭","B♭"];
-  rootPad.innerHTML="";
+  const roots = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B","D♭","E♭","G♭","A♭","B♭"];
+  rootPad.innerHTML = "";
   roots.forEach(r=>{
     const b=document.createElement("button");
     b.className="btn";
@@ -410,8 +336,8 @@ function renderPads(){
     rootPad.appendChild(b);
   });
 
-  const quals=["","m","7","m7","maj7","mM7","dim","aug","sus4","m7-5","add9","9","6","m6"];
-  qualPad.innerHTML="";
+  const quals = ["","m","7","m7","maj7","mM7","dim","aug","sus4","m7-5","add9","9","6","m6"];
+  qualPad.innerHTML = "";
   quals.forEach(q=>{
     const b=document.createElement("button");
     b.className="btn";
@@ -421,19 +347,119 @@ function renderPads(){
   });
 }
 
-function renderAll(){
-  renderBars();
-  renderMeta();
-  document.title="Progression Entry ver1.3.15";
+function pcIndex(name){
+  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  return pcs.indexOf(name);
 }
 
-/* actions */
+function idxToPc(i){
+  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  return pcs[(i%12+12)%12];
+}
+
+function normalizeAccidentalRoot(root){
+  const map = {
+    "Cb":"B",
+    "Db":"C#", "D♭":"C#",
+    "Eb":"D#", "E♭":"D#",
+    "Fb":"E",
+    "Gb":"F#", "G♭":"F#",
+    "Ab":"G#", "A♭":"G#",
+    "Bb":"A#", "B♭":"A#",
+    "E#":"F",
+    "B#":"C"
+  };
+  return map[root] || root;
+}
+
+function parseChordSymbol(sym){
+  sym = String(sym||"").trim();
+  const slashSplit = sym.split("/");
+  const baseSym = (slashSplit[0]||"").trim();
+  const slashBass = slashSplit[1] ? String(slashSplit[1]).trim() : "";
+  const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/);
+  const root = m ? m[1] : "C";
+  const rest = m ? (m[2]||"") : "";
+  return {
+    root: normalizeAccidentalRoot(root.replaceAll("♭","b")),
+    quality: rest,
+    bass: slashBass ? normalizeAccidentalRoot(slashBass.replaceAll("♭","b")) : ""
+  };
+}
+
+function getChordTones(sym){
+  const p = parseChordSymbol(sym);
+  const rootIdx = pcIndex(p.root);
+  if(rootIdx < 0) return [];
+
+  let intervals = [0,4,7];
+  const q = p.quality;
+
+  if(q === "m") intervals = [0,3,7];
+  else if(q === "7") intervals = [0,4,7,10];
+  else if(q === "m7") intervals = [0,3,7,10];
+  else if(q === "maj7") intervals = [0,4,7,11];
+  else if(q === "mM7") intervals = [0,3,7,11];
+  else if(q === "dim") intervals = [0,3,6];
+  else if(q === "aug") intervals = [0,4,8];
+  else if(q === "sus4") intervals = [0,5,7];
+  else if(q === "m7-5") intervals = [0,3,6,10];
+  else if(q === "add9") intervals = [0,4,7,14];
+  else if(q === "9") intervals = [0,4,7,10,14];
+  else if(q === "6") intervals = [0,4,7,9];
+  else if(q === "m6") intervals = [0,3,7,9];
+
+  const tones = intervals.map(n => idxToPc(rootIdx + n));
+  if(p.bass){
+    const bassNorm = p.bass;
+    return [bassNorm, ...tones.filter(t => t !== bassNorm)];
+  }
+  return tones;
+}
+
+function renderToneInfo(){
+  const el = $("toneInfo");
+  if(!el) return;
+  const sym = buildChordString(slot());
+  if(!sym){
+    el.textContent = "—";
+    return;
+  }
+  const tones = getChordTones(sym);
+  el.textContent = tones.length ? `${sym} → ${tones.join(" / ")}` : sym;
+}
+
+function renderAll(){
+  renderHalfButtons();
+  renderBars();
+  renderMeta();
+  renderToneInfo();
+  document.title = `Progression Entry ver${ENTRY_VER}`;
+}
+
+function setHalf(h){ selectedHalf=h; bassMode=false; renderAll(); }
 function clearSelected(){ state[selectedBar-1][selectedHalf]={root:"",qual:"",bass:""}; bassMode=false; renderAll(); }
+function swapHalf(){ const bar=state[selectedBar-1]; const t=bar.A; bar.A=bar.B; bar.B=t; bassMode=false; renderAll(); }
 function toggleBassMode(){ bassMode=!bassMode; toast(bassMode?"オンベース：次にルート":"オンベース解除"); }
 function clearBass(){ slot().bass=""; bassMode=false; renderAll(); }
 function clearQuality(){ slot().qual=""; renderAll(); }
-function applyRoot(root){ const s=slot(); if(bassMode){ s.bass=root; bassMode=false; } else { s.root=root; } renderAll(); }
-function applyQuality(q){ slot().qual=q; renderAll(); }
+
+function applyRoot(root){
+  const s=slot();
+  if(bassMode){
+    s.bass=root;
+    bassMode=false;
+  } else {
+    s.root=root;
+  }
+  renderAll();
+}
+
+function applyQuality(q){
+  slot().qual=q;
+  renderAll();
+}
+
 function fourBarRepeat(){
   for(let i=0;i<4;i++){
     state[i+4].A = cloneSlot_(state[i].A);
@@ -502,12 +528,19 @@ function jsonpRequest_(params, onDone){
 
 /* data flow */
 function lookup(){
-  const era=val("inEra"), rank=val("inRank"), part=val("inPart");
-  if(!era || !rank || !part){ toast("ERA/Rank/Part"); return; }
+  const era = val("inEra");
+  const rank = val("inRank");
+  const part = val("inPart");
+  const number = getSelectedNumber();
+
+  if(!era || !rank || !part || !number){
+    toast("ERA/Rank/Part");
+    return;
+  }
 
   setStatus("取得中...");
   jsonpRequest_(
-    { action:"lookup_jsonp", era, rank, part },
+    { action:"lookup_jsonp", era, rank, number },
     function(payload){
       if(payload && payload.ok && payload.action==="lookup"){
         lastLookup = payload;
@@ -526,8 +559,17 @@ function lookup(){
 function applyUpdate(){
   if(!lastLookup || !lastLookup.ok){ toast("先に取得"); return; }
 
-  const era=val("inEra"), rank=val("inRank"), part=val("inPart");
-  const params={ action:"update_jsonp", era, rank, part };
+  const era = val("inEra");
+  const rank = val("inRank");
+  const part = val("inPart");
+  const number = getSelectedNumber();
+
+  if(!era || !rank || !part || !number){
+    toast("ERA/Rank/Part");
+    return;
+  }
+
+  const params = { action:"update_jsonp", era, rank, number };
   for(let i=1;i<=8;i++) params["c"+i]=buildBarChord(i-1);
 
   setStatus("反映中...");
@@ -546,260 +588,101 @@ function applyUpdate(){
   );
 }
 
-/* ===== preview logic ===== */
-function pcIndex(name){
-  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-  return pcs.indexOf(name);
-}
-
-function idxToPc(i){
-  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-  return pcs[(i%12+12)%12];
-}
-
-function normalizeAccidentalRoot(root){
-  const map = {
-    "Cb":"B",
-    "Db":"C#", "D♭":"C#",
-    "Eb":"D#", "E♭":"D#",
-    "Fb":"E",
-    "Gb":"F#", "G♭":"F#",
-    "Ab":"G#", "A♭":"G#",
-    "Bb":"A#", "B♭":"A#",
-    "E#":"F",
-    "B#":"C"
-  };
-  return map[root] || root;
-}
-
-function parseChordSymbol(sym){
-  sym = String(sym||"").trim();
-  const slashSplit = sym.split("/");
-  const baseSym = (slashSplit[0]||"").trim();
-  const slashBass = slashSplit[1] ? String(slashSplit[1]).trim() : "";
-  const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/);
-  const root = m ? m[1] : "C";
-  const rest = m ? m[2] : "";
-
-  let quality = "maj";
-  if(rest.startsWith("m") && !rest.startsWith("maj")) quality = "min";
-  if(rest.startsWith("dim")) quality = "dim";
-  if(rest.startsWith("aug")) quality = "aug";
-
-  let seventh = null;
-  if(/mM7/.test(rest)) seventh = "maj7";
-  else if(/maj7|M7/.test(rest)) seventh = "maj7";
-  else if(/m7/.test(rest)) seventh = "m7";
-  else if(/(^|[^a-zA-Z])7/.test(rest)) seventh = "7";
-
-  const sixth = /6/.test(rest);
-  const ninth = /9/.test(rest);
-  const bassRoot = slashBass ? slashBass : root;
-
-  return {root, bassRoot, quality, seventh, sixth, ninth};
-}
-
-function chordToPitchClasses(sym){
-  const p = parseChordSymbol(sym);
-  const rootNorm = normalizeAccidentalRoot(p.root);
-  const r = pcIndex(rootNorm);
-  if(r<0) return ["C","E","G"];
-
-  let third = 4;
-  let fifth = 7;
-  if(p.quality==="min"){ third = 3; fifth = 7; }
-  if(p.quality==="aug"){ third = 4; fifth = 8; }
-  if(p.quality==="dim"){ third = 3; fifth = 6; }
-
-  const pcs = [ idxToPc(r), idxToPc(r+third), idxToPc(r+fifth) ];
-  if(p.sixth) pcs.push(idxToPc(r+9));
-  if(p.seventh==="7") pcs.push(idxToPc(r+10));
-  if(p.seventh==="maj7") pcs.push(idxToPc(r+11));
-  if(p.seventh==="m7") pcs.push(idxToPc(r+10));
-  if(p.ninth) pcs.push(idxToPc(r+14));
-
-  const uniq = [];
-  for(const x of pcs){
-    if(!uniq.includes(x)) uniq.push(x);
+/* ===== preview audio ===== */
+function ensureAudioContext(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  return uniq;
-}
-
-function bassBufferName(rootPc){
-  if(rootPc==="C") return "C1_Bass";
-  if(rootPc==="C#" || rootPc==="D" || rootPc==="D#") return rootPc + "1_Bass";
-  return rootPc + "0_Bass";
-}
-
-function pianoVoicing(sym){
-  const p = parseChordSymbol(sym);
-  const rootNorm = normalizeAccidentalRoot(p.root);
-  const rootIdx = pcIndex(rootNorm);
-  let pcs = chordToPitchClasses(sym);
-
-  if(p.ninth){
-    const n9 = idxToPc(rootIdx+14);
-    pcs = pcs.filter(x=>x!==n9);
-    pcs.push(n9);
+  if(audioCtx.state === "suspended"){
+    return audioCtx.resume();
   }
-  if(p.seventh){
-    const sev = p.seventh==="maj7" ? idxToPc(rootIdx+11) : idxToPc(rootIdx+10);
-    pcs = pcs.filter(x=>x!==sev);
-    pcs.push(sev);
-  }
-
-  while(pcs.length<3){ pcs.push(idxToPc(rootIdx+7)); }
-  if(pcs.length>4){
-    if(p.ninth){
-      pcs = [pcs[0], pcs[1], pcs[2], idxToPc(rootIdx+14)];
-    }else if(p.seventh){
-      const sev = p.seventh==="maj7" ? idxToPc(rootIdx+11) : idxToPc(rootIdx+10);
-      pcs = [pcs[0], pcs[1], pcs[2], sev];
-    }else{
-      pcs = pcs.slice(0,4);
-    }
-  }
-
-  return pcs.slice(0,4).map(x=>x+"3");
-}
-
-function getBarSegments(chordText){
-  const raw = String(chordText||"");
-  const parts = raw.split("│").map(x=>x.trim()).filter(Boolean);
-  if(parts.length>=2){
-    return [
-      {raw:parts[0], offset:0.0, duration:1.0, half:"A"},
-      {raw:parts[1], offset:1.0, duration:1.0, half:"B"}
-    ];
-  }
-  return [{raw:raw.trim(), offset:0.0, duration:2.0, half:(raw.trim() ? "A" : "")}];
-}
-
-function toneNamesFromSym_(sym){
-  const pcs = chordToPitchClasses(sym);
-  return pcs.join(" / ");
-}
-
-function clearPreviewUiTimers_(){
-  previewUiTimers.forEach(id=>clearTimeout(id));
-  previewUiTimers = [];
-}
-
-function schedulePreviewUi_(runId, delayMs, barNo, half, sym){
-  const id = setTimeout(()=>{
-    if(runId!==previewRunId) return;
-    currentPlayingBar = barNo;
-    currentPlayingHalf = half;
-    setToneView(sym ? toneNamesFromSym_(sym) : "（停止中）");
-    renderAll();
-  }, Math.max(0, delayMs));
-  previewUiTimers.push(id);
-}
-
-function getLastFilledBarIndex_(){
-  for(let i=PLAY_BARS-1;i>=0;i--){
-    if(String(buildBarChord(i)||"").trim()) return i;
-  }
-  return -1;
+  return Promise.resolve();
 }
 
 function stopPreview(){
-  previewRunId += 1;
-  clearPreviewUiTimers_();
-  stopAllPlaying();
-  currentPlayingBar=0;
-  currentPlayingHalf="";
-  setToneView("（停止中）");
+  if(playTimer){
+    clearTimeout(playTimer);
+    playTimer = null;
+  }
+  activeNodes.forEach(n=>{
+    try{ n.stop(0); }catch(_e){}
+  });
+  activeNodes = [];
+  isPreviewPlaying = false;
   renderAll();
-  $("btnPreview").textContent="視聴";
 }
 
-async function previewPlay(){
-  const lastFilledBar = getLastFilledBarIndex_();
-  if(lastFilledBar < 0){
-    toast("コード未入力");
-    return;
-  }
+function playFreq(freq, when, dur){
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(freq, when);
+  gain.gain.setValueAtTime(0.0001, when);
+  gain.gain.linearRampToValueAtTime(0.18, when + 0.01);
+  gain.gain.setValueAtTime(0.18, when + Math.max(0.02, dur - 0.04));
+  gain.gain.linearRampToValueAtTime(0.0001, when + dur);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(when);
+  osc.stop(when + dur + 0.02);
+  activeNodes.push(osc);
+}
 
-  if($("btnPreview").textContent==="停止"){
+function noteToFreq(pc, octave=4){
+  const map = {C:0,"C#":1,D:2,"D#":3,E:4,F:5,"F#":6,G:7,"G#":8,A:9,"A#":10,B:11};
+  const idx = map[normalizeAccidentalRoot(pc)];
+  if(idx == null) return null;
+  const midi = (octave + 1) * 12 + idx;
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+function previewCurrent(){
+  ensureAudioContext().then(()=>{
     stopPreview();
-    return;
-  }
+    isPreviewPlaying = true;
+    renderAll();
 
-  await prepareAudioForGesture();
-  stopPreview();
+    const now = audioCtx.currentTime + 0.03;
+    let t = now;
+    const step = 0.6;
 
-  const runId = ++previewRunId;
-  $("btnPreview").textContent="停止";
-
-  let t = ctx.currentTime + 0.1;
-  let bar = 2.0;
-
-  for(let i=0;i<=lastFilledBar;i++){
-    const baseTime = t + bar*i;
-    const isLastBar = (i===lastFilledBar);
-    const barText = buildBarChord(i);
-    const segs = getBarSegments(barText);
-
-    if(!String(barText||"").trim()) continue;
-
-    drum(baseTime, isLastBar);
-
-    for(let j=0;j<segs.length;j++){
-      const seg = segs[j];
-      if(!seg.raw) continue;
-
-      const segTime = baseTime + seg.offset;
-      const segFade = (isLastBar && j===segs.length-1);
-
-      const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot);
-      const bname = bassBufferName(rootPc);
-
-      if(segs.length>=2){
-        const isLastBarSecondHalf = isLastBar && j===1;
-        bassHalfSegment(bname, segTime, isLastBarSecondHalf);
-        if(isLastBarSecondHalf){
-          pianoWithCustomFade(pianoVoicing(seg.raw), segTime, 1.3, 0.1);
-        }else{
-          piano(pianoVoicing(seg.raw), segTime, false);
+    for(let i=0;i<PLAY_BARS;i++){
+      const halves = [state[i].A, state[i].B];
+      halves.forEach(h=>{
+        const sym = buildChordString(h);
+        if(sym){
+          const tones = getChordTones(sym);
+          tones.forEach((pc, idx)=>{
+            const freq = noteToFreq(pc, idx === 0 ? 3 : 4);
+            if(freq) playFreq(freq, t, 0.5);
+          });
         }
-      }else{
-        bass(bname, segTime, segFade);
-        piano(pianoVoicing(seg.raw), segTime, segFade);
-      }
-
-      schedulePreviewUi_(
-        runId,
-        (segTime - ctx.currentTime) * 1000,
-        i + 1,
-        seg.half,
-        seg.raw
-      );
+        t += step;
+      });
     }
-  }
 
-  const stopDelaySec = (bar * (lastFilledBar + 1)) + 0.6;
-  schedulePreviewUi_(runId, (stopDelaySec - 0.05) * 1000, 0, "", "");
-  const stopId = setTimeout(()=>{
-    if(runId!==previewRunId) return;
-    stopPreview();
-  }, stopDelaySec * 1000);
-  previewUiTimers.push(stopId);
+    playTimer = setTimeout(()=>{ stopPreview(); }, Math.ceil((t - now) * 1000) + 120);
+  }).catch(()=>{
+    toast("音声初期化エラー");
+  });
 }
 
-/* ===== init (DOM完成後) ===== */
-document.addEventListener("DOMContentLoaded", () => {
+/* ===== init ===== */
+document.addEventListener("DOMContentLoaded", ()=>{
   $("btnLookup").onclick = lookup;
   $("btnUpdate").onclick = applyUpdate;
-  $("btnPreview").onclick = previewPlay;
-  $("btn4barRep").onclick = fourBarRepeat;
-  $("btnResetAll").onclick = resetAllBoxes;
 
+  $("btnHalfA").onclick = ()=>setHalf("A");
+  $("btnHalfB").onclick = ()=>setHalf("B");
   $("btnClearBar").onclick = clearSelected;
+  $("btnSwap").onclick = swapHalf;
+  $("btn4BarRep").onclick = fourBarRepeat;
 
   $("btnBassMode").onclick = toggleBassMode;
   $("btnBassClear").onclick = clearBass;
   $("btnQualClear").onclick = clearQuality;
+
+  $("btnPreview").onclick = previewCurrent;
+  $("btnStopPreview").onclick = stopPreview;
 
   renderPads();
   renderAll();
