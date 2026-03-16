@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Progression Entry ver1.3.17</title>
+<title>Progression Entry ver1.3.15</title>
 <style>
   :root{
     --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
@@ -41,7 +41,7 @@
 
 <body>
 
-<h2>Progression Entry ver1.3.17</h2>
+<h2>Progression Entry ver1.3.15</h2>
 <div class="muted">ERA/Rank/Part → 取得 → コード入力 → 視聴 / 反映。</div>
 
 <div class="card">
@@ -80,7 +80,6 @@
 
   <div class="row" style="margin-top:8px;">
     <button class="btn primary" id="btnLookup">取得</button>
-    <button class="btn primary" id="btnUpdate">反映（更新）</button>
     <span class="muted" id="statusMsg"></span>
   </div>
 </div>
@@ -94,14 +93,18 @@
   <div class="row" style="justify-content:space-between;">
     <div class="muted">小節入力：前半(A)／後半(B)</div>
     <div class="row">
-      <button class="btn small" id="btnHalfA">前半(A)</button>
-      <button class="btn small" id="btnHalfB">前半(B)</button>
+      <button class="btn small" id="btn4barRep">4barRep.</button>
+      <button class="btn small" id="btnPreview">視聴</button>
+      <button class="btn small primary" id="btnUpdate">反映（更新）</button>
       <button class="btn small warn" id="btnClearBar">選択小節クリア</button>
-      <button class="btn small" id="btnSwap">A⇔B入替</button>
-      <button class="btn small" id="btn4BarRep">4barRep.</button>
+      <button class="btn small warn" id="btnResetAll">リセット</button>
     </div>
   </div>
-  <div class="grid" id="barGrid"></div>
+  <div class="toneBox">
+    <div class="toneTitle">構成音</div>
+    <div class="toneValue" id="toneView">（停止中）</div>
+  </div>
+  <div class="grid" id="barGrid" style="margin-top:8px;"></div>
 </div>
 
 <div class="card">
@@ -125,73 +128,11 @@
     <button class="btn warn" id="btnQualClear">クオリティ解除</button>
   </div>
   <div class="muted">オンベース：押す→次にルートで /Root（例：C/E）</div>
-
-  <div class="toneBox">
-    <div class="toneTitle">構成音（選択中スロット）</div>
-    <div class="toneValue" id="toneInfo">—</div>
-  </div>
-
-  <div class="row" style="margin-top:10px;">
-    <button class="btn" id="btnPreview">視聴</button>
-    <button class="btn warn" id="btnReset">リセット</button>
-  </div>
 </div>
 
 <script>
 /* ===== 設定 ===== */
 const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwLyrVpKlQSAWCJXRufi1HIRBfJYVrXg1NGCeCtP9lRqM0N-8TyevnsNKoV0n8UMb1D/exec";
-const ENTRY_VER = "1.3.17";
-
-/* ===== util ===== */
-function $(id){ return document.getElementById(id); }
-function val(id){ return String($(id)?.value || "").trim(); }
-function setStatus(msg){ const el = $("statusMsg"); if(el) el.textContent = msg || ""; }
-function esc(s){
-  return String(s??"")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#39;");
-}
-function toast(msg){
-  const d=document.createElement("div");
-  d.textContent=msg;
-  d.style.position="fixed";
-  d.style.left="50%";
-  d.style.bottom="24px";
-  d.style.transform="translateX(-50%)";
-  d.style.background="#111";
-  d.style.color="#fff";
-  d.style.padding="10px 14px";
-  d.style.borderRadius="999px";
-  d.style.fontSize="14px";
-  d.style.opacity="0.95";
-  d.style.zIndex="9999";
-  document.body.appendChild(d);
-  setTimeout(()=>d.remove(),1400);
-}
-
-/* ===== Part → number ===== */
-const PART_TO_NUMBER = {
-  "intro": "1",
-  "Aメロ": "2",
-  "Bメロ": "3",
-  "サビ": "4"
-};
-
-function selectedNumber_(){
-  return PART_TO_NUMBER[String(val("inPart") || "").trim()] || "";
-}
-
-/* ===== State ===== */
-const PLAY_BARS = 8;
-const state = Array.from({length:PLAY_BARS},()=>({A:{root:"",qual:"",bass:""},B:{root:"",qual:"",bass:""}}));
-let selectedBar = 1, selectedHalf = "A", bassMode = false;
-let lastLookup = null;
-let requestSeq = 0;
-
-/* ===== audio ctx ===== */
 const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
 /* ===== audio ===== */
@@ -220,167 +161,247 @@ async function safeLoadBuffer(key, url){
   }catch(e){
     console.error(e);
     markBufferError(key);
+    buf[key] = null;
   }
+}
+
+async function loadAll(){
+  if(buf.__loaded) return;
+
+  await safeLoadBuffer("drum", "./audio/Drum_loop.wav");
+
+  await safeLoadBuffer("A#0_Bass", "./audio/A#0_Bass.wav");
+  await safeLoadBuffer("A0_Bass",  "./audio/A0_Bass.wav");
+  await safeLoadBuffer("B0_Bass",  "./audio/B0_Bass.wav");
+  await safeLoadBuffer("C#1_Bass", "./audio/C#1_Bass.wav");
+  await safeLoadBuffer("C1_Bass",  "./audio/C1_Bass.wav");
+  await safeLoadBuffer("D#1_Bass", "./audio/D#1_Bass.wav");
+  await safeLoadBuffer("D1_Bass",  "./audio/D1_Bass.wav");
+  await safeLoadBuffer("E0_Bass",  "./audio/E0_Bass.wav");
+  await safeLoadBuffer("F#0_Bass", "./audio/F#0_Bass.wav");
+  await safeLoadBuffer("F0_Bass",  "./audio/F0_Bass.wav");
+  await safeLoadBuffer("G#0_Bass", "./audio/G#0_Bass.wav");
+  await safeLoadBuffer("G0_Bass",  "./audio/G0_Bass.wav");
+
+  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  for(let o=2;o<=4;o++){
+    for(const n of pcs){
+      await safeLoadBuffer(`${n}${o}`, `./audio/${n}${o}.wav`);
+    }
+  }
+  await safeLoadBuffer("C5", "./audio/C5.wav");
+
+  buf.__loaded = true;
+}
+
+function play(buffer,time,fade=false,stopAfterSec=null){
+  if(!buffer) return null;
+  const s = ctx.createBufferSource();
+  const g = ctx.createGain();
+  s.buffer = buffer;
+  s.connect(g);
+  g.connect(ctx.destination);
+
+  if(fade){
+    g.gain.setValueAtTime(1, time);
+    g.gain.setValueAtTime(1, time + 2.1);
+    g.gain.linearRampToValueAtTime(0, time + 2.2);
+  }
+
+  s.start(time);
+
+  if(stopAfterSec!=null){
+    const end = time + stopAfterSec;
+    try{ s.stop(end); }catch(_e){}
+  }
+
+  activeSources.push(s);
+  return s;
+}
+
+function playWithCustomFade(buffer, time, holdSec, fadeSec){
+  if(!buffer) return null;
+  const s = ctx.createBufferSource();
+  const g = ctx.createGain();
+  s.buffer = buffer;
+  s.connect(g);
+  g.connect(ctx.destination);
+
+  const fadeStart = time + holdSec;
+  const endTime = fadeStart + fadeSec;
+
+  g.gain.setValueAtTime(1, time);
+  g.gain.setValueAtTime(1, fadeStart);
+  g.gain.linearRampToValueAtTime(0, endTime);
+
+  s.start(time);
+  try{ s.stop(endTime); }catch(_e){}
+  activeSources.push(s);
+  return s;
+}
+
+function stopAllPlaying(){
+  for(const s of activeSources){
+    try{ s.stop(0); }catch(_e){}
+  }
+  activeSources = [];
+}
+
+function piano(notes,time,fade=false){
+  notes.forEach(n=>{ play(buf[n],time,fade); });
+}
+
+function pianoWithCustomFade(notes,time,holdSec,fadeSec){
+  notes.forEach(n=>{ playWithCustomFade(buf[n],time,holdSec,fadeSec); });
+}
+
+function bass(note,time,fade=false){
+  play(buf[note],time,fade);
+}
+
+function bassHalfSegment(note,time,isLastBarSecondHalf=false){
+  const buffer = buf[note];
+  if(!buffer) return;
+  if(isLastBarSecondHalf){
+    playWithCustomFade(buffer, time, 1.3, 0.1);
+  }else{
+    playWithCustomFade(buffer, time, 1.2, 0.1);
+  }
+}
+
+function drum(time,fade=false){
+  play(buf.drum,time,fade);
 }
 
 async function prepareAudioForGesture(){
-  if(ctx.state === "suspended") await ctx.resume();
-  if(!buf.kick || !buf.pianoC || !buf.bassC){
-    await Promise.all([
-      safeLoadBuffer("kick", "./audio/drums/kick.wav"),
-      safeLoadBuffer("snare", "./audio/drums/snare.wav"),
-      safeLoadBuffer("hihat", "./audio/drums/hihat.wav"),
-      safeLoadBuffer("pianoC", "./audio/piano/C.wav"),
-      safeLoadBuffer("bassC", "./audio/bass/C.wav")
-    ]);
+  if(ctx.state === "suspended"){
+    await ctx.resume();
   }
+  await loadAll();
 }
 
-function playBuf(buffer, when, gain=1, rate=1){
-  if(!buffer) return null;
-  const src = ctx.createBufferSource();
-  const g = ctx.createGain();
-  src.buffer = buffer;
-  src.playbackRate.value = rate;
-  g.gain.value = gain;
-  src.connect(g).connect(ctx.destination);
-  src.start(when);
-  activeSources.push(src);
-  return { src, g };
+/* ===== State ===== */
+const PLAY_BARS = 8;
+const state = Array.from({length: PLAY_BARS}, () => ({ A:{root:"",qual:"",bass:""}, B:{root:"",qual:"",bass:""} }));
+let selectedBar=1, selectedHalf="A", bassMode=false;
+let lastLookup=null;
+let requestSeq=0;
+let previewRunId=0;
+let currentPlayingBar=0;
+let currentPlayingHalf="";
+let previewUiTimers=[];
+
+function $(id){ return document.getElementById(id); }
+function val(id){ return String($(id)?.value||"").trim(); }
+function setStatus(msg){ const el=$("statusMsg"); if(el) el.textContent=msg||""; }
+
+function toast(msg){
+  const d=document.createElement("div");
+  d.textContent=msg;
+  d.style.position="fixed"; d.style.left="50%"; d.style.bottom="24px";
+  d.style.transform="translateX(-50%)"; d.style.background="#111"; d.style.color="#fff";
+  d.style.padding="10px 14px"; d.style.borderRadius="999px"; d.style.fontSize="14px";
+  d.style.opacity="0.95"; d.style.zIndex="9999";
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),1400);
 }
 
-function stopPreview(){
-  activeSources.forEach(s=>{ try{ s.stop(0); }catch(_e){} });
-  activeSources = [];
-  $("btnPreview").textContent = "視聴";
-  previewRunId++;
-  clearPlayingSlots_();
+function esc(s){
+  return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#39;");
+}
+function slot(){ return state[selectedBar-1][selectedHalf]; }
+
+function cloneSlot_(src){
+  return {
+    root: String(src.root || ""),
+    qual: String(src.qual || ""),
+    bass: String(src.bass || "")
+  };
 }
 
-function resetAll(){
-  stopPreview();
+function resetAllBoxes(){
   for(let i=0;i<PLAY_BARS;i++){
-    state[i].A = {root:"",qual:"",bass:""};
-    state[i].B = {root:"",qual:"",bass:""};
+    state[i].A={root:"",qual:"",bass:""};
+    state[i].B={root:"",qual:"",bass:""};
   }
-  selectedBar = 1;
-  selectedHalf = "A";
-  bassMode = false;
+  bassMode=false;
+  selectedBar=1;
+  selectedHalf="A";
+  stopPreview();
+  setToneView("（停止中）");
+  toast("全小節リセット");
   renderAll();
 }
 
-function slot(){ return state[selectedBar-1][selectedHalf]; }
+function setToneView(text){
+  $("toneView").textContent=text || "";
+}
 
 function buildChordString(s){
-  const r=(s.root||"").trim();
-  const q=(s.qual||"").trim();
-  const b=(s.bass||"").trim();
+  const r=(s.root||"").trim(), q=(s.qual||"").trim(), b=(s.bass||"").trim();
   if(!r) return "";
-  let out = r + q;
+  let out=r+q;
   if(b) out += "/" + b;
   return out;
 }
-
 function buildBarChord(i){
-  const a=buildChordString(state[i].A);
-  const b=buildChordString(state[i].B);
+  const a=buildChordString(state[i].A), b=buildChordString(state[i].B);
   if(a && b) return `${a}│${b}`;
   if(a) return a;
   if(b) return b;
   return "";
 }
 
-function renderHalfButtons(){
-  $("btnHalfA")?.classList.toggle("primary", selectedHalf==="A");
-  $("btnHalfB")?.classList.toggle("primary", selectedHalf==="B");
-}
-
 function renderBars(){
-  const grid = $("barGrid");
-  if(!grid) return;
-  grid.innerHTML = "";
+  const grid=$("barGrid"); if(!grid) return;
+  grid.innerHTML="";
   for(let i=1;i<=PLAY_BARS;i++){
-    const row = document.createElement("div");
-    row.className = "bar";
+    const row=document.createElement("div"); row.className="bar";
+    const idx=document.createElement("div"); idx.className="idx"; idx.textContent=i;
 
-    const idx = document.createElement("div");
-    idx.className = "idx";
-    idx.textContent = i;
+    const aStr=buildChordString(state[i-1].A);
+    const bStr=buildChordString(state[i-1].B);
 
-    const aStr = buildChordString(state[i-1].A);
-    const bStr = buildChordString(state[i-1].B);
+    const slotA=document.createElement("div");
+    slotA.className="slot"+(selectedBar===i && selectedHalf==="A" ? " active":"")+(currentPlayingBar===i && currentPlayingHalf==="A" ? " playing":"");
+    slotA.onclick=()=>{selectedBar=i;selectedHalf="A";bassMode=false;renderAll();};
+    slotA.innerHTML=`<div class="txt">${esc(aStr||"（前半）")}</div><div class="badge">A</div>`;
 
-    const slotA = document.createElement("div");
-    slotA.className = "slot" + (selectedBar===i && selectedHalf==="A" ? " active" : "");
-    slotA.dataset.bar = String(i);
-    slotA.dataset.half = "A";
-    slotA.onclick = ()=>{
-      selectedBar=i;
-      selectedHalf="A";
-      bassMode=false;
-      renderAll();
-    };
-    slotA.innerHTML = `<div class="txt">${esc(aStr || "（前半）")}</div><div class="badge">A</div>`;
+    const slotB=document.createElement("div");
+    slotB.className="slot"+(selectedBar===i && selectedHalf==="B" ? " active":"")+(currentPlayingBar===i && currentPlayingHalf==="B" ? " playing":"");
+    slotB.onclick=()=>{selectedBar=i;selectedHalf="B";bassMode=false;renderAll();};
+    slotB.innerHTML=`<div class="txt">${esc(bStr||"（後半）")}</div><div class="badge">B</div>`;
 
-    const slotB = document.createElement("div");
-    slotB.className = "slot" + (selectedBar===i && selectedHalf==="B" ? " active" : "");
-    slotB.dataset.bar = String(i);
-    slotB.dataset.half = "B";
-    slotB.onclick = ()=>{
-      selectedBar=i;
-      selectedHalf="B";
-      bassMode=false;
-      renderAll();
-    };
-    slotB.innerHTML = `<div class="txt">${esc(bStr || "（後半）")}</div><div class="badge">B</div>`;
-
-    row.appendChild(idx);
-    row.appendChild(slotA);
-    row.appendChild(slotB);
+    row.appendChild(idx); row.appendChild(slotA); row.appendChild(slotB);
     grid.appendChild(row);
   }
 }
 
 function renderMeta(){
-  const g = $("metaGrid");
-  if(!g) return;
-  g.innerHTML = "";
-
+  const g=$("metaGrid"); if(!g) return;
+  g.innerHTML="";
   if(!lastLookup || !lastLookup.ok){
-    g.innerHTML = `<div class="muted">（未取得）</div>`;
+    g.innerHTML=`<div class="muted">（未取得）</div>`;
     return;
   }
-
-  const m = lastLookup.meta || {};
-  const items = [
-    ["Artist", m.Artist],
-    ["title", m.title],
-    ["words", m.words],
-    ["music", m.music],
-    ["arrange", m.arrange],
-    ["Year", m.Year],
-    ["original_key", m.original_key],
-    ["Quiz_key", m.Quiz_key],
-    ["number", m.number],
-    ["Part", m.Part],
-    ["row", lastLookup.rowIndex]
-  ];
-
+  const m=lastLookup.meta||{};
+  const items=[["Artist",m.Artist],["title",m.title],["words",m.words],["music",m.music],["arrange",m.arrange],["Year",m.Year],["original_key",m.original_key],["Quiz_key",m.Quiz_key],["row",lastLookup.rowIndex]];
   for(const [k,v] of items){
-    const div = document.createElement("div");
-    div.className = "metaItem";
-    div.innerHTML = `<div class="k">${esc(k)}</div><div class="v">${esc(v || "")}</div>`;
+    const div=document.createElement("div");
+    div.className="metaItem";
+    div.innerHTML=`<div class="k">${esc(k)}</div><div class="v">${esc(v||"")}</div>`;
     g.appendChild(div);
   }
 }
 
 function renderPads(){
-  const rootPad = $("rootPad");
-  const qualPad = $("qualPad");
+  const rootPad=$("rootPad");
+  const qualPad=$("qualPad");
   if(!rootPad || !qualPad) return;
 
-  const roots = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B","D♭","E♭","G♭","A♭","B♭"];
-  rootPad.innerHTML = "";
+  const roots=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B","D♭","E♭","G♭","A♭","B♭"];
+  rootPad.innerHTML="";
   roots.forEach(r=>{
     const b=document.createElement("button");
     b.className="btn";
@@ -389,8 +410,8 @@ function renderPads(){
     rootPad.appendChild(b);
   });
 
-  const quals = ["","m","7","m7","maj7","mM7","dim","aug","sus4","m7-5","add9","9","6","m6"];
-  qualPad.innerHTML = "";
+  const quals=["","m","7","m7","maj7","mM7","dim","aug","sus4","m7-5","add9","9","6","m6"];
+  qualPad.innerHTML="";
   quals.forEach(q=>{
     const b=document.createElement("button");
     b.className="btn";
@@ -400,125 +421,25 @@ function renderPads(){
   });
 }
 
-function pcIndex(name){
-  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-  return pcs.indexOf(name);
-}
-
-function idxToPc(i){
-  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-  return pcs[(i%12+12)%12];
-}
-
-function normalizeAccidentalRoot(root){
-  const map = {
-    "Cb":"B",
-    "Db":"C#", "D♭":"C#",
-    "Eb":"D#", "E♭":"D#",
-    "Fb":"E",
-    "Gb":"F#", "G♭":"F#",
-    "Ab":"G#", "A♭":"G#",
-    "Bb":"A#", "B♭":"A#",
-    "E#":"F",
-    "B#":"C"
-  };
-  return map[root] || root;
-}
-
-function parseChordSymbol(sym){
-  sym = String(sym||"").trim();
-  const slashSplit = sym.split("/");
-  const baseSym = (slashSplit[0]||"").trim();
-  const slashBass = slashSplit[1] ? String(slashSplit[1]).trim() : "";
-  const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/);
-  const root = m ? m[1] : "C";
-  const rest = m ? (m[2]||"") : "";
-  return {
-    root: normalizeAccidentalRoot(root.replaceAll("♭","b")),
-    quality: rest,
-    bass: slashBass ? normalizeAccidentalRoot(slashBass.replaceAll("♭","b")) : ""
-  };
-}
-
-function getChordTones(sym){
-  const p = parseChordSymbol(sym);
-  const rootIdx = pcIndex(p.root);
-  if(rootIdx < 0) return [];
-
-  let intervals = [0,4,7];
-  const q = p.quality;
-
-  if(q === "m") intervals = [0,3,7];
-  else if(q === "7") intervals = [0,4,7,10];
-  else if(q === "m7") intervals = [0,3,7,10];
-  else if(q === "maj7") intervals = [0,4,7,11];
-  else if(q === "mM7") intervals = [0,3,7,11];
-  else if(q === "dim") intervals = [0,3,6];
-  else if(q === "aug") intervals = [0,4,8];
-  else if(q === "sus4") intervals = [0,5,7];
-  else if(q === "m7-5") intervals = [0,3,6,10];
-  else if(q === "add9") intervals = [0,4,7,14];
-  else if(q === "9") intervals = [0,4,7,10,14];
-  else if(q === "6") intervals = [0,4,7,9];
-  else if(q === "m6") intervals = [0,3,7,9];
-
-  const tones = intervals.map(n => idxToPc(rootIdx + n));
-  if(p.bass){
-    const bassNorm = p.bass;
-    return [bassNorm, ...tones.filter(t => t !== bassNorm)];
-  }
-  return tones;
-}
-
-function renderToneInfo(){
-  const el = $("toneInfo");
-  if(!el) return;
-  const sym = buildChordString(slot());
-  if(!sym){
-    el.textContent = "—";
-    return;
-  }
-  const tones = getChordTones(sym);
-  el.textContent = tones.length ? `${sym} → ${tones.join(" / ")}` : sym;
-}
-
 function renderAll(){
-  renderHalfButtons();
   renderBars();
   renderMeta();
-  renderToneInfo();
-  document.title="Progression Entry ver1.3.17";
+  document.title="Progression Entry ver1.3.15";
 }
 
-function setHalf(h){ selectedHalf=h; bassMode=false; renderAll(); }
+/* actions */
 function clearSelected(){ state[selectedBar-1][selectedHalf]={root:"",qual:"",bass:""}; bassMode=false; renderAll(); }
-function swapHalf(){ const bar=state[selectedBar-1]; const t=bar.A; bar.A=bar.B; bar.B=t; bassMode=false; renderAll(); }
-
-function fourBarRepeat(){
-  for(let i=0;i<4;i++){
-    state[i+4].A = { ...state[i].A };
-    state[i+4].B = { ...state[i].B };
-  }
-  renderAll();
-}
-
 function toggleBassMode(){ bassMode=!bassMode; toast(bassMode?"オンベース：次にルート":"オンベース解除"); }
 function clearBass(){ slot().bass=""; bassMode=false; renderAll(); }
 function clearQuality(){ slot().qual=""; renderAll(); }
-
-function applyRoot(root){
-  const s=slot();
-  if(bassMode){
-    s.bass=root;
-    bassMode=false;
-  } else {
-    s.root=root;
+function applyRoot(root){ const s=slot(); if(bassMode){ s.bass=root; bassMode=false; } else { s.root=root; } renderAll(); }
+function applyQuality(q){ slot().qual=q; renderAll(); }
+function fourBarRepeat(){
+  for(let i=0;i<4;i++){
+    state[i+4].A = cloneSlot_(state[i].A);
+    state[i+4].B = cloneSlot_(state[i].B);
   }
-  renderAll();
-}
-
-function applyQuality(q){
-  slot().qual=q;
+  toast("1〜4小節を5〜8小節へコピー");
   renderAll();
 }
 
@@ -581,12 +502,12 @@ function jsonpRequest_(params, onDone){
 
 /* data flow */
 function lookup(){
-  const era=val("inEra"), rank=val("inRank"), part=val("inPart"), number=selectedNumber_();
-  if(!era || !rank || !part || !number){ toast("ERA/Rank/Part"); return; }
+  const era=val("inEra"), rank=val("inRank"), part=val("inPart");
+  if(!era || !rank || !part){ toast("ERA/Rank/Part"); return; }
 
   setStatus("取得中...");
   jsonpRequest_(
-    { action:"lookup_jsonp", era, rank, number },
+    { action:"lookup_jsonp", era, rank, part },
     function(payload){
       if(payload && payload.ok && payload.action==="lookup"){
         lastLookup = payload;
@@ -605,8 +526,8 @@ function lookup(){
 function applyUpdate(){
   if(!lastLookup || !lastLookup.ok){ toast("先に取得"); return; }
 
-  const era=val("inEra"), rank=val("inRank"), part=val("inPart"), number=selectedNumber_();
-  const params={ action:"update_jsonp", era, rank, number };
+  const era=val("inEra"), rank=val("inRank"), part=val("inPart");
+  const params={ action:"update_jsonp", era, rank, part };
   for(let i=1;i<=8;i++) params["c"+i]=buildBarChord(i-1);
 
   setStatus("反映中...");
@@ -626,96 +547,172 @@ function applyUpdate(){
 }
 
 /* ===== preview logic ===== */
+function pcIndex(name){
+  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  return pcs.indexOf(name);
+}
+
+function idxToPc(i){
+  const pcs = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  return pcs[(i%12+12)%12];
+}
+
+function normalizeAccidentalRoot(root){
+  const map = {
+    "Cb":"B",
+    "Db":"C#", "D♭":"C#",
+    "Eb":"D#", "E♭":"D#",
+    "Fb":"E",
+    "Gb":"F#", "G♭":"F#",
+    "Ab":"G#", "A♭":"G#",
+    "Bb":"A#", "B♭":"A#",
+    "E#":"F",
+    "B#":"C"
+  };
+  return map[root] || root;
+}
+
+function parseChordSymbol(sym){
+  sym = String(sym||"").trim();
+  const slashSplit = sym.split("/");
+  const baseSym = (slashSplit[0]||"").trim();
+  const slashBass = slashSplit[1] ? String(slashSplit[1]).trim() : "";
+  const m = baseSym.match(/^([A-G](?:[#b♭])?)(.*)$/);
+  const root = m ? m[1] : "C";
+  const rest = m ? m[2] : "";
+
+  let quality = "maj";
+  if(rest.startsWith("m") && !rest.startsWith("maj")) quality = "min";
+  if(rest.startsWith("dim")) quality = "dim";
+  if(rest.startsWith("aug")) quality = "aug";
+
+  let seventh = null;
+  if(/mM7/.test(rest)) seventh = "maj7";
+  else if(/maj7|M7/.test(rest)) seventh = "maj7";
+  else if(/m7/.test(rest)) seventh = "m7";
+  else if(/(^|[^a-zA-Z])7/.test(rest)) seventh = "7";
+
+  const sixth = /6/.test(rest);
+  const ninth = /9/.test(rest);
+  const bassRoot = slashBass ? slashBass : root;
+
+  return {root, bassRoot, quality, seventh, sixth, ninth};
+}
+
+function chordToPitchClasses(sym){
+  const p = parseChordSymbol(sym);
+  const rootNorm = normalizeAccidentalRoot(p.root);
+  const r = pcIndex(rootNorm);
+  if(r<0) return ["C","E","G"];
+
+  let third = 4;
+  let fifth = 7;
+  if(p.quality==="min"){ third = 3; fifth = 7; }
+  if(p.quality==="aug"){ third = 4; fifth = 8; }
+  if(p.quality==="dim"){ third = 3; fifth = 6; }
+
+  const pcs = [ idxToPc(r), idxToPc(r+third), idxToPc(r+fifth) ];
+  if(p.sixth) pcs.push(idxToPc(r+9));
+  if(p.seventh==="7") pcs.push(idxToPc(r+10));
+  if(p.seventh==="maj7") pcs.push(idxToPc(r+11));
+  if(p.seventh==="m7") pcs.push(idxToPc(r+10));
+  if(p.ninth) pcs.push(idxToPc(r+14));
+
+  const uniq = [];
+  for(const x of pcs){
+    if(!uniq.includes(x)) uniq.push(x);
+  }
+  return uniq;
+}
+
+function bassBufferName(rootPc){
+  if(rootPc==="C") return "C1_Bass";
+  if(rootPc==="C#" || rootPc==="D" || rootPc==="D#") return rootPc + "1_Bass";
+  return rootPc + "0_Bass";
+}
+
+function pianoVoicing(sym){
+  const p = parseChordSymbol(sym);
+  const rootNorm = normalizeAccidentalRoot(p.root);
+  const rootIdx = pcIndex(rootNorm);
+  let pcs = chordToPitchClasses(sym);
+
+  if(p.ninth){
+    const n9 = idxToPc(rootIdx+14);
+    pcs = pcs.filter(x=>x!==n9);
+    pcs.push(n9);
+  }
+  if(p.seventh){
+    const sev = p.seventh==="maj7" ? idxToPc(rootIdx+11) : idxToPc(rootIdx+10);
+    pcs = pcs.filter(x=>x!==sev);
+    pcs.push(sev);
+  }
+
+  while(pcs.length<3){ pcs.push(idxToPc(rootIdx+7)); }
+  if(pcs.length>4){
+    if(p.ninth){
+      pcs = [pcs[0], pcs[1], pcs[2], idxToPc(rootIdx+14)];
+    }else if(p.seventh){
+      const sev = p.seventh==="maj7" ? idxToPc(rootIdx+11) : idxToPc(rootIdx+10);
+      pcs = [pcs[0], pcs[1], pcs[2], sev];
+    }else{
+      pcs = pcs.slice(0,4);
+    }
+  }
+
+  return pcs.slice(0,4).map(x=>x+"3");
+}
+
+function getBarSegments(chordText){
+  const raw = String(chordText||"");
+  const parts = raw.split("│").map(x=>x.trim()).filter(Boolean);
+  if(parts.length>=2){
+    return [
+      {raw:parts[0], offset:0.0, duration:1.0, half:"A"},
+      {raw:parts[1], offset:1.0, duration:1.0, half:"B"}
+    ];
+  }
+  return [{raw:raw.trim(), offset:0.0, duration:2.0, half:(raw.trim() ? "A" : "")}];
+}
+
+function toneNamesFromSym_(sym){
+  const pcs = chordToPitchClasses(sym);
+  return pcs.join(" / ");
+}
+
+function clearPreviewUiTimers_(){
+  previewUiTimers.forEach(id=>clearTimeout(id));
+  previewUiTimers = [];
+}
+
+function schedulePreviewUi_(runId, delayMs, barNo, half, sym){
+  const id = setTimeout(()=>{
+    if(runId!==previewRunId) return;
+    currentPlayingBar = barNo;
+    currentPlayingHalf = half;
+    setToneView(sym ? toneNamesFromSym_(sym) : "（停止中）");
+    renderAll();
+  }, Math.max(0, delayMs));
+  previewUiTimers.push(id);
+}
+
 function getLastFilledBarIndex_(){
   for(let i=PLAY_BARS-1;i>=0;i--){
-    if(buildBarChord(i)) return i;
+    if(String(buildBarChord(i)||"").trim()) return i;
   }
   return -1;
 }
 
-function getBarSegments(barText){
-  const raw = String(barText || "").trim();
-  if(!raw) return [];
-  const segs = raw.split("│").map(s => s.trim()).filter(Boolean);
-  return segs.length ? segs : [raw];
+function stopPreview(){
+  previewRunId += 1;
+  clearPreviewUiTimers_();
+  stopAllPlaying();
+  currentPlayingBar=0;
+  currentPlayingHalf="";
+  setToneView("（停止中）");
+  renderAll();
+  $("btnPreview").textContent="視聴";
 }
-
-function clearPlayingSlots_(){
-  document.querySelectorAll(".slot.playing").forEach(el=>el.classList.remove("playing"));
-}
-
-function markPlayingSlot_(barIndex, half){
-  clearPlayingSlots_();
-  const el = document.querySelector(`.slot[data-bar="${barIndex+1}"][data-half="${half}"]`);
-  if(el) el.classList.add("playing");
-}
-
-function semitoneFromC(pc){
-  const p = normalizeAccidentalRoot(String(pc || "").replaceAll("♭","b"));
-  const map = { C:0, "C#":1, D:2, "D#":3, E:4, F:5, "F#":6, G:7, "G#":8, A:9, "A#":10, B:11 };
-  return map[p] ?? 0;
-}
-
-function rateFromPc(pc){
-  return Math.pow(2, semitoneFromC(pc) / 12);
-}
-
-function playOneShot_(buffer, when, gainValue=1, rate=1, stopAfter=null){
-  if(!buffer) return null;
-  const src = ctx.createBufferSource();
-  const gain = ctx.createGain();
-  src.buffer = buffer;
-  src.playbackRate.value = rate;
-  gain.gain.value = gainValue;
-  src.connect(gain).connect(ctx.destination);
-  src.start(when);
-  if(stopAfter != null){
-    try{ src.stop(when + stopAfter); }catch(_e){}
-  }
-  activeSources.push(src);
-  return { src, gain };
-}
-
-function scheduleDrums_(baseTime, barDur, isLastBar){
-  if(buf.kick){
-    playOneShot_(buf.kick, baseTime + 0.00, 0.9);
-    playOneShot_(buf.kick, baseTime + 1.00, 0.9);
-  }
-  if(buf.snare){
-    playOneShot_(buf.snare, baseTime + 0.50, 0.8);
-    if(!isLastBar) playOneShot_(buf.snare, baseTime + 1.50, 0.8);
-  }
-  if(buf.hihat){
-    for(let k=0;k<8;k++){
-      const t = baseTime + 0.25*k;
-      if(isLastBar && t >= baseTime + 1.5) break;
-      playOneShot_(buf.hihat, t, 0.35);
-    }
-  }
-}
-
-function scheduleChord_(sym, when, dur, isLastSegment){
-  const tones = getChordTones(sym);
-  if(!tones.length) return;
-
-  const stopAfter = isLastSegment ? Math.max(0.01, dur - 0.03) : null;
-  const fadeStart = isLastSegment ? (when + Math.max(0.01, dur - 0.08)) : null;
-  const stopAt = isLastSegment ? (when + Math.max(0.01, dur - 0.03)) : null;
-
-  tones.forEach((pc, idx)=>{
-    const rate = rateFromPc(pc);
-    const bassLike = (idx===0);
-    const node = playOneShot_(bassLike ? buf.bassC : buf.pianoC, when, bassLike ? 0.72 : 0.30, rate, stopAfter);
-    if(node && isLastSegment && fadeStart != null && stopAt != null){
-      try{
-        node.gain.gain.setValueAtTime(node.gain.gain.value, fadeStart);
-        node.gain.gain.linearRampToValueAtTime(0.0001, stopAt);
-      }catch(_e){}
-    }
-  });
-}
-
-let previewRunId = 0;
 
 async function previewPlay(){
   const lastFilledBar = getLastFilledBarIndex_();
@@ -746,57 +743,63 @@ async function previewPlay(){
 
     if(!String(barText||"").trim()) continue;
 
-    scheduleDrums_(baseTime, bar, isLastBar);
+    drum(baseTime, isLastBar);
 
-    if(segs.length===1){
-      const sym = segs[0];
-      scheduleChord_(sym, baseTime, isLastBar ? 1.5 : 2.0, isLastBar);
-      setTimeout(()=>{
-        if(previewRunId!==runId) return;
-        markPlayingSlot_(i, "A");
-      }, Math.max(0, (baseTime - ctx.currentTime) * 1000));
-    }else{
-      const durA = 1.0;
-      const durB = isLastBar ? 0.5 : 1.0;
+    for(let j=0;j<segs.length;j++){
+      const seg = segs[j];
+      if(!seg.raw) continue;
 
-      scheduleChord_(segs[0], baseTime, durA, false);
-      scheduleChord_(segs[1], baseTime + 1.0, durB, isLastBar);
+      const segTime = baseTime + seg.offset;
+      const segFade = (isLastBar && j===segs.length-1);
 
-      setTimeout(()=>{
-        if(previewRunId!==runId) return;
-        markPlayingSlot_(i, "A");
-      }, Math.max(0, (baseTime - ctx.currentTime) * 1000));
+      const rootPc = normalizeAccidentalRoot(parseChordSymbol(seg.raw).bassRoot);
+      const bname = bassBufferName(rootPc);
 
-      setTimeout(()=>{
-        if(previewRunId!==runId) return;
-        markPlayingSlot_(i, "B");
-      }, Math.max(0, (baseTime + 1.0 - ctx.currentTime) * 1000));
+      if(segs.length>=2){
+        const isLastBarSecondHalf = isLastBar && j===1;
+        bassHalfSegment(bname, segTime, isLastBarSecondHalf);
+        if(isLastBarSecondHalf){
+          pianoWithCustomFade(pianoVoicing(seg.raw), segTime, 1.3, 0.1);
+        }else{
+          piano(pianoVoicing(seg.raw), segTime, false);
+        }
+      }else{
+        bass(bname, segTime, segFade);
+        piano(pianoVoicing(seg.raw), segTime, segFade);
+      }
+
+      schedulePreviewUi_(
+        runId,
+        (segTime - ctx.currentTime) * 1000,
+        i + 1,
+        seg.half,
+        seg.raw
+      );
     }
   }
 
-  const totalDur = bar * (lastFilledBar + 1) - 0.5;
-  setTimeout(()=>{
-    if(previewRunId!==runId) return;
+  const stopDelaySec = (bar * (lastFilledBar + 1)) + 0.6;
+  schedulePreviewUi_(runId, (stopDelaySec - 0.05) * 1000, 0, "", "");
+  const stopId = setTimeout(()=>{
+    if(runId!==previewRunId) return;
     stopPreview();
-  }, Math.max(0, totalDur * 1000 + 150));
+  }, stopDelaySec * 1000);
+  previewUiTimers.push(stopId);
 }
 
-document.addEventListener("DOMContentLoaded", ()=>{
+/* ===== init (DOM完成後) ===== */
+document.addEventListener("DOMContentLoaded", () => {
   $("btnLookup").onclick = lookup;
   $("btnUpdate").onclick = applyUpdate;
+  $("btnPreview").onclick = previewPlay;
+  $("btn4barRep").onclick = fourBarRepeat;
+  $("btnResetAll").onclick = resetAllBoxes;
 
-  $("btnHalfA").onclick = ()=>setHalf("A");
-  $("btnHalfB").onclick = ()=>setHalf("B");
   $("btnClearBar").onclick = clearSelected;
-  $("btnSwap").onclick = swapHalf;
-  $("btn4BarRep").onclick = fourBarRepeat;
 
   $("btnBassMode").onclick = toggleBassMode;
   $("btnBassClear").onclick = clearBass;
   $("btnQualClear").onclick = clearQuality;
-
-  $("btnPreview").onclick = previewPlay;
-  $("btnReset").onclick = resetAll;
 
   renderPads();
   renderAll();
