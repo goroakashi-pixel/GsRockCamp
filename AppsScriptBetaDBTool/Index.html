@@ -84,7 +84,7 @@
   <div class="muted">ヘッダー情報 / AI下書き</div>
   <div class="metaGrid" id="metaGrid"></div>
   <div id="dataWarning" class="warnBox">Data が TRUE です。既存データ上書きに注意してください。</div>
-  <div id="draftNotes" class="noteBox" style="margin-top:10px;">読み込み後に original_key / YouTube / original_Chord の AI下書きを作成できます。</div>
+  <div id="draftNotes" class="noteBox" style="margin-top:10px;">読み込み後に公開Web調査で original_key / YouTube 候補を取得し、その後に AI original_Chord 下書きを作成できます。</div>
   <div class="row" style="margin-top:10px;">
     <div style="flex:1; min-width:160px;">
       <label>AI下書き original_key</label>
@@ -180,7 +180,7 @@ function createEmptySong_(){
     ok:false,
     appVersion:APP_VERSION,
     connection:{connected:false},
-    metadata:{data:'',artist:'',title:'',rank:'',era:'',youtubeUrl:'',youtubeEmbedUrl:'',youtubeSearchUrl:'',originalKey:'',quizKey:'',draftOriginalKey:'',draftQuizKey:'',draftYoutubeUrl:'',draftNotes:[],draftStatus:{}},
+    metadata:{data:'',artist:'',title:'',rank:'',era:'',youtubeUrl:'',youtubeEmbedUrl:'',youtubeSearchUrl:'',originalKey:'',quizKey:'',draftOriginalKey:'',draftQuizKey:'',draftYoutubeUrl:'',draftNotes:[],draftStatus:{},aiStatus:{configured:false,model:'gpt-5'}},
     parts:PART_ORDER.map(createEmptyPart_),
     logs:[]
   };
@@ -236,7 +236,7 @@ function handleAiChord_(){
   if(state.loading || state.saving) return;
   if(!state.baseId){ log_('AI取得前に先頭IDを読み込んでください。'); return; }
   setBusy_(true,false);
-  log_(`suggestOriginalChords(${state.baseId}) を呼び出します。`);
+  log_(`suggestOriginalChords(${state.baseId}) を呼び出します。公開Web調査 → OPENAI_API_KEY があれば AI original_Chord 下書き、無ければ metadata 候補まで取得します。`);
   runServer_('suggestOriginalChords', state.baseId)
     .then((response)=>applyAiDraftResponse_(response))
     .catch((error)=>handleClientError_(error,'ai'))
@@ -315,6 +315,9 @@ function applyAiDraftResponse_(response){
   renderAll_(false);
   log_(`[ai] ${response.message || 'OK'}`);
   (response.logs || []).forEach((line)=>log_(line));
+  if(incoming.metadata.aiStatus && !incoming.metadata.aiStatus.configured){
+    log_('NOTE: OPENAI_API_KEY 未設定のため、今回は original_Chord の AI 下書きまでは進んでいません。');
+  }
 }
 
 function normalizeSongResponse_(response){
@@ -377,6 +380,9 @@ function renderHeader_(){
 
 function renderMetaOnly_(){
   const meta = state.song.metadata || {};
+  const aiStatusLabel = meta.aiStatus && meta.aiStatus.configured
+    ? `利用可 / ${meta.aiStatus.model || 'gpt-5'}`
+    : '未設定（公開Web調査のみ）';
   const items = [
     ['Data', meta.data || '-',''],
     ['Artist', meta.artist || '-',''],
@@ -385,10 +391,11 @@ function renderMetaOnly_(){
     ['DB original_key', meta.originalKey || '-', `AI下書き: ${meta.draftOriginalKey || '-'}`],
     ['DB Quiz_key', meta.quizKey || '-', `AI下書き: ${meta.draftQuizKey || '-'}`],
     ['DB YouTube', meta.youtubeUrl || '-', meta.youtubeUrl ? 'DB既存値あり' : 'DB空欄'],
-    ['Version', state.song.appVersion || APP_VERSION, `検索URL: ${meta.youtubeSearchUrl || '-'}`]
+    ['AI状態', aiStatusLabel, `検索URL: ${meta.youtubeSearchUrl || '-'}`],
+    ['Version', state.song.appVersion || APP_VERSION, `YouTube候補: ${meta.draftYoutubeUrl || '-'}`]
   ];
   $('metaGrid').innerHTML = items.map(([k,v,s]) => `<div class="metaItem"><div class="k">${esc_(k)}</div><div class="v">${esc_(v)}</div><div class="s">${esc_(s || '')}</div></div>`).join('');
-  $('draftNotes').textContent = Array.isArray(meta.draftNotes) && meta.draftNotes.length ? meta.draftNotes.join('\n') : 'AI下書きがまだありません。必要なら「AIでoriginal_Chord取得」を押してください。';
+  $('draftNotes').textContent = Array.isArray(meta.draftNotes) && meta.draftNotes.length ? meta.draftNotes.join('\n') : 'AI下書きがまだありません。必要なら「AIでoriginal_Chord取得」を押してください。OPENAI_API_KEY が無い場合も、公開Web調査で original_key / YouTube 候補までは取得します。';
   $('partMeta').textContent = `draft original_key: ${state.song.metadata.draftOriginalKey || '-'} / Quiz_key: ${state.song.metadata.draftQuizKey || '-'}`;
 }
 

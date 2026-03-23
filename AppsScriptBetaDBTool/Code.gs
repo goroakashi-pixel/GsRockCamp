@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.0.2';
 const OPENAI_MODEL = 'gpt-5';
 
 function doGet() {
@@ -36,12 +36,14 @@ function loadSong(baseId) {
   try {
     var normalizedBaseId = normalizeBaseId_(baseId);
     var bundle = fetchSongBundle_(normalizedBaseId);
-    return buildSongResponse_(bundle, {
+    var response = buildSongResponse_(bundle, {
       ok: true,
       action: 'loadSong',
       message: '読み込み成功: ID ' + normalizedBaseId + '〜' + (normalizedBaseId + 3),
       stage: 'draft_ready'
     });
+    hydrateDraftMetadataFromWeb_(bundle, response, { metadataOnly: true });
+    return response;
   } catch (error) {
     return buildErrorResponse_(error, { action: 'loadSong', baseId: baseId });
   }
@@ -56,7 +58,19 @@ function suggestOriginalChords(baseId) {
       action: 'suggestOriginalChords',
       stage: 'ai_chord_drafted'
     });
-    var draft = requestAiOriginalChordDraft_(bundle);
+    var research = hydrateDraftMetadataFromWeb_(bundle, response, { metadataOnly: false });
+    var aiConfig = getOpenAiConfig_(true);
+    if (!aiConfig.configured) {
+      response.stage = 'research_only';
+      response.message = '公開Web調査で original_key / YouTube 候補を更新しました。original_Chord の AI 下書きは Script Properties の OPENAI_API_KEY 設定後に利用できます。';
+      response.logs = (response.logs || []).concat([
+        'AI draft skipped: OPENAI_API_KEY 未設定',
+        '公開Web調査は実行済みです。'
+      ]);
+      return response;
+    }
+
+    var draft = requestAiOriginalChordDraft_(bundle, research, aiConfig);
     applyAiDraftToResponse_(response, draft);
     response.message = 'AI original_Chord 下書きを取得しました';
     response.logs = (response.logs || []).concat(draft.logs || []);
@@ -197,6 +211,7 @@ function normalizeDraftMetadata_(metadata, bundle) {
 function buildSongResponse_(bundle, extra) {
   var first = bundle.rows[0];
   var draftMetadata = buildDraftMetadata_(bundle);
+  var aiStatus = getOpenAiConfig_(true);
   var response = {
     ok: true,
     action: 'song',
@@ -225,7 +240,8 @@ function buildSongResponse_(bundle, extra) {
       draftYoutubeEmbedUrl: draftMetadata.youtubeEmbedUrl,
       youtubeSearchUrl: draftMetadata.youtubeSearchUrl,
       draftStatus: draftMetadata.status,
-      draftNotes: draftMetadata.notes
+      draftNotes: draftMetadata.notes,
+      aiStatus: aiStatus
     },
     parts: PART_ORDER.map(function(partKey) {
       return serializePartRow_(bundle.partMap[partKey]);
@@ -261,6 +277,10 @@ function buildDraftMetadata_(bundle) {
     status.youtubeSource = 'manual_search';
     notes.push('YouTube はDBに未入力です。検索リンクまたはAI取得ボタンで候補を確認してください。');
   }
+  var aiStatus = getOpenAiConfig_(true);
+  notes.push(aiStatus.configured
+    ? 'AI original_Chord 下書き: 利用可能（model: ' + aiStatus.model + '）'
+    : 'AI original_Chord 下書き: OPENAI_API_KEY 未設定のため未使用。公開Web調査で original_key / YouTube 候補までは取得します。');
 
   return {
     originalKey: originalKey || '',
@@ -394,6 +414,10 @@ function buildLoadLogs_(bundle, draftMetadata) {
     '取得ID: ' + bundle.baseId + '〜' + (bundle.baseId + 3),
     '取得行: ' + bundle.rows.map(function(row) { return row.rowNumber; }).join(', ')
   ];
+  var aiStatus = getOpenAiConfig_(true);
+  logs.push(aiStatus.configured
+    ? 'AI original_Chord: READY (' + aiStatus.model + ')'
+    : 'AI original_Chord: OPENAI_API_KEY 未設定。公開Web調査のみ利用可能');
   if (draftMetadata.originalKey) logs.push('original_key 下書き: ' + draftMetadata.originalKey + ' [' + draftMetadata.status.originalKeySource + ']');
   if (draftMetadata.youtubeUrl) logs.push('YouTube 下書き: ' + draftMetadata.youtubeUrl + ' [' + draftMetadata.status.youtubeSource + ']');
   else logs.push('YouTube 下書き: 未設定。検索リンクまたはAI取得ボタンを確認してください。');
@@ -636,7 +660,11 @@ function inferOriginalKeyFromBundle_(bundle) {
       splitChordCell_(cell).aiSuggestion.forEach(function(chord) { chords.push(chord); });
     });
   });
-  if (!chords.length) return '';
+  return inferOriginalKeyFromChordList_(chords);
+}
+
+function inferOriginalKeyFromChordList_(chords) {
+  if (!chords || !chords.length) return '';
   var candidates = ['C','G','D','A','E','F','Bb','Eb','Am','Em','Dm','Bm','Cm','Fm'];
   var bestKey = '';
   var bestScore = -1;
@@ -755,25 +783,29 @@ function findColumnIndex_(headers, headerMap, aliases) {
 
 function normalizeHeader_(value) { return String(value || '').trim().toLowerCase().replace(/[\s_\-]/g, '').replace(/[^a-z0-9\u3040-\u30ff\u4e00-\u9fff]/g, ''); }
 
-function requestAiOriginalChordDraft_(bundle) {
-  var config = getOpenAiConfig_();
+function requestAiOriginalChordDraft_(bundle, research, config) {
+  config = config && config.configured ? config : getOpenAiConfig_();
   var responseText = callOpenAiResponsesApi_(config.apiKey, {
     model: config.model,
     tools: [{ type: 'web_search' }],
-    input: buildChordResearchPrompt_(bundle),
+    input: buildChordResearchPrompt_(bundle, research),
     instructions: 'You research Japanese pop/rock chord progressions from public web sources and return only strict JSON.'
   });
   var draft = normalizeAiDraftResponse_(extractFirstJsonObject_(responseText), bundle);
   draft.logs = ['AI draft model: ' + config.model, 'AI research completed for ' + bundle.rows[0].artist + ' / ' + bundle.rows[0].title];
+  if (research && research.logs) draft.logs = draft.logs.concat(research.logs);
   return draft;
 }
 
-function getOpenAiConfig_() {
+function getOpenAiConfig_(allowMissing) {
   var props = PropertiesService.getScriptProperties();
   var apiKey = String(props.getProperty('OPENAI_API_KEY') || '').trim();
   var model = String(props.getProperty('OPENAI_MODEL') || OPENAI_MODEL).trim();
-  if (!apiKey) throw new Error('OPENAI_API_KEY が Script Properties に未設定です。AI original_Chord 取得は設定後に利用してください。');
-  return { apiKey: apiKey, model: model || OPENAI_MODEL };
+  if (!apiKey) {
+    if (allowMissing) return { configured: false, apiKey: '', model: model || OPENAI_MODEL };
+    throw new Error('OPENAI_API_KEY が Script Properties に未設定です。AI original_Chord 取得は設定後に利用してください。');
+  }
+  return { configured: true, apiKey: apiKey, model: model || OPENAI_MODEL };
 }
 
 function callOpenAiResponsesApi_(apiKey, payload) {
@@ -803,8 +835,22 @@ function extractResponseText_(json) {
   return chunks.join('\n');
 }
 
-function buildChordResearchPrompt_(bundle) {
+function buildChordResearchPrompt_(bundle, research) {
   var first = bundle.rows[0];
+  var referenceLines = [];
+  if (research) {
+    (research.sources || []).slice(0, 8).forEach(function(source, index) {
+      referenceLines.push(
+        [
+          'Reference ' + (index + 1) + ':',
+          'url=' + (source.url || ''),
+          'title=' + (source.title || ''),
+          'snippet=' + (source.snippet || ''),
+          'chords=' + (source.chords || []).slice(0, 24).join(' ')
+        ].join('\n')
+      );
+    });
+  }
   return [
     '以下の楽曲について、ChordWiki / U-FRET / 公式YouTube などの公開情報を優先して original_key / YouTube / intro,A,B,サビ の original_chord 下書きを JSON だけで返してください。',
     'Artist: ' + first.artist,
@@ -822,9 +868,279 @@ function buildChordResearchPrompt_(bundle) {
     '- slash はオンコード専用',
     '- 同一小節2コードは firstHalf / secondHalf に分ける',
     '- 不明なら空文字',
+    '- 参照に十分な根拠がない場合、original_key / youtubeUrl だけ埋め、bars は空でもよい',
+    'Collected references:',
+    referenceLines.join('\n\n') || '(none)',
     'JSON schema:',
     '{"originalKey":"","youtubeUrl":"","parts":[{"part":"intro","bars":[{"bar":1,"firstHalf":"","secondHalf":""}]}],"notes":["..."]}'
   ].join('\n');
+}
+
+function hydrateDraftMetadataFromWeb_(bundle, response, options) {
+  options = options || {};
+  var metadata = response.metadata || {};
+  var needsResearch = !sanitizeKeyInput_(metadata.draftOriginalKey) || !sanitizeUrlInput_(metadata.draftYoutubeUrl) || !options.metadataOnly;
+  if (!needsResearch) return null;
+
+  try {
+    var research = researchPublicSongData_(bundle, options);
+    applyResearchMetadataToResponse_(response, research);
+    response.logs = (response.logs || []).concat(research.logs || []);
+    return research;
+  } catch (error) {
+    response.logs = (response.logs || []).concat(['Web research skipped: ' + error.message]);
+    return null;
+  }
+}
+
+function applyResearchMetadataToResponse_(response, research) {
+  if (!research) return;
+  response.metadata = response.metadata || {};
+  response.metadata.draftStatus = response.metadata.draftStatus || {};
+  response.metadata.draftNotes = response.metadata.draftNotes || [];
+
+  if (research.originalKey && !sanitizeKeyInput_(response.metadata.draftOriginalKey)) {
+    response.metadata.draftOriginalKey = research.originalKey;
+    response.metadata.draftQuizKey = determineQuizKey_(research.originalKey);
+    response.metadata.draftStatus.originalKeySource = research.originalKeySource || 'web_research';
+  }
+
+  if (research.youtubeUrl && !sanitizeUrlInput_(response.metadata.draftYoutubeUrl)) {
+    response.metadata.draftYoutubeUrl = research.youtubeUrl;
+    response.metadata.draftYoutubeEmbedUrl = buildYoutubeEmbedUrl_(research.youtubeUrl);
+    response.metadata.draftStatus.youtubeSource = research.youtubeSource || 'web_research';
+  }
+
+  if (research.notes && research.notes.length) {
+    response.metadata.draftNotes = response.metadata.draftNotes.concat(research.notes);
+  }
+}
+
+function researchPublicSongData_(bundle, options) {
+  options = options || {};
+  var first = bundle.rows[0];
+  var query = [first.artist || '', first.title || ''].join(' ').trim();
+  if (!query) throw new Error('artist/title が空のため Web 調査できません。');
+
+  var logs = ['Web research start: ' + query];
+  var notes = [];
+  var sources = [];
+  var youtubeResult = searchYoutubeCandidate_(first.artist, first.title);
+  if (youtubeResult) {
+    sources.push(youtubeResult);
+    logs.push('YouTube candidate found: ' + youtubeResult.url);
+  } else {
+    logs.push('YouTube candidate not found by public search');
+  }
+
+  var chordResults = findChordReferenceCandidates_(query);
+  chordResults.forEach(function(result) { sources.push(result); });
+  if (chordResults.length) logs.push('Chord reference candidates: ' + chordResults.length);
+  else logs.push('Chord reference candidates: 0');
+
+  var scrapedChordPool = [];
+  chordResults.slice(0, 3).forEach(function(result) {
+    try {
+      var html = fetchHtmlText_(result.url);
+      var chords = extractChordCandidatesFromHtml_(html);
+      var keyHints = extractOriginalKeyHintsFromHtml_(html);
+      result.chords = chords.slice(0, 64);
+      result.keyHints = keyHints.slice(0, 8);
+      if (result.chords.length) {
+        scrapedChordPool = scrapedChordPool.concat(result.chords);
+        logs.push('Chord scrape OK: ' + result.url + ' / chords=' + result.chords.length);
+      } else {
+        logs.push('Chord scrape empty: ' + result.url);
+      }
+      if (result.keyHints.length) logs.push('Key hints: ' + result.keyHints.join(', '));
+    } catch (error) {
+      logs.push('Chord scrape failed: ' + result.url + ' / ' + error.message);
+    }
+  });
+
+  var originalKey = pickOriginalKeyFromSources_(sources, scrapedChordPool);
+  var youtubeUrl = youtubeResult ? youtubeResult.url : '';
+  if (originalKey) notes.push('公開Web調査から original_key 候補を取得しました。保存前に確認してください。');
+  if (youtubeUrl) notes.push('公開Web調査から YouTube 候補を取得しました。公式動画か確認してください。');
+  if (!options.metadataOnly && !getOpenAiConfig_(true).configured) {
+    notes.push('OPENAI_API_KEY 未設定のため original_Chord の AI 下書きまでは進めていません。');
+  }
+
+  return {
+    originalKey: originalKey,
+    originalKeySource: originalKey ? 'web_research' : '',
+    youtubeUrl: youtubeUrl,
+    youtubeSource: youtubeUrl ? 'web_research' : '',
+    sources: sources,
+    logs: logs,
+    notes: notes
+  };
+}
+
+function searchYoutubeCandidate_(artist, title) {
+  var query = [artist || '', title || '', 'official YouTube'].join(' ').trim();
+  if (!query) return null;
+  var html = fetchHtmlText_('https://duckduckgo.com/html/?q=' + encodeURIComponent(query));
+  var results = extractSearchResultsFromHtml_(html);
+  for (var i = 0; i < results.length; i += 1) {
+    var url = decodeDuckDuckGoRedirect_(results[i].url);
+    if (!/youtube\.com|youtu\.be/.test(url)) continue;
+    var videoId = extractYoutubeVideoId_(url);
+    if (videoId) {
+      return {
+        type: 'youtube',
+        title: results[i].title,
+        snippet: results[i].snippet,
+        url: 'https://www.youtube.com/watch?v=' + videoId
+      };
+    }
+  }
+  return null;
+}
+
+function findChordReferenceCandidates_(query) {
+  var results = [];
+  var searches = [
+    query + ' site:chordwiki.jpn.org',
+    query + ' site:ufret.jp',
+    query + ' コード'
+  ];
+
+  searches.forEach(function(searchQuery) {
+    try {
+      var html = fetchHtmlText_('https://duckduckgo.com/html/?q=' + encodeURIComponent(searchQuery));
+      extractSearchResultsFromHtml_(html).forEach(function(item) {
+        var url = decodeDuckDuckGoRedirect_(item.url);
+        if (!/^https?:\/\//.test(url)) return;
+        if (!/chordwiki\.jpn\.org|ufret\.jp/.test(url)) return;
+        if (results.some(function(existing) { return existing.url === url; })) return;
+        results.push({
+          type: /ufret\.jp/.test(url) ? 'ufret' : 'chordwiki',
+          title: item.title,
+          snippet: item.snippet,
+          url: url,
+          chords: [],
+          keyHints: []
+        });
+      });
+    } catch (error) {
+      results.push({
+        type: 'search_error',
+        title: searchQuery,
+        snippet: 'search failed: ' + error.message,
+        url: ''
+      });
+    }
+  });
+
+  return results.filter(function(item) { return item.url; }).slice(0, 6);
+}
+
+function fetchHtmlText_(url) {
+  var response = UrlFetchApp.fetch(url, {
+    method: 'get',
+    muteHttpExceptions: true,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; GoRockCampBot/1.0; +https://script.google.com/)'
+    }
+  });
+  var status = response.getResponseCode();
+  if (status < 200 || status >= 300) throw new Error('HTTP ' + status);
+  return response.getContentText();
+}
+
+function extractSearchResultsFromHtml_(html) {
+  var text = String(html || '');
+  var results = [];
+  var regex = /<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:<a[^>]+class="[^"]*result__snippet[^"]*"[^>]*>|<div[^>]+class="[^"]*result__snippet[^"]*"[^>]*>)([\s\S]*?)(?:<\/a>|<\/div>)/g;
+  var match;
+  while ((match = regex.exec(text)) && results.length < 12) {
+    results.push({
+      url: decodeHtmlEntities_(stripTags_(match[1])),
+      title: decodeHtmlEntities_(stripTags_(match[2])),
+      snippet: decodeHtmlEntities_(stripTags_(match[3]))
+    });
+  }
+  if (!results.length) {
+    var fallbackRegex = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+    while ((match = fallbackRegex.exec(text)) && results.length < 12) {
+      var url = decodeHtmlEntities_(stripTags_(match[1]));
+      if (url.indexOf('uddg=') < 0) continue;
+      results.push({ url: url, title: decodeHtmlEntities_(stripTags_(match[2])), snippet: '' });
+    }
+  }
+  return results;
+}
+
+function decodeDuckDuckGoRedirect_(url) {
+  var text = String(url || '');
+  var match = text.match(/[?&]uddg=([^&]+)/);
+  if (match) return decodeURIComponent(match[1]);
+  return text;
+}
+
+function stripTags_(html) {
+  return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function decodeHtmlEntities_(text) {
+  return String(text || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+function extractChordCandidatesFromHtml_(html) {
+  var text = decodeHtmlEntities_(String(html || '').replace(/\n/g, ' '));
+  var matches = text.match(/\b[A-G](?:#|b)?(?:maj7|M7|m7-5|mM7|m7|m6|m|7|6|9|add9|sus4|dim|aug)?(?:\/[A-G](?:#|b)?)?\b/g) || [];
+  var blacklist = { HTML:true, HTTP:true, HTTPS:true };
+  var filtered = [];
+  matches.forEach(function(chord) {
+    if (blacklist[chord]) return;
+    if (filtered.length && filtered[filtered.length - 1] === chord) return;
+    filtered.push(chord);
+  });
+  return filtered;
+}
+
+function extractOriginalKeyHintsFromHtml_(html) {
+  var text = decodeHtmlEntities_(stripTags_(html));
+  var hints = [];
+  var regex = /(?:原曲キー|Key|キー)\s*[:：]?\s*([A-G](?:#|b)?m?)/gi;
+  var match;
+  while ((match = regex.exec(text)) && hints.length < 8) {
+    hints.push(sanitizeKeyInput_(match[1]));
+  }
+  return hints.filter(Boolean);
+}
+
+function pickOriginalKeyFromSources_(sources, chords) {
+  var keyScores = {};
+  sources.forEach(function(source) {
+    (source.keyHints || []).forEach(function(keyName) {
+      if (!keyName) return;
+      keyScores[keyName] = (keyScores[keyName] || 0) + 3;
+    });
+  });
+  var inferred = inferOriginalKeyFromChordList_(chords || []);
+  if (inferred) keyScores[inferred] = (keyScores[inferred] || 0) + 2;
+  var bestKey = '';
+  var bestScore = -1;
+  Object.keys(keyScores).forEach(function(keyName) {
+    if (keyScores[keyName] > bestScore) {
+      bestKey = keyName;
+      bestScore = keyScores[keyName];
+    }
+  });
+  return bestKey;
+}
+
+function extractYoutubeVideoId_(url) {
+  var text = String(url || '').trim();
+  var match = text.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
+  return match ? match[1] : '';
 }
 
 function extractFirstJsonObject_(text) {
