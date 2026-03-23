@@ -3,877 +3,561 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>GoRockCamp DB投入支援ツール β</title>
+  <title>GoRockCamp DB投入支援ツール β v<?= appVersion ?></title>
   <style>
-    :root {
-      --bg: #f5f7fb;
-      --card: #ffffff;
-      --line: #d9e0ee;
-      --text: #1c2434;
-      --muted: #667085;
-      --accent: #2563eb;
-      --accent-2: #1d4ed8;
-      --danger-bg: #fff0f0;
-      --danger-line: #ef4444;
-      --danger-text: #991b1b;
-      --ok-bg: #effcf6;
-      --ok-line: #10b981;
-      --ok-text: #065f46;
-      --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-      --radius: 18px;
+    :root{
+      --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
+      --blue:#1d4ed8; --warn:#b91c1c; --ok:#065f46; --ok-bg:#ecfdf5;
+      --note:#1e3a8a; --note-bg:#eff6ff; --btn-radius:14px; --tap-min-h:44px;
     }
-
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-    button, input {
-      font: inherit;
-    }
-    .page {
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 16px 14px 40px;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 14px;
-      margin-bottom: 14px;
-    }
-    .section-title {
-      font-size: 15px;
-      font-weight: 700;
-      margin: 0 0 10px;
-    }
-    .youtube-wrap {
-      position: relative;
-      width: 100%;
-      border-radius: var(--radius);
-      overflow: hidden;
-      background: #111827;
-      aspect-ratio: 16 / 9;
-    }
-    .youtube-wrap iframe {
-      width: 100%;
-      height: 100%;
-      border: 0;
-    }
-    .youtube-empty {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      color: #e5e7eb;
-      padding: 12px;
-      line-height: 1.6;
-    }
-    .control-grid {
-      display: grid;
-      gap: 10px;
-    }
-    .id-row {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
-      align-items: center;
-    }
-    .input {
-      width: 100%;
-      min-height: 48px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 12px 14px;
-      background: #fff;
-    }
-    .primary-btn, .ghost-btn, .candidate-btn, .tab-btn, .cell-btn {
-      min-height: 48px;
-      border: 0;
-      border-radius: 14px;
-      padding: 12px 14px;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .primary-btn {
-      background: var(--accent);
-      color: #fff;
-      font-weight: 700;
-    }
-    .primary-btn:disabled {
-      opacity: 0.55;
-      cursor: progress;
-    }
-    .ghost-btn {
-      background: #eef4ff;
-      color: var(--accent-2);
-      border: 1px solid #cfe0ff;
-      font-weight: 700;
-    }
-    .status-box, .danger-box, .info-box, .log-box {
-      border-radius: 14px;
-      padding: 12px;
-      line-height: 1.6;
-    }
-    .status-box {
-      background: var(--ok-bg);
-      border: 1px solid var(--ok-line);
-      color: var(--ok-text);
-    }
-    .danger-box {
-      display: none;
-      background: var(--danger-bg);
-      border: 1px solid var(--danger-line);
-      color: var(--danger-text);
-      font-weight: 700;
-    }
-    .danger-box.show {
-      display: block;
-    }
-    .info-grid {
-      display: grid;
-      gap: 8px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .info-box {
-      background: #f8fafc;
-      border: 1px solid var(--line);
-    }
-    .label {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
-    .value {
-      font-size: 16px;
-      font-weight: 700;
-      word-break: break-word;
-    }
-    .tabs {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-    }
-    .tab-btn {
-      background: #f3f6fb;
-      color: var(--text);
-      border: 1px solid var(--line);
-      font-weight: 700;
-    }
-    .tab-btn.active {
-      background: #dbeafe;
-      border-color: #93c5fd;
-      color: #1d4ed8;
-    }
-    .part-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .part-meta {
-      color: var(--muted);
-      font-size: 13px;
-    }
-    .bar-grid {
-      display: grid;
-      gap: 12px;
-    }
-    .bar-card {
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 12px;
-      background: #fcfdff;
-    }
-    .bar-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      gap: 8px;
-    }
-    .bar-number {
-      font-weight: 800;
-      font-size: 16px;
-    }
-    .bar-theory {
-      text-align: right;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.4;
-    }
-    .half-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-    .half-block {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 10px;
-      background: #fff;
-      cursor: pointer;
-    }
-    .half-block.active {
-      border: 2px solid var(--accent);
-      background: #eff6ff;
-    }
-    .half-title {
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 6px;
-      font-weight: 700;
-    }
-    .half-input {
-      width: 100%;
-      min-height: 46px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-size: 17px;
-      font-weight: 700;
-    }
-    .half-input:focus {
-      outline: 2px solid #bfdbfe;
-      border-color: #60a5fa;
-    }
-    .candidate-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 10px;
-    }
-    .candidate-btn {
-      min-height: 40px;
-      background: #eef2ff;
-      color: #3730a3;
-      border: 1px solid #c7d2fe;
-      padding: 8px 12px;
-      font-weight: 700;
-      font-size: 14px;
-    }
-    .candidate-btn.current {
-      background: #e8fff3;
-      border-color: #6ee7b7;
-      color: #047857;
-    }
-    .selected-cell {
-      margin-top: 8px;
-      color: var(--accent-2);
-      font-weight: 700;
-      font-size: 14px;
-    }
-    .candidate-panel {
-      display: grid;
-      gap: 10px;
-    }
-    .candidate-group {
-      display: grid;
-      gap: 8px;
-    }
-    .candidate-group-title {
-      font-size: 13px;
-      color: var(--muted);
-      font-weight: 700;
-    }
-    .candidate-buttons {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .cell-btn {
-      min-width: 72px;
-      min-height: 52px;
-      background: #fff;
-      border: 1px solid var(--line);
-      font-weight: 700;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
-    }
-    .cell-btn.small {
-      min-width: 92px;
-    }
-    .save-row {
-      display: grid;
-      gap: 10px;
-    }
-    .log-box {
-      background: #0f172a;
-      color: #dbeafe;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      white-space: pre-wrap;
-      min-height: 120px;
-      font-size: 12px;
-    }
-    @media (min-width: 768px) {
-      .control-grid { grid-template-columns: 1.2fr 1fr; }
-      .save-row { grid-template-columns: 1fr auto auto; align-items: center; }
-      .bar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
+    body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;margin:16px;color:var(--text);background:var(--bg);padding-bottom:120px;}
+    h2{margin:0 0 10px;font-size:20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    .version{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--muted);background:#fafafa;}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+    .card{border:1px solid var(--line);border-radius:16px;padding:12px;background:var(--card);margin:10px 0;}
+    label{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px;}
+    input{width:100%;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;min-height:var(--tap-min-h);box-sizing:border-box;background:#fff;}
+    .btn{min-height:var(--tap-min-h);padding:10px 12px;border-radius:var(--btn-radius);border:1px solid var(--line);background:#fff;font-size:16px;cursor:pointer;}
+    .btn.primary{border:2px solid var(--blue);color:var(--blue);font-weight:700;}
+    .btn.warn{border:2px solid var(--warn);color:var(--warn);font-weight:700;}
+    .btn.small{font-size:14px;padding:8px 10px;min-height:40px;}
+    .btn:disabled{opacity:.55;cursor:progress;}
+    .muted{color:var(--muted);font-size:13px;}
+    .status{padding:10px 12px;border-radius:12px;background:var(--ok-bg);color:var(--ok);border:1px solid #a7f3d0;}
+    .warnBox{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;font-weight:700;}
+    .warnBox.show{display:block;}
+    .noteBox{padding:10px 12px;border-radius:12px;background:var(--note-bg);color:var(--note);border:1px solid #bfdbfe;white-space:pre-wrap;}
+    .metaGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+    .metaItem{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fafafa;}
+    .metaItem .k{font-size:12px;color:var(--muted);}
+    .metaItem .v{font-size:15px;font-weight:600;margin-top:4px;word-break:break-word;}
+    .metaItem .s{font-size:12px;color:var(--muted);margin-top:4px;word-break:break-word;}
+    .youtubeWrap{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#111;margin-top:10px;}
+    .youtubeWrap iframe{width:100%;height:100%;border:0;}
+    .youtubeEmpty{display:flex;align-items:center;justify-content:center;height:100%;color:#e5e7eb;text-align:center;padding:12px;line-height:1.6;}
+    .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+    .tab{min-height:var(--tap-min-h);padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:#fff;font-weight:700;cursor:pointer;}
+    .tab.active{border-color:var(--blue);color:var(--blue);box-shadow:0 0 0 2px rgba(29,78,216,0.08);}
+    .grid{display:grid;grid-template-columns:1fr;gap:6px;}
+    .bar{display:grid;grid-template-columns:46px 1fr 1fr;gap:6px;align-items:stretch;}
+    .bar .idx{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:10px;background:#fafafa;font-weight:700;font-size:14px;min-height:26px;}
+    .slot{border:2px solid var(--line);border-radius:10px;padding:4px 8px;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:6px;background:#fff;cursor:pointer;}
+    .slot.active{border-color:var(--blue);box-shadow:0 0 0 2px rgba(29,78,216,0.12);}
+    .slot .txt{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .badge{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:1px 6px;border-radius:999px;background:#f7f7f7;line-height:1.2;}
+    .kbd{display:flex;gap:8px;flex-wrap:wrap;}
+    .toneBox{margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#fafafa;}
+    .toneTitle{font-size:12px;color:var(--muted);margin-bottom:4px;}
+    .toneValue{font-size:15px;font-weight:600;min-height:20px;word-break:break-word;}
+    .aiBarGrid{display:grid;gap:8px;margin-top:10px;}
+    .aiBarCard{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fafafa;}
+    .aiActions,.youtubeLinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+    .linkBtn{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:12px;padding:8px 10px;text-decoration:none;color:var(--blue);background:#fff;min-height:40px;}
+    .logBox{background:#0f172a;color:#dbeafe;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;min-height:120px;font-size:12px;padding:12px;border-radius:12px;}
+    @media (max-width: 767px){ .metaGrid{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
-  <main class="page">
-    <section class="card">
-      <h1 class="section-title">GoRockCamp DB投入支援ツール β</h1>
-      <div class="youtube-wrap" id="youtubeWrap">
-        <div class="youtube-empty">YouTube URL を読み込むと、ここに埋め込み表示します。</div>
-      </div>
-    </section>
+<h2>GoRockCamp DB投入支援ツール β <span class="version">v<?= appVersion ?></span></h2>
+<div class="muted">接続 → AI下書き(original_key / YouTube / original_Chord) → ユーザー修正 → 確定保存。</div>
 
-    <section class="card control-grid">
-      <div>
-        <div class="label">先頭ID</div>
-        <div class="id-row">
-          <input id="baseIdInput" class="input" inputmode="numeric" placeholder="例: 201061" value="201061">
-          <button id="loadButton" type="button" class="primary-btn">読み込み</button>
-        </div>
-      </div>
-      <div>
-        <div class="label">接続状態</div>
-        <div id="connectionStatus" class="status-box">未接続</div>
-      </div>
-    </section>
+<div class="card">
+  <div class="row">
+    <div style="flex:1; min-width:180px;">
+      <label>先頭ID</label>
+      <input id="baseIdInput" inputmode="numeric" placeholder="例：201061" value="201061" />
+    </div>
+    <div style="flex:2; min-width:260px;">
+      <label>接続状態</label>
+      <div id="connectionStatus" class="status">未接続</div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px;">
+    <button class="btn primary" id="loadButton">読み込み</button>
+    <button class="btn" id="aiChordButton">AIでoriginal_Chord取得</button>
+    <button class="btn" id="reloadButton">再読込</button>
+    <button class="btn primary" id="saveButton">確定保存</button>
+  </div>
+</div>
 
-    <section class="card">
-      <div class="info-grid">
-        <div class="info-box"><div class="label">Data</div><div id="dataValue" class="value">-</div></div>
-        <div class="info-box"><div class="label">Artist</div><div id="artistValue" class="value">-</div></div>
-        <div class="info-box"><div class="label">title</div><div id="titleValue" class="value">-</div></div>
-        <div class="info-box"><div class="label">Rank / ERA</div><div id="rankEraValue" class="value">-</div></div>
-      </div>
-      <div id="dataWarning" class="danger-box" style="margin-top:10px;">Data が TRUE です。既存データ上書きに注意してください。</div>
-    </section>
+<div class="card">
+  <div class="muted">ヘッダー情報 / AI下書き</div>
+  <div class="metaGrid" id="metaGrid"></div>
+  <div id="dataWarning" class="warnBox">Data が TRUE です。既存データ上書きに注意してください。</div>
+  <div id="draftNotes" class="noteBox" style="margin-top:10px;">読み込み後に original_key / YouTube / original_Chord の AI下書きを作成できます。</div>
+  <div class="row" style="margin-top:10px;">
+    <div style="flex:1; min-width:160px;">
+      <label>AI下書き original_key</label>
+      <input id="draftOriginalKeyInput" placeholder="例：E / Am" />
+    </div>
+    <div style="flex:1; min-width:120px;">
+      <label>AI下書き Quiz_key</label>
+      <input id="draftQuizKeyInput" placeholder="C または Am" />
+    </div>
+    <div style="flex:2; min-width:260px;">
+      <label>保存対象 YouTube URL / ID</label>
+      <input id="draftYoutubeInput" placeholder="https://www.youtube.com/watch?v=..." />
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px;">
+    <button class="btn small" id="applyQuizKeyButton">Quiz_key を再計算</button>
+    <button class="btn small warn" id="clearYoutubeButton">YouTube 下書きクリア</button>
+  </div>
+  <div class="youtubeWrap" id="youtubeWrap"><div class="youtubeEmpty">YouTube URL が入るとここに埋め込み表示します。</div></div>
+  <div class="youtubeLinks" id="youtubeLinks"></div>
+</div>
 
-    <section class="card">
-      <div class="tabs" id="partTabs"></div>
-    </section>
+<div class="card">
+  <div class="row" style="justify-content:space-between;">
+    <div class="muted">Partタブ / entry.html 互換の小節入力UI</div>
+    <div class="muted" id="partMeta">draft original_key: - / Quiz_key: -</div>
+  </div>
+  <div class="tabs" id="partTabs"></div>
+  <div class="toneBox">
+    <div class="toneTitle">選択中セル</div>
+    <div class="toneValue" id="selectedCell">intro / 1小節 / A</div>
+  </div>
+  <div class="grid" id="barGrid" style="margin-top:8px;"></div>
+  <div class="aiBarGrid" id="aiBarGrid"></div>
+</div>
 
-    <section class="card">
-      <div class="part-head">
-        <div>
-          <div id="partTitle" class="section-title" style="margin-bottom:2px;">Part: intro</div>
-          <div id="partMeta" class="part-meta">original_key: - / Quiz_key: -</div>
-        </div>
-        <div id="selectedCell" class="selected-cell">選択中: intro / 1小節 / 前半</div>
-      </div>
-      <div id="barGrid" class="bar-grid"></div>
-    </section>
+<div class="card">
+  <div class="row" style="justify-content:space-between;">
+    <div class="muted">コード入力：entry.html と同じく ルート → クオリティ → 必要ならオンベース</div>
+    <div class="row">
+      <button class="btn small" id="btn4barRep">4barRep.</button>
+      <button class="btn small warn" id="btnClearBar">選択セルクリア</button>
+      <button class="btn small warn" id="btnResetAll">全リセット</button>
+    </div>
+  </div>
+  <div class="row" style="margin-top:10px;">
+    <div style="flex:1;">
+      <div class="muted">①ルート（押すと即上書き）</div>
+      <div class="kbd" id="rootPad"></div>
+    </div>
+  </div>
+  <div style="height:10px;"></div>
+  <div class="row">
+    <div style="flex:1;">
+      <div class="muted">②クオリティ（押すと即上書き）</div>
+      <div class="kbd" id="qualPad"></div>
+    </div>
+  </div>
+  <div style="height:10px;"></div>
+  <div class="row">
+    <button class="btn" id="btnBassMode">オンベース入力（/）</button>
+    <button class="btn warn" id="btnBassClear">オンベース解除</button>
+    <button class="btn warn" id="btnQualClear">クオリティ解除</button>
+  </div>
+  <div class="muted">オンベース：押す → 次にルートで /Root（例：C/E）</div>
+</div>
 
-    <section class="card candidate-panel">
-      <div class="section-title">コード候補</div>
-      <div class="candidate-group">
-        <div class="candidate-group-title">よく使う候補</div>
-        <div id="presetButtons" class="candidate-buttons"></div>
-      </div>
-      <div class="candidate-group">
-        <div class="candidate-group-title">編集補助</div>
-        <div class="candidate-buttons">
-          <button type="button" class="cell-btn small" data-action="clear-half">選択セルを消去</button>
-          <button type="button" class="cell-btn small" data-action="clear-bar">小節を消去</button>
-          <button type="button" class="cell-btn small" data-action="copy-first-to-second">前半→後半</button>
-          <button type="button" class="cell-btn small" data-action="copy-second-to-first">後半→前半</button>
-        </div>
-      </div>
-    </section>
+<div class="card">
+  <div class="muted">ログ</div>
+  <div id="logBox" class="logBox">起動しました。読み込みボタンで開始できます。</div>
+</div>
 
-    <section class="card save-row">
-      <div class="part-meta">保存時に <strong>前半 + 後半</strong> は自動で <strong>A│B</strong> に合成されます。ユーザーは │ を直接入力しません。</div>
-      <button id="reloadButton" type="button" class="ghost-btn">再読込</button>
-      <button id="saveButton" type="button" class="primary-btn">確定保存</button>
-    </section>
+<script>
+const APP_VERSION = '<?= appVersion ?>';
+const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
+const ROOTS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B','Db','Eb','Gb','Ab','Bb'];
+const QUALS = ['','m','7','m7','maj7','mM7','dim','aug','sus4','m7-5','add9','9','6','m6'];
 
-    <section class="card">
-      <div class="section-title">ログ</div>
-      <div id="logBox" class="log-box">起動しました。読み込みボタンで開始できます。</div>
-    </section>
-  </main>
+const state = {
+  loading:false,
+  saving:false,
+  baseId:'',
+  activePart:'intro',
+  selectedBar:1,
+  selectedHalf:'A',
+  bassMode:false,
+  youtubeSrcApplied:'',
+  song:createEmptySong_()
+};
 
-  <script>
-    const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
-    const PRESET_CHORDS = [
-      'C', 'Cm', 'C7', 'Cmaj7', 'Cm7', 'Cadd9', 'Csus4', 'C/G',
-      'D', 'Dm', 'D7', 'Dm7', 'D/F#', 'E', 'Em', 'E7',
-      'F', 'Fm', 'Fmaj7', 'G', 'G7', 'G/B', 'A', 'Am',
-      'A7', 'A/C#', 'Bb', 'Bdim'
-    ];
+function createEmptySong_(){
+  return {
+    ok:false,
+    appVersion:APP_VERSION,
+    connection:{connected:false},
+    metadata:{data:'',artist:'',title:'',rank:'',era:'',youtubeUrl:'',youtubeEmbedUrl:'',youtubeSearchUrl:'',originalKey:'',quizKey:'',draftOriginalKey:'',draftQuizKey:'',draftYoutubeUrl:'',draftNotes:[],draftStatus:{}},
+    parts:PART_ORDER.map(createEmptyPart_),
+    logs:[]
+  };
+}
 
-    const state = {
-      loading: false,
-      saving: false,
-      baseId: '',
-      activePart: 'intro',
-      selectedBar: 1,
-      selectedHalf: 'firstHalf',
-      song: createEmptySong_()
-    };
+function createEmptyPart_(part){
+  return { part, partLabel: part, bars:Array.from({length:8}, (_,i)=>({bar:i+1, firstHalf:'', secondHalf:'', aiDraftFirstHalf:'', aiDraftSecondHalf:'', changeChord:'', degree:'', functionText:'', nonDiatonic:''})) };
+}
 
-    function createEmptySong_() {
-      return {
-        ok: false,
-        connection: { connected: false },
-        metadata: {
-          data: '', artist: '', title: '', rank: '', era: '', youtubeEmbedUrl: '', originalKey: '', quizKey: ''
-        },
-        parts: PART_ORDER.map((part) => createEmptyPart_(part)),
-        logs: []
-      };
+document.addEventListener('DOMContentLoaded', () => {
+  document.title = `GoRockCamp DB投入支援ツール β v${APP_VERSION}`;
+  bindEvents_();
+  renderPads_();
+  renderTabs_();
+  renderAll_();
+  log_(`DOM ready / version ${APP_VERSION}`);
+});
+
+function bindEvents_(){
+  $('loadButton').addEventListener('click', handleLoad_);
+  $('aiChordButton').addEventListener('click', handleAiChord_);
+  $('reloadButton').addEventListener('click', () => state.baseId ? handleLoad_() : log_('再読込前に先頭IDを読み込んでください。'));
+  $('saveButton').addEventListener('click', handleSave_);
+  $('applyQuizKeyButton').addEventListener('click', handleQuizKeyAutoFill_);
+  $('clearYoutubeButton').addEventListener('click', () => { $('draftYoutubeInput').value=''; syncDraftInputsToState_(); renderYoutube_(true); });
+  $('draftOriginalKeyInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
+  $('draftQuizKeyInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
+  $('draftYoutubeInput').addEventListener('input', () => { syncDraftInputsToState_(); renderYoutube_(true); renderMetaOnly_(); });
+  $('baseIdInput').addEventListener('keydown', (event)=>{ if(event.key==='Enter'){ event.preventDefault(); handleLoad_(); } });
+  $('btn4barRep').onclick = fourBarRepeat_;
+  $('btnClearBar').onclick = clearSelected_;
+  $('btnResetAll').onclick = resetAllBoxes_;
+  $('btnBassMode').onclick = toggleBassMode_;
+  $('btnBassClear').onclick = clearBass_;
+  $('btnQualClear').onclick = clearQuality_;
+}
+
+function $(id){ return document.getElementById(id); }
+
+function handleLoad_(){
+  if(state.loading || state.saving) return;
+  const baseId = $('baseIdInput').value.trim();
+  state.baseId = baseId;
+  setBusy_(true,false);
+  log_(`loadSong(${baseId}) を呼び出します。`);
+  runServer_('loadSong', baseId)
+    .then((response)=>applySongResponse_(response,'load'))
+    .catch((error)=>handleClientError_(error,'load'))
+    .finally(()=>setBusy_(false,false));
+}
+
+function handleAiChord_(){
+  if(state.loading || state.saving) return;
+  if(!state.baseId){ log_('AI取得前に先頭IDを読み込んでください。'); return; }
+  setBusy_(true,false);
+  log_(`suggestOriginalChords(${state.baseId}) を呼び出します。`);
+  runServer_('suggestOriginalChords', state.baseId)
+    .then((response)=>applyAiDraftResponse_(response))
+    .catch((error)=>handleClientError_(error,'ai'))
+    .finally(()=>setBusy_(false,false));
+}
+
+function handleSave_(){
+  if(state.loading || state.saving) return;
+  if(!state.baseId){ log_('保存前に先頭IDを読み込んでください。'); return; }
+  let payload;
+  try{ payload = buildSavePayload_(); }
+  catch(error){ handleClientError_(error,'validate'); return; }
+  setBusy_(false,true);
+  log_('saveSong(payload) を呼び出します。');
+  runServer_('saveSong', payload)
+    .then((response)=>applySongResponse_(response,'save'))
+    .catch((error)=>handleClientError_(error,'save'))
+    .finally(()=>setBusy_(false,false));
+}
+
+function handleQuizKeyAutoFill_(){
+  const originalKey = sanitizeKey_($('draftOriginalKeyInput').value);
+  $('draftQuizKeyInput').value = originalKey && /m$/i.test(originalKey) ? 'Am' : 'C';
+  syncDraftInputsToState_();
+  renderMetaOnly_();
+  log_('Quiz_key を original_key から再計算しました。');
+}
+
+function runServer_(functionName, payload){
+  return new Promise((resolve, reject) => {
+    if (!window.google || !google.script || !google.script.run) {
+      reject(new Error('google.script.run が見つかりません。standalone Apps Script の Web アプリとして開いてください。'));
+      return;
     }
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler((error)=>reject(error instanceof Error ? error : new Error(error && error.message ? error.message : String(error))))[functionName](payload);
+  });
+}
 
-    function createEmptyPart_(part) {
-      return {
-        part,
-        partLabel: part,
-        originalKey: '',
-        quizKey: '',
-        bars: Array.from({ length: 8 }, (_, index) => ({
-          bar: index + 1,
-          combined: '',
-          firstHalf: '',
-          secondHalf: '',
-          aiSuggestion: [],
-          changeChord: '',
-          degree: '',
-          functionText: '',
-          nonDiatonic: ''
-        }))
-      };
-    }
+function applySongResponse_(response, phase){
+  if(!response || !response.ok){ throw new Error(response && response.error ? response.error : `${phase} failed`); }
+  state.song = normalizeSongResponse_(response);
+  syncDraftInputsFromState_(true);
+  renderAll_(phase === 'load');
+  log_(`[${phase}] ${response.message || 'OK'}`);
+  (response.logs || []).forEach((line)=>log_(line));
+  (response.skipped || []).forEach((line)=>log_('SKIP: ' + line));
+}
 
-    document.addEventListener('DOMContentLoaded', () => {
-      renderTabs_();
-      renderPresetButtons_();
-      bindEvents_();
-      render_();
-      log_('DOM ready: 読み込みボタンを押せます。');
+function applyAiDraftResponse_(response){
+  if(!response || !response.ok){ throw new Error(response && response.error ? response.error : 'ai failed'); }
+  const incoming = normalizeSongResponse_(response);
+  const currentMeta = state.song.metadata || {};
+  if(!$('draftOriginalKeyInput').value.trim()) currentMeta.draftOriginalKey = incoming.metadata.draftOriginalKey || currentMeta.draftOriginalKey;
+  if(!$('draftQuizKeyInput').value.trim()) currentMeta.draftQuizKey = incoming.metadata.draftQuizKey || currentMeta.draftQuizKey;
+  if(!$('draftYoutubeInput').value.trim()) currentMeta.draftYoutubeUrl = incoming.metadata.draftYoutubeUrl || currentMeta.draftYoutubeUrl;
+  currentMeta.youtubeSearchUrl = incoming.metadata.youtubeSearchUrl || currentMeta.youtubeSearchUrl;
+  currentMeta.draftNotes = incoming.metadata.draftNotes || currentMeta.draftNotes;
+  currentMeta.draftStatus = incoming.metadata.draftStatus || currentMeta.draftStatus;
+  state.song.metadata = currentMeta;
+
+  PART_ORDER.forEach((partName) => {
+    const currentPart = getPart_(partName);
+    const aiPart = incoming.parts.find((part)=>part.part===partName) || createEmptyPart_(partName);
+    currentPart.bars.forEach((bar, index) => {
+      const aiBar = aiPart.bars[index] || {};
+      bar.aiDraftFirstHalf = aiBar.aiDraftFirstHalf || '';
+      bar.aiDraftSecondHalf = aiBar.aiDraftSecondHalf || '';
+      if (!bar.firstHalf && aiBar.aiDraftFirstHalf) bar.firstHalf = aiBar.aiDraftFirstHalf;
+      if (!bar.secondHalf && aiBar.aiDraftSecondHalf) bar.secondHalf = aiBar.aiDraftSecondHalf;
     });
+  });
 
-    function bindEvents_() {
-      document.getElementById('loadButton').addEventListener('click', handleLoad_);
-      document.getElementById('reloadButton').addEventListener('click', () => {
-        if (!state.baseId) {
-          log_('再読込前に先頭IDを読み込んでください。');
-          return;
-        }
-        handleLoad_();
-      });
-      document.getElementById('saveButton').addEventListener('click', handleSave_);
-      document.getElementById('baseIdInput').addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          handleLoad_();
-        }
-      });
-      document.querySelectorAll('[data-action]').forEach((button) => {
-        button.addEventListener('click', () => handleEditAction_(button.dataset.action));
-      });
-    }
+  syncDraftInputsFromState_(false);
+  renderAll_(false);
+  log_(`[ai] ${response.message || 'OK'}`);
+  (response.logs || []).forEach((line)=>log_(line));
+}
 
-    function handleLoad_() {
-      if (state.loading || state.saving) return;
-      const baseId = document.getElementById('baseIdInput').value.trim();
-      state.baseId = baseId;
-      setBusy_(true, false);
-      log_(`loadSong(${baseId}) を呼び出します。`);
-
-      runServer_('loadSong', baseId)
-        .then((response) => {
-          applySongResponse_(response, 'load');
-        })
-        .catch((error) => {
-          handleClientError_(error, 'load');
-        })
-        .finally(() => {
-          setBusy_(false, false);
-        });
-    }
-
-    function handleSave_() {
-      if (state.loading || state.saving) return;
-      if (!state.baseId) {
-        log_('保存前に先頭IDを読み込んでください。');
-        return;
-      }
-
-      let payload;
-      try {
-        payload = buildSavePayload_();
-      } catch (error) {
-        handleClientError_(error, 'validate');
-        return;
-      }
-
-      setBusy_(false, true);
-      log_('saveSong(payload) を呼び出します。');
-      runServer_('saveSong', payload)
-        .then((response) => {
-          applySongResponse_(response, 'save');
-        })
-        .catch((error) => {
-          handleClientError_(error, 'save');
-        })
-        .finally(() => {
-          setBusy_(false, false);
-        });
-    }
-
-    function runServer_(functionName, payload) {
-      return new Promise((resolve, reject) => {
-        if (!window.google || !google.script || !google.script.run) {
-          reject(new Error('google.script.run が見つかりません。standalone Apps Script の Web アプリとして開いてください。'));
-          return;
-        }
-
-        google.script.run
-          .withSuccessHandler(resolve)
-          .withFailureHandler((error) => {
-            reject(error instanceof Error ? error : new Error(error && error.message ? error.message : String(error)));
-          })[functionName](payload);
-      });
-    }
-
-    function applySongResponse_(response, phase) {
-      if (!response || !response.ok) {
-        const message = response && response.error ? response.error : `${phase} failed`;
-        throw new Error(message);
-      }
-      state.song = normalizeSongResponse_(response);
-      if (!PART_ORDER.includes(state.activePart)) {
-        state.activePart = 'intro';
-      }
-      render_();
-      log_(`[${phase}] ${response.message || 'OK'}`);
-      (response.logs || []).forEach((line) => log_(line));
-      if (response.skipped && response.skipped.length) {
-        response.skipped.forEach((line) => log_('SKIP: ' + line));
-      }
-    }
-
-    function handleClientError_(error, phase) {
-      const message = error && error.message ? error.message : String(error);
-      document.getElementById('connectionStatus').textContent = `${phase} error: ${message}`;
-      document.getElementById('connectionStatus').className = 'status-box';
-      log_(`ERROR [${phase}] ${message}`);
-    }
-
-    function normalizeSongResponse_(response) {
-      const parts = PART_ORDER.map((part) => {
-        const serverPart = (response.parts || []).find((item) => item.part === part) || createEmptyPart_(part);
-        return {
-          ...serverPart,
-          bars: Array.from({ length: 8 }, (_, index) => {
-            const serverBar = (serverPart.bars || [])[index] || {};
-            return {
-              bar: index + 1,
-              combined: serverBar.combined || '',
-              firstHalf: serverBar.firstHalf || '',
-              secondHalf: serverBar.secondHalf || '',
-              aiSuggestion: Array.isArray(serverBar.aiSuggestion) ? serverBar.aiSuggestion : [],
-              changeChord: serverBar.changeChord || '',
-              degree: serverBar.degree || '',
-              functionText: serverBar.functionText || '',
-              nonDiatonic: serverBar.nonDiatonic || ''
-            };
-          })
-        };
-      });
-      return { ...response, parts };
-    }
-
-    function buildSavePayload_() {
-      const baseId = document.getElementById('baseIdInput').value.trim();
-      if (!/^\d+$/.test(baseId)) {
-        throw new Error('先頭IDは数値で入力してください。');
-      }
+function normalizeSongResponse_(response){
+  return {
+    ...response,
+    appVersion: response.appVersion || APP_VERSION,
+    metadata: { ...createEmptySong_().metadata, ...(response.metadata || {}) },
+    parts: PART_ORDER.map((part)=>{
+      const serverPart = (response.parts || []).find((item)=>item.part===part) || createEmptyPart_(part);
       return {
-        baseId,
-        parts: state.song.parts.map((part) => ({
-          part: part.part,
-          bars: part.bars.map((bar) => {
-            validateBarClient_(bar, part.part, bar.bar);
-            return {
-              firstHalf: sanitizeChord_(bar.firstHalf),
-              secondHalf: sanitizeChord_(bar.secondHalf)
-            };
-          })
-        }))
+        ...createEmptyPart_(part),
+        ...serverPart,
+        bars: Array.from({length:8}, (_, index)=>{
+          const bar = (serverPart.bars || [])[index] || {};
+          return {
+            bar:index+1,
+            firstHalf: bar.firstHalf || '',
+            secondHalf: bar.secondHalf || '',
+            aiDraftFirstHalf: bar.aiDraftFirstHalf || '',
+            aiDraftSecondHalf: bar.aiDraftSecondHalf || '',
+            changeChord: bar.changeChord || '',
+            degree: bar.degree || '',
+            functionText: bar.functionText || '',
+            nonDiatonic: bar.nonDiatonic || ''
+          };
+        })
       };
-    }
+    })
+  };
+}
 
-    function validateBarClient_(bar, part, barNumber) {
-      const first = sanitizeChord_(bar.firstHalf);
-      const second = sanitizeChord_(bar.secondHalf);
-      if (!first && second) {
-        throw new Error(`${part} ${barNumber}小節 は後半のみ入力できません。`);
-      }
-      [first, second].forEach((value) => {
-        if (!value) return;
-        if (value.includes('│')) {
-          throw new Error(`${part} ${barNumber}小節 は │ を直接入力できません。`);
-        }
-        const slashCount = (value.match(/\//g) || []).length;
-        if (slashCount > 1) {
-          throw new Error(`${part} ${barNumber}小節 に不正な / 連続表記があります: ${value}`);
-        }
-        const [main, bass = ''] = value.split('/');
-        if (!/^([A-G](?:#|b|♭)?)(?:[0-9A-Za-z+()#♭b\-susdimaugmajMadd]*)$/.test(main)) {
-          throw new Error(`${part} ${barNumber}小節 のコード形式が不正です: ${value}`);
-        }
-        if (slashCount === 1 && !/^[A-G](?:#|b|♭)?$/.test(bass)) {
-          throw new Error(`${part} ${barNumber}小節 のオンコード表記が不正です: ${value}`);
-        }
-      });
-    }
+function syncDraftInputsFromState_(overwrite){
+  const meta = state.song.metadata || {};
+  if(overwrite || !$('draftOriginalKeyInput').value.trim()) $('draftOriginalKeyInput').value = meta.draftOriginalKey || '';
+  if(overwrite || !$('draftQuizKeyInput').value.trim()) $('draftQuizKeyInput').value = meta.draftQuizKey || '';
+  if(overwrite || !$('draftYoutubeInput').value.trim()) $('draftYoutubeInput').value = meta.draftYoutubeUrl || '';
+  syncDraftInputsToState_();
+}
 
-    function handleEditAction_(action) {
-      const bar = getSelectedBar_();
-      if (!bar) return;
-      if (action === 'clear-half') {
-        bar[state.selectedHalf] = '';
-      } else if (action === 'clear-bar') {
-        bar.firstHalf = '';
-        bar.secondHalf = '';
-      } else if (action === 'copy-first-to-second') {
-        bar.secondHalf = bar.firstHalf;
-      } else if (action === 'copy-second-to-first') {
-        bar.firstHalf = bar.secondHalf;
-      }
-      render_();
-    }
+function syncDraftInputsToState_(){
+  state.song.metadata.draftOriginalKey = sanitizeKey_($('draftOriginalKeyInput').value);
+  state.song.metadata.draftQuizKey = sanitizeQuizKey_($('draftQuizKeyInput').value);
+  state.song.metadata.draftYoutubeUrl = $('draftYoutubeInput').value.trim();
+}
 
-    function render_() {
-      renderHeader_();
-      renderTabs_();
-      renderBars_();
-      renderYoutube_();
-    }
+function renderAll_(forceYoutube){
+  renderHeader_();
+  renderTabs_();
+  renderBars_();
+  renderAiBars_();
+  renderMetaOnly_();
+  renderYoutube_(!!forceYoutube);
+}
 
-    function renderHeader_() {
-      const connected = !!(state.song.connection && state.song.connection.connected);
-      const status = connected
-        ? `接続OK / ${state.song.connection.sheetName} / ${state.song.connection.spreadsheetId}`
-        : '未接続';
-      const box = document.getElementById('connectionStatus');
-      box.textContent = status;
-      box.className = 'status-box';
+function renderHeader_(){
+  const conn = state.song.connection && state.song.connection.connected;
+  $('connectionStatus').textContent = conn ? `接続OK / ${state.song.connection.sheetName} / ${state.song.connection.spreadsheetId} / v${state.song.appVersion || APP_VERSION}` : '未接続';
+  $('dataWarning').classList.toggle('show', String(state.song.metadata.data || '').toUpperCase() === 'TRUE');
+}
 
-      const meta = state.song.metadata || {};
-      document.getElementById('dataValue').textContent = meta.data || '-';
-      document.getElementById('artistValue').textContent = meta.artist || '-';
-      document.getElementById('titleValue').textContent = meta.title || '-';
-      document.getElementById('rankEraValue').textContent = [meta.rank || '-', meta.era || '-'].join(' / ');
-      document.getElementById('dataWarning').classList.toggle('show', String(meta.data || '').toUpperCase() === 'TRUE');
-    }
+function renderMetaOnly_(){
+  const meta = state.song.metadata || {};
+  const items = [
+    ['Data', meta.data || '-',''],
+    ['Artist', meta.artist || '-',''],
+    ['title', meta.title || '-',''],
+    ['Rank / ERA', [meta.rank || '-', meta.era || '-'].join(' / '),''],
+    ['DB original_key', meta.originalKey || '-', `AI下書き: ${meta.draftOriginalKey || '-'}`],
+    ['DB Quiz_key', meta.quizKey || '-', `AI下書き: ${meta.draftQuizKey || '-'}`],
+    ['DB YouTube', meta.youtubeUrl || '-', meta.youtubeUrl ? 'DB既存値あり' : 'DB空欄'],
+    ['Version', state.song.appVersion || APP_VERSION, `検索URL: ${meta.youtubeSearchUrl || '-'}`]
+  ];
+  $('metaGrid').innerHTML = items.map(([k,v,s]) => `<div class="metaItem"><div class="k">${esc_(k)}</div><div class="v">${esc_(v)}</div><div class="s">${esc_(s || '')}</div></div>`).join('');
+  $('draftNotes').textContent = Array.isArray(meta.draftNotes) && meta.draftNotes.length ? meta.draftNotes.join('\n') : 'AI下書きがまだありません。必要なら「AIでoriginal_Chord取得」を押してください。';
+  $('partMeta').textContent = `draft original_key: ${state.song.metadata.draftOriginalKey || '-'} / Quiz_key: ${state.song.metadata.draftQuizKey || '-'}`;
+}
 
-    function renderYoutube_() {
-      const wrap = document.getElementById('youtubeWrap');
-      const embedUrl = state.song.metadata && state.song.metadata.youtubeEmbedUrl;
-      wrap.innerHTML = embedUrl
-        ? `<iframe src="${escapeHtml_(embedUrl)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`
-        : '<div class="youtube-empty">YouTube URL が空欄です。必要なら DB 側の youtube 列を確認してください。</div>';
-    }
+function renderYoutube_(force){
+  const draftUrl = $('draftYoutubeInput').value.trim();
+  const embedUrl = buildYoutubeEmbedUrlClient_(draftUrl) || buildYoutubeEmbedUrlClient_(state.song.metadata.youtubeUrl) || '';
+  const wrap = $('youtubeWrap');
+  if(force || state.youtubeSrcApplied !== embedUrl){
+    state.youtubeSrcApplied = embedUrl;
+    wrap.innerHTML = embedUrl
+      ? `<iframe src="${esc_(embedUrl)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`
+      : '<div class="youtubeEmpty">YouTube URL が未確定です。検索リンクから公式動画URLを確認して貼り付けてください。</div>';
+  }
+  const links = [];
+  if(draftUrl) links.push(`<a class="linkBtn" href="${esc_(normalizeYoutubeOpenUrl_(draftUrl))}" target="_blank" rel="noopener noreferrer">下書きURLを開く</a>`);
+  if(state.song.metadata.youtubeSearchUrl) links.push(`<a class="linkBtn" href="${esc_(state.song.metadata.youtubeSearchUrl)}" target="_blank" rel="noopener noreferrer">公式候補を検索</a>`);
+  $('youtubeLinks').innerHTML = links.join('');
+}
 
-    function renderTabs_() {
-      const tabs = document.getElementById('partTabs');
-      tabs.innerHTML = '';
-      PART_ORDER.forEach((part) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'tab-btn' + (state.activePart === part ? ' active' : '');
-        button.textContent = part;
-        button.addEventListener('click', () => {
-          state.activePart = part;
-          render_();
-        });
-        tabs.appendChild(button);
-      });
-    }
+function renderTabs_(){
+  $('partTabs').innerHTML = PART_ORDER.map((part)=>`<button type="button" class="tab${state.activePart===part?' active':''}" data-part="${part}">${part}</button>`).join('');
+  Array.from($('partTabs').querySelectorAll('[data-part]')).forEach((button)=>{
+    button.onclick = () => { state.activePart = button.dataset.part; renderBars_(); renderAiBars_(); renderMetaOnly_(); };
+  });
+}
 
-    function renderBars_() {
-      const part = getActivePart_();
-      document.getElementById('partTitle').textContent = `Part: ${part.partLabel || part.part}`;
-      document.getElementById('partMeta').textContent = `original_key: ${part.originalKey || '-'} / Quiz_key: ${part.quizKey || '-'}`;
-      document.getElementById('selectedCell').textContent = `選択中: ${part.part} / ${state.selectedBar}小節 / ${state.selectedHalf === 'firstHalf' ? '前半' : '後半'}`;
+function renderBars_(){
+  const part = getActivePart_();
+  $('selectedCell').textContent = `${part.part} / ${state.selectedBar}小節 / ${state.selectedHalf}`;
+  const html = [];
+  for(let i=1;i<=8;i++){
+    const bar = part.bars[i-1];
+    html.push(`<div class="bar"><div class="idx">${i}</div>${buildSlotHtml_(i,'A',bar.firstHalf)}${buildSlotHtml_(i,'B',bar.secondHalf)}</div>`);
+  }
+  $('barGrid').innerHTML = html.join('');
+  Array.from($('barGrid').querySelectorAll('.slot')).forEach((slot)=>{
+    slot.onclick = () => { state.selectedBar = Number(slot.dataset.bar); state.selectedHalf = slot.dataset.half; state.bassMode = false; renderBars_(); renderAiBars_(); };
+  });
+}
 
-      const grid = document.getElementById('barGrid');
-      grid.innerHTML = '';
+function buildSlotHtml_(bar, half, value){
+  const active = state.selectedBar===bar && state.selectedHalf===half && state.activePart;
+  return `<div class="slot${active ? ' active' : ''}" data-bar="${bar}" data-half="${half}"><div class="txt">${esc_(value || (half==='A' ? '（前半）' : '（後半）'))}</div><div class="badge">${half}</div></div>`;
+}
 
-      part.bars.forEach((bar) => {
-        const card = document.createElement('div');
-        card.className = 'bar-card';
-        const theoryHtml = [
-          bar.changeChord ? `change: ${escapeHtml_(bar.changeChord)}` : '',
-          bar.degree ? `degree: ${escapeHtml_(bar.degree)}` : '',
-          bar.functionText ? `Function: ${escapeHtml_(bar.functionText)}` : '',
-          bar.nonDiatonic ? `non_diatonic: ${escapeHtml_(bar.nonDiatonic)}` : ''
-        ].filter(Boolean).join('<br>');
+function renderAiBars_(){
+  const part = getActivePart_();
+  $('aiBarGrid').innerHTML = part.bars.map((bar)=>{
+    const theory = [bar.changeChord && `change: ${bar.changeChord}`, bar.degree && `degree: ${bar.degree}`, bar.functionText && `Function: ${bar.functionText}`, bar.nonDiatonic && `non_diatonic: ${bar.nonDiatonic}`].filter(Boolean).join(' / ') || '理論列は保存後に再計算';
+    return `<div class="aiBarCard"><div class="row" style="justify-content:space-between;"><strong>${bar.bar}小節</strong><span class="muted">${esc_(theory)}</span></div><div class="aiActions">${bar.aiDraftFirstHalf ? `<button type="button" class="btn small" data-ai-bar="${bar.bar}" data-ai-half="A">AI前半: ${esc_(bar.aiDraftFirstHalf)}</button>` : ''}${bar.aiDraftSecondHalf ? `<button type="button" class="btn small" data-ai-bar="${bar.bar}" data-ai-half="B">AI後半: ${esc_(bar.aiDraftSecondHalf)}</button>` : ''}${!bar.aiDraftFirstHalf && !bar.aiDraftSecondHalf ? '<span class="muted">AI仮置きなし</span>' : ''}</div></div>`;
+  }).join('');
+  Array.from($('aiBarGrid').querySelectorAll('[data-ai-bar]')).forEach((btn)=>{
+    btn.onclick = () => {
+      state.selectedBar = Number(btn.dataset.aiBar);
+      state.selectedHalf = btn.dataset.aiHalf;
+      const bar = getSelectedSlot_();
+      const value = btn.dataset.aiHalf === 'A' ? bar.aiDraftFirstHalf : bar.aiDraftSecondHalf;
+      setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, value);
+      renderBars_(); renderAiBars_();
+    };
+  });
+}
 
-        card.innerHTML = `
-          <div class="bar-head">
-            <div class="bar-number">${bar.bar} 小節</div>
-            <div class="bar-theory">${theoryHtml || '理論列は保存後に再計算'}</div>
-          </div>
-          <div class="half-grid">
-            ${buildHalfBlockHtml_(part.part, bar.bar, 'firstHalf', '前半', bar.firstHalf)}
-            ${buildHalfBlockHtml_(part.part, bar.bar, 'secondHalf', '後半', bar.secondHalf)}
-          </div>
-          <div class="candidate-row" data-ai-row="${bar.bar}"></div>
-        `;
+function renderPads_(){
+  $('rootPad').innerHTML = ROOTS.map((root)=>`<button type="button" class="btn" data-root="${root}">${root}</button>`).join('');
+  $('qualPad').innerHTML = QUALS.map((qual)=>`<button type="button" class="btn" data-qual="${qual}">${qual || '（なし）'}</button>`).join('');
+  Array.from($('rootPad').querySelectorAll('[data-root]')).forEach((btn)=>btn.onclick=()=>applyRoot_(btn.dataset.root));
+  Array.from($('qualPad').querySelectorAll('[data-qual]')).forEach((btn)=>btn.onclick=()=>applyQuality_(btn.dataset.qual));
+}
 
-        card.querySelectorAll('.half-block').forEach((block) => {
-          block.addEventListener('click', () => selectCell_(part.part, Number(block.dataset.bar), block.dataset.half));
-        });
-        card.querySelectorAll('.half-input').forEach((input) => {
-          input.addEventListener('focus', () => selectCell_(part.part, Number(input.dataset.bar), input.dataset.half));
-          input.addEventListener('input', (event) => {
-            updateBarValue_(part.part, Number(input.dataset.bar), input.dataset.half, event.target.value);
-          });
-        });
+function getPart_(partName){ return state.song.parts.find((item)=>item.part===partName) || state.song.parts[0]; }
+function getActivePart_(){ return getPart_(state.activePart); }
+function getSelectedSlot_(){ return getActivePart_().bars[state.selectedBar-1]; }
 
-        const aiRow = card.querySelector(`[data-ai-row="${bar.bar}"]`);
-        const aiValues = [];
-        if (bar.firstHalf) aiValues.push({ label: `AI 前半: ${bar.firstHalf}`, value: bar.firstHalf, half: 'firstHalf', current: true });
-        if (bar.secondHalf) aiValues.push({ label: `AI 後半: ${bar.secondHalf}`, value: bar.secondHalf, half: 'secondHalf', current: true });
-        (bar.aiSuggestion || []).forEach((value, index) => {
-          aiValues.push({ label: `AI提案 ${index + 1}: ${value}`, value, half: index === 0 ? 'firstHalf' : 'secondHalf' });
-        });
-        if (!aiValues.length) {
-          const empty = document.createElement('button');
-          empty.type = 'button';
-          empty.className = 'candidate-btn';
-          empty.textContent = 'AI提案なし（小節を選択）';
-          empty.addEventListener('click', () => selectCell_(part.part, bar.bar, 'firstHalf'));
-          aiRow.appendChild(empty);
-        } else {
-          aiValues.forEach((item) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'candidate-btn' + (item.current ? ' current' : '');
-            button.textContent = item.label;
-            button.addEventListener('click', () => {
-              selectCell_(part.part, bar.bar, item.half);
-              applyChordToSelected_(item.value);
-            });
-            aiRow.appendChild(button);
-          });
-        }
+function slotPieces_(partName, barNumber, half){
+  const bar = getPart_(partName).bars[barNumber-1];
+  const text = half === 'A' ? bar.firstHalf : bar.secondHalf;
+  return parseChordToPieces_(text);
+}
 
-        grid.appendChild(card);
-      });
-    }
+function setSlotValue_(partName, barNumber, half, value){
+  const bar = getPart_(partName).bars[barNumber-1];
+  if(half === 'A') bar.firstHalf = sanitizeChord_(value); else bar.secondHalf = sanitizeChord_(value);
+}
 
-    function buildHalfBlockHtml_(part, bar, half, title, value) {
-      const active = state.activePart === part && state.selectedBar === bar && state.selectedHalf === half;
-      return `
-        <div class="half-block${active ? ' active' : ''}" data-part="${part}" data-bar="${bar}" data-half="${half}">
-          <div class="half-title">${title}</div>
-          <input
-            type="text"
-            class="half-input"
-            inputmode="text"
-            placeholder="コードを入力"
-            data-part="${part}"
-            data-bar="${bar}"
-            data-half="${half}"
-            value="${escapeAttr_(value || '')}"
-          >
-        </div>
-      `;
-    }
+function clearSelected_(){ setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, ''); state.bassMode=false; renderBars_(); renderAiBars_(); }
+function resetAllBoxes_(){ state.song.parts.forEach((part)=>part.bars.forEach((bar)=>{ bar.firstHalf=''; bar.secondHalf=''; })); state.selectedBar=1; state.selectedHalf='A'; state.bassMode=false; renderBars_(); renderAiBars_(); log_('全小節をリセットしました。'); }
+function toggleBassMode_(){ state.bassMode = !state.bassMode; log_(state.bassMode ? 'オンベース入力モード：次のルートを / で適用します。' : 'オンベース入力モード解除'); }
+function clearBass_(){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); pieces.bass=''; setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); state.bassMode=false; renderBars_(); }
+function clearQuality_(){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); pieces.qual=''; setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); renderBars_(); }
+function applyRoot_(root){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); if(state.bassMode){ pieces.bass=root; state.bassMode=false; } else { pieces.root=root; } setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); renderBars_(); }
+function applyQuality_(qual){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); pieces.qual=qual; setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); renderBars_(); }
+function fourBarRepeat_(){ const part = getActivePart_(); for(let i=0;i<4;i++){ part.bars[i+4].firstHalf = part.bars[i].firstHalf; part.bars[i+4].secondHalf = part.bars[i].secondHalf; } renderBars_(); renderAiBars_(); log_(`${part.part} の 1〜4小節を 5〜8小節へ複写しました。`); }
 
-    function renderPresetButtons_() {
-      const wrap = document.getElementById('presetButtons');
-      wrap.innerHTML = '';
-      PRESET_CHORDS.forEach((chord) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'cell-btn';
-        button.textContent = chord;
-        button.addEventListener('click', () => applyChordToSelected_(chord));
-        wrap.appendChild(button);
-      });
-    }
+function parseChordToPieces_(chord){
+  const text = sanitizeChord_(chord);
+  if(!text) return {root:'',qual:'',bass:''};
+  const slash = text.split('/');
+  const main = slash[0] || '';
+  const bass = slash[1] || '';
+  const m = main.match(/^([A-G](?:#|b|♭)?)(.*)$/);
+  return { root: m ? m[1] : '', qual: m ? (m[2] || '') : '', bass: bass || '' };
+}
 
-    function selectCell_(part, bar, half) {
-      state.activePart = part;
-      state.selectedBar = bar;
-      state.selectedHalf = half;
-      render_();
-    }
+function buildChordFromPieces_(pieces){
+  const root = sanitizeChord_(pieces.root || '');
+  const qual = sanitizeChord_(pieces.qual || '');
+  const bass = sanitizeChord_(pieces.bass || '');
+  if(!root) return '';
+  return root + qual + (bass ? '/' + bass : '');
+}
 
-    function updateBarValue_(part, barNumber, half, value) {
-      const bar = getBar_(part, barNumber);
-      if (!bar) return;
-      bar[half] = sanitizeChord_(value);
-      renderHeaderSelectedOnly_();
-    }
+function buildSavePayload_(){
+  const baseId = $('baseIdInput').value.trim();
+  if(!/^\d+$/.test(baseId)) throw new Error('先頭IDは数値で入力してください。');
+  const originalKey = sanitizeKey_($('draftOriginalKeyInput').value);
+  const quizKey = sanitizeQuizKey_($('draftQuizKeyInput').value) || (originalKey.endsWith('m') ? 'Am' : 'C');
+  const youtubeUrl = $('draftYoutubeInput').value.trim();
+  if(!originalKey) throw new Error('original_key を入力してください。');
+  if(!/^[A-G](?:#|b)?m?$/.test(originalKey)) throw new Error(`original_key の形式が不正です: ${originalKey}`);
+  if(quizKey && !['C','Am'].includes(quizKey)) throw new Error('Quiz_key は C または Am で入力してください。');
+  if(youtubeUrl && !buildYoutubeEmbedUrlClient_(youtubeUrl)) throw new Error('YouTube は動画URL / youtu.be / 11文字ID を入力してください。');
 
-    function applyChordToSelected_(value) {
-      const bar = getSelectedBar_();
-      if (!bar) return;
-      bar[state.selectedHalf] = sanitizeChord_(value);
-      render_();
-    }
+  return {
+    baseId,
+    metadata:{ originalKey, quizKey, youtubeUrl },
+    parts: state.song.parts.map((part)=>({
+      part: part.part,
+      bars: part.bars.map((bar, index)=>{
+        validateBarClient_(bar, part.part, index+1);
+        return { firstHalf: sanitizeChord_(bar.firstHalf), secondHalf: sanitizeChord_(bar.secondHalf) };
+      })
+    }))
+  };
+}
 
-    function renderHeaderSelectedOnly_() {
-      const part = getActivePart_();
-      document.getElementById('selectedCell').textContent = `選択中: ${part.part} / ${state.selectedBar}小節 / ${state.selectedHalf === 'firstHalf' ? '前半' : '後半'}`;
-    }
+function validateBarClient_(bar, part, barNumber){
+  const first = sanitizeChord_(bar.firstHalf);
+  const second = sanitizeChord_(bar.secondHalf);
+  if(!first && second) throw new Error(`${part} ${barNumber}小節 は後半のみ入力できません。`);
+  [first,second].forEach((value)=>{
+    if(!value) return;
+    if(value.includes('│')) throw new Error(`${part} ${barNumber}小節 は │ を直接入力できません。`);
+    const slashCount = (value.match(/\//g) || []).length;
+    if(slashCount > 1) throw new Error(`${part} ${barNumber}小節 に不正な / 連続表記があります: ${value}`);
+    const [main,bass=''] = value.split('/');
+    if(!/^([A-G](?:#|b|♭)?)(?:[0-9A-Za-z+()#♭b\-susdimaugmajMadd]*)$/.test(main)) throw new Error(`${part} ${barNumber}小節 のコード形式が不正です: ${value}`);
+    if(slashCount === 1 && !/^[A-G](?:#|b|♭)?$/.test(bass)) throw new Error(`${part} ${barNumber}小節 のオンコード表記が不正です: ${value}`);
+  });
+}
 
-    function getActivePart_() {
-      return state.song.parts.find((part) => part.part === state.activePart) || state.song.parts[0];
-    }
+function setBusy_(loading, saving){
+  state.loading = !!loading; state.saving = !!saving;
+  ['loadButton','aiChordButton','reloadButton','saveButton','applyQuizKeyButton','clearYoutubeButton'].forEach((id)=>{ const el=$(id); if(el) el.disabled = state.loading || state.saving; });
+}
 
-    function getBar_(partName, barNumber) {
-      const part = state.song.parts.find((item) => item.part === partName);
-      return part ? part.bars[barNumber - 1] : null;
-    }
+function handleClientError_(error, phase){
+  const message = error && error.message ? error.message : String(error);
+  $('connectionStatus').textContent = `${phase} error: ${message}`;
+  log_(`ERROR [${phase}] ${message}`);
+}
 
-    function getSelectedBar_() {
-      return getBar_(state.activePart, state.selectedBar);
-    }
-
-    function setBusy_(loading, saving) {
-      state.loading = !!loading;
-      state.saving = !!saving;
-      document.getElementById('loadButton').disabled = state.loading || state.saving;
-      document.getElementById('reloadButton').disabled = state.loading || state.saving;
-      document.getElementById('saveButton').disabled = state.loading || state.saving;
-    }
-
-    function sanitizeChord_(value) {
-      return String(value == null ? '' : value)
-        .replace(/\s+/g, ' ')
-        .trim()
-        .replace(/｜/g, '│');
-    }
-
-    function log_(message) {
-      const box = document.getElementById('logBox');
-      const now = new Date();
-      const stamp = now.toLocaleTimeString('ja-JP', { hour12: false });
-      box.textContent = `[${stamp}] ${message}\n` + box.textContent;
-    }
-
-    function escapeHtml_(value) {
-      return String(value == null ? '' : value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
-    }
-
-    function escapeAttr_(value) {
-      return escapeHtml_(value).replaceAll('`', '&#96;');
-    }
-  </script>
+function sanitizeChord_(value){ return String(value == null ? '' : value).replace(/\s+/g,' ').trim().replace(/｜/g,'│'); }
+function sanitizeKey_(value){ return String(value == null ? '' : value).trim().replace(/♭/g,'b').replace(/＃/g,'#').replace(/major$/i,'').replace(/minor$/i,'m').replace(/^([a-g])/, (m)=>m.toUpperCase()); }
+function sanitizeQuizKey_(value){ const text = String(value == null ? '' : value).trim(); if(!text) return ''; return text.toLowerCase() === 'am' ? 'Am' : text.toUpperCase(); }
+function buildYoutubeEmbedUrlClient_(rawValue){ const text = String(rawValue || '').trim(); if(!text) return ''; const match = text.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/); const id = match ? match[1] : text; return /^[A-Za-z0-9_-]{11}$/.test(id) ? `https://www.youtube.com/embed/${id}` : ''; }
+function normalizeYoutubeOpenUrl_(rawValue){ const embed = buildYoutubeEmbedUrlClient_(rawValue); return embed ? embed.replace('/embed/','/watch?v=') : rawValue; }
+function log_(message){ const box = $('logBox'); const stamp = new Date().toLocaleTimeString('ja-JP', {hour12:false}); box.textContent = `[${stamp}] ${message}\n` + box.textContent; }
+function esc_(value){ return String(value == null ? '' : value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+</script>
 </body>
 </html>
