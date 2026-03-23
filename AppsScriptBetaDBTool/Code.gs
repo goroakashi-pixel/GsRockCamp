@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.0.2';
+const APP_VERSION = '1.0.3';
 const OPENAI_MODEL = 'gpt-5';
 
 function doGet() {
@@ -271,16 +271,14 @@ function buildDraftMetadata_(bundle) {
   if (!originalKey) {
     originalKey = inferOriginalKeyFromBundle_(bundle);
     status.originalKeySource = originalKey ? 'inferred' : 'empty';
-    notes.push(originalKey ? 'original_key は既存コードから仮推定しました。保存前に確認してください。' : 'original_key を推定できませんでした。手入力してください。');
+    notes.push(originalKey
+      ? 'DB original_key は空欄です。既存コードから仮置きしました。読み込み後の候補を確認してください。'
+      : 'DB original_key は空欄です。読み込み時に公開Web調査を試みます。');
   }
   if (!youtubeUrl) {
     status.youtubeSource = 'manual_search';
-    notes.push('YouTube はDBに未入力です。検索リンクまたはAI取得ボタンで候補を確認してください。');
+    notes.push('DB YouTube は空欄です。読み込み時に公開Web調査を試みます。');
   }
-  var aiStatus = getOpenAiConfig_(true);
-  notes.push(aiStatus.configured
-    ? 'AI original_Chord 下書き: 利用可能（model: ' + aiStatus.model + '）'
-    : 'AI original_Chord 下書き: OPENAI_API_KEY 未設定のため未使用。公開Web調査で original_key / YouTube 候補までは取得します。');
 
   return {
     originalKey: originalKey || '',
@@ -888,6 +886,9 @@ function hydrateDraftMetadataFromWeb_(bundle, response, options) {
     response.logs = (response.logs || []).concat(research.logs || []);
     return research;
   } catch (error) {
+    response.metadata = response.metadata || {};
+    response.metadata.draftNotes = filterResearchNotes_(response.metadata.draftNotes || []);
+    response.metadata.draftNotes.push('公開Web調査に失敗しました。検索リンクまたは手入力で確認してください。');
     response.logs = (response.logs || []).concat(['Web research skipped: ' + error.message]);
     return null;
   }
@@ -897,7 +898,7 @@ function applyResearchMetadataToResponse_(response, research) {
   if (!research) return;
   response.metadata = response.metadata || {};
   response.metadata.draftStatus = response.metadata.draftStatus || {};
-  response.metadata.draftNotes = response.metadata.draftNotes || [];
+  response.metadata.draftNotes = filterResearchNotes_(response.metadata.draftNotes || []);
 
   if (research.originalKey && !sanitizeKeyInput_(response.metadata.draftOriginalKey)) {
     response.metadata.draftOriginalKey = research.originalKey;
@@ -962,8 +963,10 @@ function researchPublicSongData_(bundle, options) {
   var youtubeUrl = youtubeResult ? youtubeResult.url : '';
   if (originalKey) notes.push('公開Web調査から original_key 候補を取得しました。保存前に確認してください。');
   if (youtubeUrl) notes.push('公開Web調査から YouTube 候補を取得しました。公式動画か確認してください。');
+  if (!originalKey) notes.push('公開Web調査では original_key 候補を確定できませんでした。必要なら手入力してください。');
+  if (!youtubeUrl) notes.push('公開Web調査では YouTube 候補を取得できませんでした。検索リンクで確認してください。');
   if (!options.metadataOnly && !getOpenAiConfig_(true).configured) {
-    notes.push('OPENAI_API_KEY 未設定のため original_Chord の AI 下書きまでは進めていません。');
+    logs.push('OPENAI_API_KEY 未設定のため original_Chord AI draft は未実行');
   }
 
   return {
@@ -1141,6 +1144,17 @@ function extractYoutubeVideoId_(url) {
   var text = String(url || '').trim();
   var match = text.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
   return match ? match[1] : '';
+}
+
+function filterResearchNotes_(notes) {
+  return (notes || []).filter(function(note) {
+    return note.indexOf('読み込み時に公開Web調査を試みます。') < 0 &&
+      note.indexOf('DB original_key は空欄です。既存コードから仮置きしました。') < 0 &&
+      note.indexOf('DB YouTube は空欄です。') < 0 &&
+      note.indexOf('公開Web調査に失敗しました。') < 0 &&
+      note.indexOf('公開Web調査では original_key 候補を確定できませんでした。') < 0 &&
+      note.indexOf('公開Web調査では YouTube 候補を取得できませんでした。') < 0;
+  });
 }
 
 function extractFirstJsonObject_(text) {
