@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.0.7';
+const APP_VERSION = '1.0.8';
 const OPENAI_MODEL = 'gpt-5';
 const REQUIRED_SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
@@ -957,7 +957,9 @@ function researchPublicSongData_(bundle, options) {
   var logs = ['Web research start: ' + query];
   var notes = [];
   var sources = [];
-  var youtubeResult = searchYoutubeCandidate_(first.artist, first.title);
+  var youtubeSearch = searchYoutubeCandidate_(first.artist, first.title);
+  var youtubeResult = youtubeSearch.candidate;
+  logs = logs.concat(youtubeSearch.logs || []);
   if (youtubeResult) {
     sources.push(youtubeResult);
     logs.push('YouTube candidate found: ' + youtubeResult.url);
@@ -965,7 +967,9 @@ function researchPublicSongData_(bundle, options) {
     logs.push('YouTube candidate not found by public search');
   }
 
-  var chordResults = findChordReferenceCandidates_(query);
+  var chordSearch = findChordReferenceCandidates_(query);
+  var chordResults = chordSearch.results || [];
+  logs = logs.concat(chordSearch.logs || []);
   chordResults.forEach(function(result) { sources.push(result); });
   if (chordResults.length) logs.push('Chord reference candidates: ' + chordResults.length);
   else logs.push('Chord reference candidates: 0');
@@ -1014,27 +1018,41 @@ function researchPublicSongData_(bundle, options) {
 
 function searchYoutubeCandidate_(artist, title) {
   var query = [artist || '', title || '', 'official YouTube'].join(' ').trim();
-  if (!query) return null;
-  var html = fetchHtmlText_('https://duckduckgo.com/html/?q=' + encodeURIComponent(query));
-  var results = extractSearchResultsFromHtml_(html);
-  for (var i = 0; i < results.length; i += 1) {
-    var url = decodeDuckDuckGoRedirect_(results[i].url);
-    if (!/youtube\.com|youtu\.be/.test(url)) continue;
-    var videoId = extractYoutubeVideoId_(url);
-    if (videoId) {
-      return {
-        type: 'youtube',
-        title: results[i].title,
-        snippet: results[i].snippet,
-        url: 'https://www.youtube.com/watch?v=' + videoId
-      };
+  if (!query) return { candidate: null, logs: [] };
+  var logs = [];
+  var searchUrls = buildSearchUrls_(query);
+  for (var u = 0; u < searchUrls.length; u += 1) {
+    try {
+      var html = fetchHtmlText_(searchUrls[u].url);
+      var results = extractSearchResultsFromHtml_(html);
+      for (var i = 0; i < results.length; i += 1) {
+        var url = decodeSearchRedirectUrl_(results[i].url);
+        if (!/youtube\.com|youtu\.be/.test(url)) continue;
+        var videoId = extractYoutubeVideoId_(url);
+        if (videoId) {
+          logs.push('YouTube search provider OK: ' + searchUrls[u].name);
+          return {
+            candidate: {
+              type: 'youtube',
+              title: results[i].title,
+              snippet: results[i].snippet,
+              url: 'https://www.youtube.com/watch?v=' + videoId
+            },
+            logs: logs
+          };
+        }
+      }
+      logs.push('YouTube search provider no match: ' + searchUrls[u].name);
+    } catch (error) {
+      logs.push('YouTube search provider failed: ' + searchUrls[u].name + ' / ' + error.message);
     }
   }
-  return null;
+  return { candidate: null, logs: logs };
 }
 
 function findChordReferenceCandidates_(query) {
   var results = [];
+  var logs = [];
   var searches = [
     query + ' site:chordwiki.jpn.org',
     query + ' site:ufret.jp',
@@ -1042,33 +1060,32 @@ function findChordReferenceCandidates_(query) {
   ];
 
   searches.forEach(function(searchQuery) {
-    try {
-      var html = fetchHtmlText_('https://duckduckgo.com/html/?q=' + encodeURIComponent(searchQuery));
-      extractSearchResultsFromHtml_(html).forEach(function(item) {
-        var url = decodeDuckDuckGoRedirect_(item.url);
-        if (!/^https?:\/\//.test(url)) return;
-        if (!/chordwiki\.jpn\.org|ufret\.jp/.test(url)) return;
-        if (results.some(function(existing) { return existing.url === url; })) return;
-        results.push({
-          type: /ufret\.jp/.test(url) ? 'ufret' : 'chordwiki',
-          title: item.title,
-          snippet: item.snippet,
-          url: url,
-          chords: [],
-          keyHints: []
+    var providers = buildSearchUrls_(searchQuery);
+    providers.forEach(function(provider) {
+      try {
+        var html = fetchHtmlText_(provider.url);
+        extractSearchResultsFromHtml_(html).forEach(function(item) {
+          var url = decodeSearchRedirectUrl_(item.url);
+          if (!/^https?:\/\//.test(url)) return;
+          if (!/chordwiki\.jpn\.org|ufret\.jp/.test(url)) return;
+          if (results.some(function(existing) { return existing.url === url; })) return;
+          results.push({
+            type: /ufret\.jp/.test(url) ? 'ufret' : 'chordwiki',
+            title: item.title,
+            snippet: item.snippet,
+            url: url,
+            chords: [],
+            keyHints: []
+          });
         });
-      });
-    } catch (error) {
-      results.push({
-        type: 'search_error',
-        title: searchQuery,
-        snippet: 'search failed: ' + error.message,
-        url: ''
-      });
-    }
+        logs.push('Chord search provider OK: ' + provider.name + ' / ' + searchQuery);
+      } catch (error) {
+        logs.push('Chord search provider failed: ' + provider.name + ' / ' + searchQuery + ' / ' + error.message);
+      }
+    });
   });
 
-  return results.filter(function(item) { return item.url; }).slice(0, 6);
+  return { results: results.filter(function(item) { return item.url; }).slice(0, 6), logs: logs };
 }
 
 function fetchHtmlText_(url) {
@@ -1112,6 +1129,31 @@ function decodeDuckDuckGoRedirect_(url) {
   var match = text.match(/[?&]uddg=([^&]+)/);
   if (match) return decodeURIComponent(match[1]);
   return text;
+}
+
+function decodeSearchRedirectUrl_(url) {
+  var text = String(url || '');
+  if (/duckduckgo\.com/.test(text) && /[?&]uddg=/.test(text)) return decodeDuckDuckGoRedirect_(text);
+  if (/bing\.com\/ck\//.test(text)) {
+    var targetMatch = text.match(/[?&]u=([^&]+)/);
+    if (targetMatch) {
+      try {
+        var decoded = decodeURIComponent(targetMatch[1]);
+        var cleaned = decoded.replace(/^a1/, '');
+        var urlMatch = cleaned.match(/https?:\/\/.*/);
+        if (urlMatch) return urlMatch[0];
+      } catch (_error) {}
+    }
+  }
+  return text;
+}
+
+function buildSearchUrls_(query) {
+  var encoded = encodeURIComponent(query);
+  return [
+    { name: 'duckduckgo', url: 'https://duckduckgo.com/html/?q=' + encoded },
+    { name: 'bing', url: 'https://www.bing.com/search?q=' + encoded }
+  ];
 }
 
 function stripTags_(html) {
