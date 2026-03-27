@@ -846,7 +846,7 @@ function requestAiOriginalChordDraft_(bundle, config) {
       logs.push('AI JSON生成 attempt ' + attempt + '/' + AI_JSON_RETRY_MAX);
       var aiJson = runAiDraftAttempt_(bundle, config, attempt, rawTextForRetry);
       rawTextForRetry = extractResponseText_(aiJson);
-      var parsed = extractStructuredDraftObject_(aiJson);
+      var parsed = extractStructuredDraftObject_(aiJson, logs);
       validateAiDraftSchema_(parsed);
       var draft = normalizeAiDraftResponse_(parsed, bundle);
       logs.push('AI下書き受領');
@@ -858,7 +858,7 @@ function requestAiOriginalChordDraft_(bundle, config) {
       var parsePos = extractJsonErrorPosition_(error.message);
       var errorType = classifyAiDraftError_(error);
       logs.push(errorType + ' attempt ' + attempt + ': ' + error.message);
-      logs.push('AI raw snippet: ' + summarizeRawText_(rawTextForRetry, 320));
+      logs.push('AI raw snippet: ' + summarizeRawText_(rawTextForRetry, 800));
       if (parsePos >= 0) logs.push('parse失敗位置: ' + parsePos);
       if (attempt >= AI_JSON_RETRY_MAX) break;
       logs.push('JSON再試行を実行します。');
@@ -932,6 +932,7 @@ function buildChordResearchPrompt_(bundle, previousRawText) {
     '- 1小節2コード時だけ firstHalf/secondHalf を使用',
     '- 不明な箇所は空文字、推測で埋めすぎない',
     '- 公開情報が十分なら part 単位で整理して返す',
+    '- notes は短文のみ（citation text / markdown link / URL本文は書かない）',
     retrySection
   ].join('\n');
 }
@@ -992,20 +993,29 @@ function runAiDraftAttempt_(bundle, config, attempt, previousRawText) {
   });
 }
 
-function extractStructuredDraftObject_(json) {
-  if (json && json.output_parsed) return json.output_parsed;
+function extractStructuredDraftObject_(json, logs) {
+  if (json && json.output_parsed) {
+    if (logs) logs.push('JSON受信: output_parsed を使用');
+    return json.output_parsed;
+  }
   var output = json && Array.isArray(json.output) ? json.output : [];
   for (var i = 0; i < output.length; i += 1) {
     var contentList = Array.isArray(output[i].content) ? output[i].content : [];
     for (var j = 0; j < contentList.length; j += 1) {
-      if (contentList[j] && typeof contentList[j].parsed === 'object' && contentList[j].parsed) return contentList[j].parsed;
+      if (contentList[j] && typeof contentList[j].parsed === 'object' && contentList[j].parsed) {
+        if (logs) logs.push('JSON受信: content.parsed を使用');
+        return contentList[j].parsed;
+      }
     }
   }
   var text = extractResponseText_(json);
   try {
+    if (logs) logs.push('JSON受信: output_text 全文を直接JSON.parse');
     return JSON.parse(text);
   } catch (error) {
-    throw new Error('JSON parse error: ' + error.message);
+    var extracted = extractFirstJsonObject_(text);
+    if (logs) logs.push('JSON切り出し成功: length=' + extracted.__jsonLength + ' chars');
+    return extracted;
   }
 }
 
@@ -1498,15 +1508,60 @@ function extractChordPoolFromResearch_(research) {
 }
 
 function extractFirstJsonObject_(text) {
-  var raw = String(text || '').trim();
+  var raw = String(text || '');
   var start = raw.indexOf('{');
-  var end = raw.lastIndexOf('}');
-  if (start < 0 || end < start) throw new Error('AI 返答から JSON を抽出できませんでした。');
-  return JSON.parse(raw.slice(start, end + 1));
+  if (start < 0) throw new Error('JSON parse error: JSON開始 "{" が見つかりません');
+
+  var depth = 0;
+  var inString = false;
+  var escapeNext = false;
+  var end = -1;
+
+  for (var i = start; i < raw.length; i += 1) {
+    var ch = raw.charAt(i);
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    if (inString) {
+      if (ch === '\\') {
+        escapeNext = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === '{') {
+      depth += 1;
+      continue;
+    }
+    if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+      if (depth < 0) throw new Error('JSON parse error: 波かっこの対応が不正です');
+    }
+  }
+
+  if (end < 0) throw new Error('JSON parse error: JSON終端 "}" を特定できません');
+  var jsonText = raw.slice(start, end + 1);
+  try {
+    var parsed = JSON.parse(jsonText);
+    if (parsed && typeof parsed === 'object') parsed.__jsonLength = jsonText.length;
+    return parsed;
+  } catch (error) {
+    throw new Error('JSON parse error: ' + error.message);
+  }
 }
 
 function normalizeAiDraftResponse_(raw, bundle) {
-  var result = { originalKey: sanitizeKeyInput_(raw.originalKey), youtubeUrl: sanitizeUrlInput_(raw.youtubeUrl), notes: Array.isArray(raw.notes) ? raw.notes.map(String) : [], partMap: {} };
+  var result = { originalKey: sanitizeKeyInput_(raw.originalKey), youtubeUrl: sanitizeUrlInput_(raw.youtubeUrl), notes: Array.isArray(raw.notes) ? raw.notes.map(sanitizeAiNote_).filter(Boolean) : [], partMap: {} };
   PART_ORDER.forEach(function(part) {
     result.partMap[part] = Array.from({ length: BAR_COUNT }, function(_, index) { return { bar: index + 1, firstHalf: '', secondHalf: '' }; });
   });
@@ -1522,6 +1577,12 @@ function normalizeAiDraftResponse_(raw, bundle) {
   result.quizKey = determineQuizKey_(result.originalKey);
   if (result.youtubeUrl && !isSupportedYoutubeValue_(result.youtubeUrl)) result.youtubeUrl = '';
   return result;
+}
+
+function sanitizeAiNote_(note) {
+  var text = String(note == null ? '' : note).trim();
+  text = text.replace(/https?:\/\/\S+/g, '').replace(/\[[^\]]+\]\([^)]+\)/g, '').trim();
+  return text.slice(0, 120);
 }
 
 function sanitizeAiChordDraftValue_(value) { return sanitizeChordInput_(String(value == null ? '' : value).replace(/\|/g, '│')); }
