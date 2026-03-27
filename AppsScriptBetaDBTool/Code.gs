@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.0.9';
+const APP_VERSION = '1.0.10';
 const OPENAI_MODEL = 'gpt-5';
 const REQUIRED_SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
@@ -1071,21 +1071,15 @@ function findChordReferenceCandidates_(query) {
     providers.forEach(function(provider) {
       try {
         var html = fetchHtmlText_(provider.url);
+        var beforeCount = results.length;
         extractSearchResultsFromHtml_(html).forEach(function(item) {
           var url = decodeSearchRedirectUrl_(item.url);
-          if (!/^https?:\/\//.test(url)) return;
-          if (!/chordwiki\.jpn\.org|ufret\.jp/.test(url)) return;
-          if (results.some(function(existing) { return existing.url === url; })) return;
-          results.push({
-            type: /ufret\.jp/.test(url) ? 'ufret' : 'chordwiki',
-            title: item.title,
-            snippet: item.snippet,
-            url: url,
-            chords: [],
-            keyHints: []
-          });
+          pushChordReferenceCandidate_(results, url, item.title, item.snippet);
         });
-        logs.push('Chord search provider OK: ' + provider.name + ' / ' + searchQuery);
+        extractTargetLinksFromHtml_(html, ['ufret.jp', 'chordwiki.jpn.org']).forEach(function(url) {
+          pushChordReferenceCandidate_(results, url, 'direct-link', provider.name + ' raw-link');
+        });
+        logs.push('Chord search provider OK: ' + provider.name + ' / ' + searchQuery + ' / +' + (results.length - beforeCount));
       } catch (error) {
         logs.push('Chord search provider failed: ' + provider.name + ' / ' + searchQuery + ' / ' + error.message);
       }
@@ -1093,6 +1087,21 @@ function findChordReferenceCandidates_(query) {
   });
 
   return { results: results.filter(function(item) { return item.url; }).slice(0, 6), logs: logs };
+}
+
+function pushChordReferenceCandidate_(resultList, rawUrl, title, snippet) {
+  var url = normalizeCandidateUrl_(decodeSearchRedirectUrl_(rawUrl));
+  if (!/^https?:\/\//.test(url)) return;
+  if (!/chordwiki\.jpn\.org|ufret\.jp/.test(url)) return;
+  if (resultList.some(function(existing) { return existing.url === url; })) return;
+  resultList.push({
+    type: /ufret\.jp/.test(url) ? 'ufret' : 'chordwiki',
+    title: title || '',
+    snippet: snippet || '',
+    url: url,
+    chords: [],
+    keyHints: []
+  });
 }
 
 function fetchHtmlText_(url) {
@@ -1161,6 +1170,26 @@ function buildSearchUrls_(query) {
     { name: 'duckduckgo', url: 'https://duckduckgo.com/html/?q=' + encoded },
     { name: 'bing', url: 'https://www.bing.com/search?q=' + encoded }
   ];
+}
+
+function extractTargetLinksFromHtml_(html, domains) {
+  var text = decodeHtmlEntities_(String(html || ''));
+  var escaped = text.replace(/\\\//g, '/');
+  var links = [];
+  var regex = /(https?:\/\/[^\s"'<>\\)]+)/g;
+  var match;
+  while ((match = regex.exec(escaped)) && links.length < 120) {
+    var url = match[1];
+    if (!domains.some(function(domain) { return url.indexOf(domain) >= 0; })) continue;
+    links.push(url);
+  }
+  return links;
+}
+
+function normalizeCandidateUrl_(url) {
+  return String(url || '')
+    .replace(/[),.;]+$/g, '')
+    .replace(/&amp;/g, '&');
 }
 
 function stripTags_(html) {
