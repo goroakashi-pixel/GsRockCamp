@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.0.5';
+const APP_VERSION = '1.0.6';
 const OPENAI_MODEL = 'gpt-5';
 
 function doGet() {
@@ -1171,8 +1171,7 @@ function analyzeResearchError_(error) {
       reason: 'external_request_auth_required',
       note: '外部アクセス権限が未承認のため公開Web調査を実行できませんでした。再デプロイ後に「外部サービスへの接続」を承認してください。',
       logs: [
-        '公開Web調査は未実行: 外部アクセス権限（script.external_request）が未承認です。',
-        '次の操作: appsscript.json に追加した権限を含めて再デプロイし、初回アクセス時の承認画面で外部アクセスを許可してください。'
+        '公開Web調査は未実行（script.external_request 未承認）。再デプロイ後、初回アクセス時に外部サービス接続を承認してください。'
       ]
     };
   }
@@ -1186,7 +1185,7 @@ function analyzeResearchError_(error) {
 
 function buildResearchOnlyMessage_(research) {
   if (research && research.permissionRequired) {
-    return '外部アクセス権限が未承認のため公開Web調査を実行できませんでした。再承認後は OPENAI_API_KEY 未設定でも公開Web調査までは動作します。';
+    return '外部アクセス権限が未承認のため公開Web調査を実行できませんでした。再承認後は OPENAI_API_KEY 未設定でも公開Web調査は動作します。';
   }
   if (research && research.ok) {
     return '公開Web調査で original_key / YouTube 候補を更新しました。original_Chord の AI 下書きは Script Properties の OPENAI_API_KEY 設定後に利用できます。';
@@ -1197,7 +1196,6 @@ function buildResearchOnlyMessage_(research) {
 function buildResearchOnlyLogs_(research) {
   var logs = ['AI original_Chord 下書き: OPENAI_API_KEY 未設定のため未実行'];
   if (research && research.permissionRequired) {
-    logs.push('公開Web調査も未実行: 外部アクセス権限の再承認が必要です。');
     return logs;
   }
   if (research && research.ok) {
