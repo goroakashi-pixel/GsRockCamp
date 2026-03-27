@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.0.8';
+const APP_VERSION = '1.0.9';
 const OPENAI_MODEL = 'gpt-5';
 const REQUIRED_SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
@@ -88,7 +88,14 @@ function suggestOriginalChords(baseId) {
     var aiConfig = getOpenAiConfig_(true);
     if (!aiConfig.configured) {
       response.stage = 'research_only';
-      response.message = buildResearchOnlyMessage_(research);
+      var heuristicDraft = buildRuleBasedDraftFromResearch_(bundle, research);
+      if (heuristicDraft) {
+        applyAiDraftToResponse_(response, heuristicDraft);
+        response.message = 'OPENAI_API_KEY 未設定のため、公開Web調査ベースで original_Chord の仮下書きを生成しました。';
+        response.logs = (response.logs || []).concat(['AI fallback draft: web chord scrape から生成しました。']);
+      } else {
+        response.message = buildResearchOnlyMessage_(research);
+      }
       response.logs = (response.logs || []).concat(buildResearchOnlyLogs_(research));
       return response;
     }
@@ -1273,6 +1280,54 @@ function buildResearchOnlyLogs_(research) {
   }
   logs.push('公開Web調査: 候補取得なし');
   return logs;
+}
+
+function buildRuleBasedDraftFromResearch_(bundle, research) {
+  if (!research || !research.ok) return null;
+  var chordPool = extractChordPoolFromResearch_(research);
+  if (!chordPool.length) return null;
+
+  var draft = {
+    originalKey: sanitizeKeyInput_(research.originalKey) || inferOriginalKeyFromChordList_(chordPool) || '',
+    quizKey: '',
+    youtubeUrl: sanitizeUrlInput_(research.youtubeUrl),
+    notes: ['＜音寧コメ＞公開Web調査の抽出コードから仮下書きを作成しました。必ず人間確認で修正してください。'],
+    partMap: {}
+  };
+  draft.quizKey = determineQuizKey_(draft.originalKey);
+
+  PART_ORDER.forEach(function(part, partIndex) {
+    draft.partMap[part] = [];
+    for (var i = 0; i < BAR_COUNT; i += 1) {
+      var poolIndex = (partIndex * BAR_COUNT + i) % chordPool.length;
+      draft.partMap[part].push({
+        bar: i + 1,
+        firstHalf: chordPool[poolIndex],
+        secondHalf: ''
+      });
+    }
+  });
+
+  return draft;
+}
+
+function extractChordPoolFromResearch_(research) {
+  var primary = [];
+  var secondary = [];
+  (research.sources || []).forEach(function(source) {
+    var chords = Array.isArray(source.chords) ? source.chords : [];
+    if (!chords.length) return;
+    var bucket = /\/song\.php/.test(source.url || '') ? primary : secondary;
+    chords.forEach(function(chord) {
+      var normalized = sanitizeChordInput_(chord);
+      if (!normalized) return;
+      try {
+        validateChordSymbol_(normalized, 'research', 1);
+        if (!bucket.some(function(existing) { return existing === normalized; })) bucket.push(normalized);
+      } catch (_error) {}
+    });
+  });
+  return primary.concat(secondary).slice(0, 64);
 }
 
 function extractFirstJsonObject_(text) {
