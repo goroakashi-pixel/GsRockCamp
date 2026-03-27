@@ -3,8 +3,12 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.0.6';
+const APP_VERSION = '1.0.7';
 const OPENAI_MODEL = 'gpt-5';
+const REQUIRED_SCOPES = [
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/script.external_request'
+];
 
 function doGet() {
   var template = HtmlService.createTemplateFromFile('Index');
@@ -46,6 +50,28 @@ function loadSong(baseId) {
     return response;
   } catch (error) {
     return buildErrorResponse_(error, { action: 'loadSong', baseId: baseId });
+  }
+}
+
+function checkAuthorizationStatus() {
+  try {
+    var authInfo = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL);
+    var status = String(authInfo.getAuthorizationStatus());
+    var authorizationUrl = String(authInfo.getAuthorizationUrl() || '');
+    return {
+      ok: true,
+      action: 'checkAuthorizationStatus',
+      appVersion: APP_VERSION,
+      requiredScopes: REQUIRED_SCOPES.slice(),
+      authorized: status === String(ScriptApp.AuthorizationStatus.NOT_REQUIRED),
+      authorizationStatus: status,
+      authorizationUrl: authorizationUrl,
+      message: status === String(ScriptApp.AuthorizationStatus.NOT_REQUIRED)
+        ? '権限OK'
+        : '未承認の権限があります。承認URLを開いて承認してください。'
+    };
+  } catch (error) {
+    return buildErrorResponse_(error, { action: 'checkAuthorizationStatus' });
   }
 }
 
@@ -1171,7 +1197,8 @@ function analyzeResearchError_(error) {
       reason: 'external_request_auth_required',
       note: '外部アクセス権限が未承認のため公開Web調査を実行できませんでした。再デプロイ後に「外部サービスへの接続」を承認してください。',
       logs: [
-        '公開Web調査は未実行（script.external_request 未承認）。再デプロイ後、初回アクセス時に外部サービス接続を承認してください。'
+        '公開Web調査は未実行（script.external_request 未承認）。',
+        '外部アクセス権限が未承認です。権限確認ボタンから承認URLを開いてください。'
       ]
     };
   }

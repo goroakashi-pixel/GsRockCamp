@@ -78,6 +78,11 @@
     <button class="btn" id="reloadButton">再読込</button>
     <button class="btn primary" id="saveButton">確定保存</button>
   </div>
+  <div class="row" style="margin-top:8px;">
+    <button class="btn small" id="checkAuthButton">権限確認</button>
+    <span class="muted" id="authStatusText">権限状態: 未確認</span>
+    <a class="linkBtn" id="authUrlLink" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">承認URLを開く</a>
+  </div>
 </div>
 
 <div class="card">
@@ -172,6 +177,7 @@ const state = {
   selectedHalf:'A',
   bassMode:false,
   youtubeSrcApplied:'',
+  auth:{authorized:false, checked:false, authorizationUrl:'', authorizationStatus:'UNKNOWN'},
   song:createEmptySong_()
 };
 
@@ -204,6 +210,7 @@ function bindEvents_(){
   $('aiChordButton').addEventListener('click', handleAiChord_);
   $('reloadButton').addEventListener('click', () => state.baseId ? handleLoad_() : log_('再読込前に先頭IDを読み込んでください。'));
   $('saveButton').addEventListener('click', handleSave_);
+  $('checkAuthButton').addEventListener('click', handleAuthCheck_);
   $('applyQuizKeyButton').addEventListener('click', handleQuizKeyAutoFill_);
   $('clearYoutubeButton').addEventListener('click', () => { $('draftYoutubeInput').value=''; syncDraftInputsToState_(); renderYoutube_(true); });
   $('draftOriginalKeyInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
@@ -263,6 +270,25 @@ function handleQuizKeyAutoFill_(){
   syncDraftInputsToState_();
   renderMetaOnly_();
   log_('Quiz_key を original_key から再計算しました。');
+}
+
+function handleAuthCheck_(){
+  if(state.loading || state.saving) return;
+  log_('checkAuthorizationStatus() を呼び出します。');
+  runServer_('checkAuthorizationStatus')
+    .then((response)=>{
+      if(!response || !response.ok){ throw new Error(response && response.error ? response.error : 'authorization check failed'); }
+      state.auth = {
+        authorized: !!response.authorized,
+        checked: true,
+        authorizationUrl: response.authorizationUrl || '',
+        authorizationStatus: response.authorizationStatus || ''
+      };
+      renderAuthStatus_();
+      log_(response.message || (response.authorized ? '権限OK' : '未承認の権限があります。'));
+      if(response.authorizationUrl) log_('承認URLを表示しました。');
+    })
+    .catch((error)=>handleClientError_(error,'auth'));
 }
 
 function runServer_(functionName, payload){
@@ -362,6 +388,7 @@ function syncDraftInputsToState_(){
 
 function renderAll_(forceYoutube){
   renderHeader_();
+  renderAuthStatus_();
   renderTabs_();
   renderBars_();
   renderAiBars_();
@@ -373,6 +400,30 @@ function renderHeader_(){
   const conn = state.song.connection && state.song.connection.connected;
   $('connectionStatus').textContent = conn ? `接続OK / ${state.song.connection.sheetName} / ${state.song.connection.spreadsheetId} / v${state.song.appVersion || APP_VERSION}` : '未接続';
   $('dataWarning').classList.toggle('show', String(state.song.metadata.data || '').toUpperCase() === 'TRUE');
+}
+
+function renderAuthStatus_(){
+  const checked = state.auth && state.auth.checked;
+  const authorized = state.auth && state.auth.authorized;
+  const link = $('authUrlLink');
+  const text = $('authStatusText');
+  if(!checked){
+    text.textContent = '権限状態: 未確認';
+    link.style.display = 'none';
+    return;
+  }
+  if(authorized){
+    text.textContent = '権限状態: 権限OK';
+    link.style.display = 'none';
+    return;
+  }
+  text.textContent = '権限状態: 未承認（承認URLを開いてください）';
+  if(state.auth.authorizationUrl){
+    link.href = state.auth.authorizationUrl;
+    link.style.display = 'inline-flex';
+  } else {
+    link.style.display = 'none';
+  }
 }
 
 function renderMetaOnly_(){
@@ -546,7 +597,7 @@ function validateBarClient_(bar, part, barNumber){
 
 function setBusy_(loading, saving){
   state.loading = !!loading; state.saving = !!saving;
-  ['loadButton','aiChordButton','reloadButton','saveButton','applyQuizKeyButton','clearYoutubeButton'].forEach((id)=>{ const el=$(id); if(el) el.disabled = state.loading || state.saving; });
+  ['loadButton','aiChordButton','reloadButton','saveButton','checkAuthButton','applyQuizKeyButton','clearYoutubeButton'].forEach((id)=>{ const el=$(id); if(el) el.disabled = state.loading || state.saving; });
 }
 
 function handleClientError_(error, phase){
