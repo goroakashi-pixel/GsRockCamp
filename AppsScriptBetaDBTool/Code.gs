@@ -3,8 +3,8 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.1.1';
-const OPENAI_MODEL = 'gpt-5';
+const APP_VERSION = '1.1.2';
+const OPENAI_MODEL = 'gpt-5-mini';
 const ENABLE_RULE_BASED_FALLBACK = false;
 const AI_JSON_RETRY_MAX = 2;
 const REQUIRED_SCOPES = [
@@ -864,7 +864,7 @@ function requestAiOriginalChordDraft_(bundle, config) {
   config = config && config.configured ? config : getOpenAiConfig_();
   var logs = [
     'OpenAI web_search 実行開始',
-    'AI draft model: ' + config.model
+    'AI draft model: ' + config.model + ' (' + (config.modelSource || 'default') + ')'
   ];
   var lastError = null;
   var rawTextForRetry = '';
@@ -908,12 +908,14 @@ function requestAiOriginalChordDraft_(bundle, config) {
 function getOpenAiConfig_(allowMissing) {
   var props = PropertiesService.getScriptProperties();
   var apiKey = String(props.getProperty('OPENAI_API_KEY') || '').trim();
-  var model = String(props.getProperty('OPENAI_MODEL') || OPENAI_MODEL).trim();
+  var scriptModel = String(props.getProperty('OPENAI_MODEL') || '').trim();
+  var model = scriptModel || OPENAI_MODEL;
+  var modelSource = scriptModel ? 'script_properties' : 'default_mini';
   if (!apiKey) {
-    if (allowMissing) return { configured: false, apiKey: '', model: model || OPENAI_MODEL };
+    if (allowMissing) return { configured: false, apiKey: '', model: model || OPENAI_MODEL, modelSource: modelSource };
     throw new Error('OPENAI_API_KEY が Script Properties に未設定です。AI original_Chord 取得は設定後に利用してください。');
   }
-  return { configured: true, apiKey: apiKey, model: model || OPENAI_MODEL };
+  return { configured: true, apiKey: apiKey, model: model || OPENAI_MODEL, modelSource: modelSource };
 }
 
 function callOpenAiResponsesApiRaw_(apiKey, payload) {
@@ -955,15 +957,13 @@ function buildChordResearchPrompt_(bundle, previousRawText) {
   ].join('\n') : '';
   if (!retrySection && retryHint) retrySection = retryHint;
   return [
-    '以下の楽曲について、OpenAI web_search で公開情報を調査し、original_key / YouTube / intro,A,B,サビ の original_chord 下書きを返してください。',
+    '公開情報を web_search で調査し、original_key / YouTube / intro,A,B,サビ の original_chord 下書きを返してください。',
     '参照優先順位: 1) 公式YouTube 2) U-FRET/ChordWiki 3) その他公開Web情報',
     'Artist: ' + first.artist,
     'Title: ' + first.title,
-    'Rank: ' + first.rank,
-    'ERA: ' + first.era,
     'Current DB original_key: ' + (first.originalKey || ''),
     'Current DB YouTube: ' + (first.youtubeUrl || ''),
-    '制約:',
+    '出力制約:',
     '- part は intro / A / B / サビ',
     '- bars は各 part 8件',
     '- secondHalf only 禁止',
@@ -974,7 +974,7 @@ function buildChordResearchPrompt_(bundle, previousRawText) {
     '- 各 part に最低1小節以上は firstHalf を埋めること（全part空欄は不可）',
     '- 可能なら8小節すべて埋める。4小節反復が明確なら5〜8小節へ反復してよい',
     '- 前回が空barsだった場合は、曖昧でも公開情報から叩き台を構成して埋めること',
-    '- notes は短文のみ（citation text / markdown link / URL本文は書かない）',
+    '- notes は短文のみ（最大3件、URL/markdown禁止）',
     retrySection
   ].join('\n');
 }
@@ -989,7 +989,7 @@ function buildAiResponseSchema_() {
       properties: {
         originalKey: { type: 'string' },
         youtubeUrl: { type: 'string' },
-        notes: { type: 'array', items: { type: 'string' } },
+        notes: { type: 'array', maxItems: 3, items: { type: 'string', maxLength: 120 } },
         parts: {
           type: 'array',
           items: {
