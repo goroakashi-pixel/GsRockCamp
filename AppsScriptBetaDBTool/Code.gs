@@ -3,8 +3,10 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.0.10';
+const APP_VERSION = '1.1.0';
 const OPENAI_MODEL = 'gpt-5';
+const ENABLE_RULE_BASED_FALLBACK = false;
+const AI_JSON_RETRY_MAX = 2;
 const REQUIRED_SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
   'https://www.googleapis.com/auth/script.external_request'
@@ -84,26 +86,43 @@ function suggestOriginalChords(baseId) {
       action: 'suggestOriginalChords',
       stage: 'ai_chord_drafted'
     });
-    var research = hydrateDraftMetadataFromWeb_(bundle, response, { metadataOnly: false });
     var aiConfig = getOpenAiConfig_(true);
+    response.logs = (response.logs || []).concat([
+      'AI precheck: OPENAI_API_KEY ' + (aiConfig.configured ? 'configured' : 'missing')
+    ]);
     if (!aiConfig.configured) {
-      response.stage = 'research_only';
-      var heuristicDraft = buildRuleBasedDraftFromResearch_(bundle, research);
-      if (heuristicDraft) {
-        applyAiDraftToResponse_(response, heuristicDraft);
-        response.message = 'OPENAI_API_KEY 未設定のため、公開Web調査ベースで original_Chord の仮下書きを生成しました。';
-        response.logs = (response.logs || []).concat(['AI fallback draft: web chord scrape から生成しました。']);
-      } else {
-        response.message = buildResearchOnlyMessage_(research);
+      response.stage = 'metadata_only';
+      if (ENABLE_RULE_BASED_FALLBACK) {
+        var research = hydrateDraftMetadataFromWeb_(bundle, response, { metadataOnly: false });
+        var heuristicDraft = buildRuleBasedDraftFromResearch_(bundle, research);
+        if (heuristicDraft) {
+          applyAiDraftToResponse_(response, heuristicDraft);
+          response.message = 'OPENAI_API_KEY 未設定のため、公開Web調査ベースで original_Chord の仮下書きを生成しました。';
+          response.logs = (response.logs || []).concat(['AI fallback draft: web chord scrape から生成しました。']);
+        }
       }
-      response.logs = (response.logs || []).concat(buildResearchOnlyLogs_(research));
+      if (!response.message) response.message = 'OPENAI_API_KEY 未設定のため、AI original_Chord 下書きは未実行です。original_key / YouTube は検索リンクで補助してください。';
+      response.logs = (response.logs || []).concat([
+        'AI original_Chord 下書き: OPENAI_API_KEY 未設定のため未実行',
+        'metadata補助: YouTube検索リンクと既存DB情報を表示'
+      ]);
       return response;
     }
 
-    var draft = requestAiOriginalChordDraft_(bundle, research, aiConfig);
-    applyAiDraftToResponse_(response, draft);
-    response.message = 'AI original_Chord 下書きを取得しました';
-    response.logs = (response.logs || []).concat(draft.logs || []);
+    try {
+      var draft = requestAiOriginalChordDraft_(bundle, aiConfig);
+      applyAiDraftToResponse_(response, draft);
+      response.message = 'AI original_Chord 下書きを取得しました（OpenAI web_search）。';
+      response.logs = (response.logs || []).concat(draft.logs || []);
+    } catch (aiError) {
+      response.stage = 'metadata_only';
+      response.message = 'AI JSON整形失敗のため、metadata補助のみ返しました。';
+      response.logs = (response.logs || []).concat([
+        'OpenAI API error / JSON parse error / schema validation error のいずれかで失敗',
+        'AI JSON整形失敗: ' + aiError.message,
+        'UI apply skipped: AIドラフトは反映していません'
+      ]);
+    }
     return response;
   } catch (error) {
     return buildErrorResponse_(error, { action: 'suggestOriginalChords', baseId: baseId });
@@ -423,8 +442,8 @@ function serializePartRow_(row) {
         firstHalf: split.first,
         secondHalf: split.second,
         aiSuggestion: split.aiSuggestion,
-        aiDraftFirstHalf: split.first,
-        aiDraftSecondHalf: split.second,
+        aiDraftFirstHalf: '',
+        aiDraftSecondHalf: '',
         changeChord: row.changeChords[index] || '',
         degree: row.degrees[index] || '',
         functionText: row.functions[index] || '',
@@ -811,18 +830,34 @@ function findColumnIndex_(headers, headerMap, aliases) {
 
 function normalizeHeader_(value) { return String(value || '').trim().toLowerCase().replace(/[\s_\-]/g, '').replace(/[^a-z0-9\u3040-\u30ff\u4e00-\u9fff]/g, ''); }
 
-function requestAiOriginalChordDraft_(bundle, research, config) {
+function requestAiOriginalChordDraft_(bundle, config) {
   config = config && config.configured ? config : getOpenAiConfig_();
-  var responseText = callOpenAiResponsesApi_(config.apiKey, {
-    model: config.model,
-    tools: [{ type: 'web_search' }],
-    input: buildChordResearchPrompt_(bundle, research),
-    instructions: 'You research Japanese pop/rock chord progressions from public web sources and return only strict JSON.'
-  });
-  var draft = normalizeAiDraftResponse_(extractFirstJsonObject_(responseText), bundle);
-  draft.logs = ['AI draft model: ' + config.model, 'AI research completed for ' + bundle.rows[0].artist + ' / ' + bundle.rows[0].title];
-  if (research && research.logs) draft.logs = draft.logs.concat(research.logs);
-  return draft;
+  var logs = [
+    'OpenAI web_search 実行開始',
+    'AI draft model: ' + config.model
+  ];
+  var lastError = null;
+  var rawTextForRetry = '';
+  for (var attempt = 1; attempt <= AI_JSON_RETRY_MAX; attempt += 1) {
+    try {
+      logs.push('AI JSON生成 attempt ' + attempt + '/' + AI_JSON_RETRY_MAX);
+      var aiJson = runAiDraftAttempt_(bundle, config, attempt, rawTextForRetry);
+      rawTextForRetry = extractResponseText_(aiJson);
+      var parsed = extractStructuredDraftObject_(aiJson);
+      validateAiDraftSchema_(parsed);
+      var draft = normalizeAiDraftResponse_(parsed, bundle);
+      logs.push('AI下書き受領');
+      logs.push('JSON検証OK');
+      draft.logs = logs;
+      return draft;
+    } catch (error) {
+      lastError = error;
+      logs.push('JSON parse/schema エラー attempt ' + attempt + ': ' + error.message);
+      if (attempt >= AI_JSON_RETRY_MAX) break;
+      logs.push('JSON再試行を実行します。');
+    }
+  }
+  throw new Error('AI JSON整形失敗: ' + (lastError ? lastError.message : 'unknown'));
 }
 
 function getOpenAiConfig_(allowMissing) {
@@ -836,7 +871,7 @@ function getOpenAiConfig_(allowMissing) {
   return { configured: true, apiKey: apiKey, model: model || OPENAI_MODEL };
 }
 
-function callOpenAiResponsesApi_(apiKey, payload) {
+function callOpenAiResponsesApiRaw_(apiKey, payload) {
   var response = UrlFetchApp.fetch('https://api.openai.com/v1/responses', {
     method: 'post',
     contentType: 'application/json',
@@ -847,7 +882,7 @@ function callOpenAiResponsesApi_(apiKey, payload) {
   var status = response.getResponseCode();
   var body = response.getContentText();
   if (status < 200 || status >= 300) throw new Error('OpenAI API error (' + status + '): ' + body);
-  return extractResponseText_(JSON.parse(body));
+  return JSON.parse(body);
 }
 
 function extractResponseText_(json) {
@@ -863,45 +898,113 @@ function extractResponseText_(json) {
   return chunks.join('\n');
 }
 
-function buildChordResearchPrompt_(bundle, research) {
+function buildChordResearchPrompt_(bundle, previousRawText) {
   var first = bundle.rows[0];
-  var referenceLines = [];
-  if (research) {
-    (research.sources || []).slice(0, 8).forEach(function(source, index) {
-      referenceLines.push(
-        [
-          'Reference ' + (index + 1) + ':',
-          'url=' + (source.url || ''),
-          'title=' + (source.title || ''),
-          'snippet=' + (source.snippet || ''),
-          'chords=' + (source.chords || []).slice(0, 24).join(' ')
-        ].join('\n')
-      );
-    });
-  }
+  var retrySection = previousRawText ? [
+    '前回出力がJSONスキーマ不一致でした。以下の前回テキストを修正して返してください。',
+    '--- previous output start ---',
+    previousRawText.slice(0, 4000),
+    '--- previous output end ---'
+  ].join('\n') : '';
   return [
-    '以下の楽曲について、ChordWiki / U-FRET / 公式YouTube などの公開情報を優先して original_key / YouTube / intro,A,B,サビ の original_chord 下書きを JSON だけで返してください。',
+    '以下の楽曲について、OpenAI web_search で公開情報を調査し、original_key / YouTube / intro,A,B,サビ の original_chord 下書きを返してください。',
+    '参照優先順位: 1) 公式YouTube 2) U-FRET/ChordWiki 3) その他公開Web情報',
     'Artist: ' + first.artist,
     'Title: ' + first.title,
     'Rank: ' + first.rank,
     'ERA: ' + first.era,
     'Current DB original_key: ' + (first.originalKey || ''),
     'Current DB YouTube: ' + (first.youtubeUrl || ''),
-    'Rules:',
-    '- JSON only',
-    '- part は intro, A, B, サビ',
+    '制約:',
+    '- part は intro / A / B / サビ',
     '- bars は各 part 8件',
-    '- firstHalf / secondHalf を使う',
-    '- secondHalf only は禁止',
+    '- secondHalf only 禁止',
     '- slash はオンコード専用',
-    '- 同一小節2コードは firstHalf / secondHalf に分ける',
-    '- 不明なら空文字',
-    '- 参照に十分な根拠がない場合、original_key / youtubeUrl だけ埋め、bars は空でもよい',
-    'Collected references:',
-    referenceLines.join('\n\n') || '(none)',
-    'JSON schema:',
-    '{"originalKey":"","youtubeUrl":"","parts":[{"part":"intro","bars":[{"bar":1,"firstHalf":"","secondHalf":""}]}],"notes":["..."]}'
+    '- 1小節2コード時だけ firstHalf/secondHalf を使用',
+    '- 不明な箇所は空文字、推測で埋めすぎない',
+    '- 公開情報が十分なら part 単位で整理して返す',
+    retrySection
   ].join('\n');
+}
+
+function buildAiResponseSchema_() {
+  return {
+    name: 'go_rock_camp_chord_draft',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['originalKey', 'youtubeUrl', 'notes', 'parts'],
+      properties: {
+        originalKey: { type: 'string' },
+        youtubeUrl: { type: 'string' },
+        notes: { type: 'array', items: { type: 'string' } },
+        parts: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['part', 'bars'],
+            properties: {
+              part: { type: 'string', enum: PART_ORDER },
+              bars: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['bar', 'firstHalf', 'secondHalf'],
+                  properties: {
+                    bar: { type: 'integer', minimum: 1, maximum: BAR_COUNT },
+                    firstHalf: { type: 'string' },
+                    secondHalf: { type: 'string' }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  };
+}
+
+function runAiDraftAttempt_(bundle, config, attempt, previousRawText) {
+  return callOpenAiResponsesApiRaw_(config.apiKey, {
+    model: config.model,
+    tools: [{ type: 'web_search' }],
+    input: buildChordResearchPrompt_(bundle, attempt > 1 ? previousRawText : ''),
+    text: {
+      format: {
+        type: 'json_schema',
+        name: buildAiResponseSchema_().name,
+        schema: buildAiResponseSchema_().schema,
+        strict: true
+      }
+    }
+  });
+}
+
+function extractStructuredDraftObject_(json) {
+  if (json && json.output_parsed) return json.output_parsed;
+  var text = extractResponseText_(json);
+  try {
+    return JSON.parse(text);
+  } catch (_error) {
+    return extractFirstJsonObject_(text);
+  }
+}
+
+function validateAiDraftSchema_(raw) {
+  if (!raw || typeof raw !== 'object') throw new Error('schema validation error: root object');
+  if (!Array.isArray(raw.parts)) throw new Error('schema validation error: parts array');
+  raw.parts.forEach(function(part) {
+    if (!part || PART_ORDER.indexOf(part.part) < 0) throw new Error('schema validation error: invalid part');
+    if (!Array.isArray(part.bars) || part.bars.length !== BAR_COUNT) throw new Error('schema validation error: bars length');
+    part.bars.forEach(function(bar, index) {
+      if (!bar || Number(bar.bar) !== index + 1) throw new Error('schema validation error: bar index');
+      if (typeof bar.firstHalf !== 'string' || typeof bar.secondHalf !== 'string') throw new Error('schema validation error: bar cell type');
+      if (!bar.firstHalf && bar.secondHalf) throw new Error('schema validation error: secondHalf only');
+    });
+  });
 }
 
 function hydrateDraftMetadataFromWeb_(bundle, response, options) {
