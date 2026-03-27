@@ -315,9 +315,6 @@ function applyAiDraftResponse_(response){
   renderAll_(false);
   log_(`[ai] ${response.message || 'OK'}`);
   (response.logs || []).forEach((line)=>log_(line));
-  if(incoming.metadata.aiStatus && !incoming.metadata.aiStatus.configured){
-    log_('NOTE: OPENAI_API_KEY 未設定のため、今回は original_Chord の AI 下書きまでは進んでいません。');
-  }
 }
 
 function normalizeSongResponse_(response){

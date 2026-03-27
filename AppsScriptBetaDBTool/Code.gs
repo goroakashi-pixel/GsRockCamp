@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.5';
 const OPENAI_MODEL = 'gpt-5';
 
 function doGet() {
@@ -62,11 +62,8 @@ function suggestOriginalChords(baseId) {
     var aiConfig = getOpenAiConfig_(true);
     if (!aiConfig.configured) {
       response.stage = 'research_only';
-      response.message = '公開Web調査で original_key / YouTube 候補を更新しました。original_Chord の AI 下書きは Script Properties の OPENAI_API_KEY 設定後に利用できます。';
-      response.logs = (response.logs || []).concat([
-        'AI draft skipped: OPENAI_API_KEY 未設定',
-        '公開Web調査は実行済みです。'
-      ]);
+      response.message = buildResearchOnlyMessage_(research);
+      response.logs = (response.logs || []).concat(buildResearchOnlyLogs_(research));
       return response;
     }
 
@@ -415,10 +412,10 @@ function buildLoadLogs_(bundle, draftMetadata) {
   var aiStatus = getOpenAiConfig_(true);
   logs.push(aiStatus.configured
     ? 'AI original_Chord: READY (' + aiStatus.model + ')'
-    : 'AI original_Chord: OPENAI_API_KEY 未設定。公開Web調査のみ利用可能');
+    : 'AI original_Chord: OPENAI_API_KEY 未設定（コード下書きはOFF。公開Web調査のみ）');
   if (draftMetadata.originalKey) logs.push('original_key 下書き: ' + draftMetadata.originalKey + ' [' + draftMetadata.status.originalKeySource + ']');
   if (draftMetadata.youtubeUrl) logs.push('YouTube 下書き: ' + draftMetadata.youtubeUrl + ' [' + draftMetadata.status.youtubeSource + ']');
-  else logs.push('YouTube 下書き: 未設定。検索リンクまたはAI取得ボタンを確認してください。');
+  else logs.push('YouTube 下書き: なし（AI取得で公開Web調査を実行してください）。');
   return logs;
 }
 
@@ -878,7 +875,7 @@ function hydrateDraftMetadataFromWeb_(bundle, response, options) {
   options = options || {};
   var metadata = response.metadata || {};
   var needsResearch = !sanitizeKeyInput_(metadata.draftOriginalKey) || !sanitizeUrlInput_(metadata.draftYoutubeUrl) || !options.metadataOnly;
-  if (!needsResearch) return null;
+  if (!needsResearch) return { ok: true, skipped: true, reason: 'metadata_already_present', logs: ['公開Web調査: 既存metadataがあるためスキップ'] };
 
   try {
     var research = researchPublicSongData_(bundle, options);
@@ -886,11 +883,19 @@ function hydrateDraftMetadataFromWeb_(bundle, response, options) {
     response.logs = (response.logs || []).concat(research.logs || []);
     return research;
   } catch (error) {
+    var analysis = analyzeResearchError_(error);
     response.metadata = response.metadata || {};
     response.metadata.draftNotes = filterResearchNotes_(response.metadata.draftNotes || []);
-    response.metadata.draftNotes.push('公開Web調査に失敗しました。検索リンクまたは手入力で確認してください。');
-    response.logs = (response.logs || []).concat(['Web research skipped: ' + error.message]);
-    return null;
+    response.metadata.draftNotes.push(analysis.note);
+    response.logs = (response.logs || []).concat(analysis.logs);
+    return {
+      ok: false,
+      skipped: true,
+      permissionRequired: analysis.permissionRequired,
+      reason: analysis.reason,
+      note: analysis.note,
+      logs: analysis.logs
+    };
   }
 }
 
@@ -970,6 +975,7 @@ function researchPublicSongData_(bundle, options) {
   }
 
   return {
+    ok: true,
     originalKey: originalKey,
     originalKeySource: originalKey ? 'web_research' : '',
     youtubeUrl: youtubeUrl,
@@ -1155,6 +1161,51 @@ function filterResearchNotes_(notes) {
       note.indexOf('公開Web調査では original_key 候補を確定できませんでした。') < 0 &&
       note.indexOf('公開Web調査では YouTube 候補を取得できませんでした。') < 0;
   });
+}
+
+function analyzeResearchError_(error) {
+  var message = error && error.message ? error.message : String(error);
+  if (/script\.external_request|UrlFetchApp\.fetch.*権限|外部アクセス|external_request/i.test(message)) {
+    return {
+      permissionRequired: true,
+      reason: 'external_request_auth_required',
+      note: '外部アクセス権限が未承認のため公開Web調査を実行できませんでした。再デプロイ後に「外部サービスへの接続」を承認してください。',
+      logs: [
+        '公開Web調査は未実行: 外部アクセス権限（script.external_request）が未承認です。',
+        '次の操作: appsscript.json に追加した権限を含めて再デプロイし、初回アクセス時の承認画面で外部アクセスを許可してください。'
+      ]
+    };
+  }
+  return {
+    permissionRequired: false,
+    reason: 'research_failed',
+    note: '公開Web調査に失敗しました。検索リンクまたは手入力で確認してください。',
+    logs: ['公開Web調査エラー: ' + message]
+  };
+}
+
+function buildResearchOnlyMessage_(research) {
+  if (research && research.permissionRequired) {
+    return '外部アクセス権限が未承認のため公開Web調査を実行できませんでした。再承認後は OPENAI_API_KEY 未設定でも公開Web調査までは動作します。';
+  }
+  if (research && research.ok) {
+    return '公開Web調査で original_key / YouTube 候補を更新しました。original_Chord の AI 下書きは Script Properties の OPENAI_API_KEY 設定後に利用できます。';
+  }
+  return '公開Web調査は候補取得まで完了しませんでした。検索リンクまたは手入力で補完してください。';
+}
+
+function buildResearchOnlyLogs_(research) {
+  var logs = ['AI original_Chord 下書き: OPENAI_API_KEY 未設定のため未実行'];
+  if (research && research.permissionRequired) {
+    logs.push('公開Web調査も未実行: 外部アクセス権限の再承認が必要です。');
+    return logs;
+  }
+  if (research && research.ok) {
+    logs.push('公開Web調査: 実行済み');
+    return logs;
+  }
+  logs.push('公開Web調査: 候補取得なし');
+  return logs;
 }
 
 function extractFirstJsonObject_(text) {
