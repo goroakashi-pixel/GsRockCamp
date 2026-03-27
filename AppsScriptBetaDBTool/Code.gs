@@ -117,6 +117,9 @@ function suggestOriginalChords(baseId) {
     } catch (aiError) {
       response.stage = 'metadata_only';
       response.message = 'AI JSON整形失敗のため、metadata補助のみ返しました。';
+      if (aiError && Array.isArray(aiError.draftLogs)) {
+        response.logs = (response.logs || []).concat(aiError.draftLogs);
+      }
       response.logs = (response.logs || []).concat([
         'OpenAI API error / JSON parse error / schema validation error のいずれかで失敗',
         'AI JSON整形失敗: ' + aiError.message,
@@ -852,12 +855,18 @@ function requestAiOriginalChordDraft_(bundle, config) {
       return draft;
     } catch (error) {
       lastError = error;
-      logs.push('JSON parse/schema エラー attempt ' + attempt + ': ' + error.message);
+      var parsePos = extractJsonErrorPosition_(error.message);
+      var errorType = classifyAiDraftError_(error);
+      logs.push(errorType + ' attempt ' + attempt + ': ' + error.message);
+      logs.push('AI raw snippet: ' + summarizeRawText_(rawTextForRetry, 320));
+      if (parsePos >= 0) logs.push('parse失敗位置: ' + parsePos);
       if (attempt >= AI_JSON_RETRY_MAX) break;
       logs.push('JSON再試行を実行します。');
     }
   }
-  throw new Error('AI JSON整形失敗: ' + (lastError ? lastError.message : 'unknown'));
+  var wrapped = new Error('AI JSON整形失敗: ' + (lastError ? lastError.message : 'unknown'));
+  wrapped.draftLogs = logs;
+  throw wrapped;
 }
 
 function getOpenAiConfig_(allowMissing) {
@@ -901,7 +910,7 @@ function extractResponseText_(json) {
 function buildChordResearchPrompt_(bundle, previousRawText) {
   var first = bundle.rows[0];
   var retrySection = previousRawText ? [
-    '前回出力がJSONスキーマ不一致でした。以下の前回テキストを修正して返してください。',
+    '前回出力がJSONスキーマ不一致でした。JSON以外を一切含めず、schema準拠オブジェクトのみ返してください。',
     '--- previous output start ---',
     previousRawText.slice(0, 4000),
     '--- previous output end ---'
@@ -985,11 +994,18 @@ function runAiDraftAttempt_(bundle, config, attempt, previousRawText) {
 
 function extractStructuredDraftObject_(json) {
   if (json && json.output_parsed) return json.output_parsed;
+  var output = json && Array.isArray(json.output) ? json.output : [];
+  for (var i = 0; i < output.length; i += 1) {
+    var contentList = Array.isArray(output[i].content) ? output[i].content : [];
+    for (var j = 0; j < contentList.length; j += 1) {
+      if (contentList[j] && typeof contentList[j].parsed === 'object' && contentList[j].parsed) return contentList[j].parsed;
+    }
+  }
   var text = extractResponseText_(json);
   try {
     return JSON.parse(text);
-  } catch (_error) {
-    return extractFirstJsonObject_(text);
+  } catch (error) {
+    throw new Error('JSON parse error: ' + error.message);
   }
 }
 
@@ -1005,6 +1021,25 @@ function validateAiDraftSchema_(raw) {
       if (!bar.firstHalf && bar.secondHalf) throw new Error('schema validation error: secondHalf only');
     });
   });
+}
+
+function classifyAiDraftError_(error) {
+  var message = String((error && error.message) || error || '');
+  if (/schema validation error/i.test(message)) return 'schema validation error';
+  if (/json parse error|unexpected|json/i.test(message)) return 'JSON parse error';
+  if (/openai api error/i.test(message)) return 'OpenAI API error';
+  return 'AI draft error';
+}
+
+function extractJsonErrorPosition_(message) {
+  var match = String(message || '').match(/position\s+(\d+)/i);
+  return match ? Number(match[1]) : -1;
+}
+
+function summarizeRawText_(text, maxLength) {
+  var normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return '(empty)';
+  return normalized.slice(0, maxLength || 300);
 }
 
 function hydrateDraftMetadataFromWeb_(bundle, response, options) {
