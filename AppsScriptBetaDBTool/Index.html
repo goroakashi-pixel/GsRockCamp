@@ -337,9 +337,16 @@ function applyAiDraftResponse_(response){
     });
   });
 
+  const reflectedCount = countAiDraftCellsInState_();
   syncDraftInputsFromState_(false);
   renderAll_(false);
-  log_(`[ai] ${response.message || 'OK'}`);
+  if(reflectedCount > 0){
+    const visibleCount = countVisibleAiDraftCells_();
+    log_(`[ai] ${response.message || 'OK'} / state反映:${reflectedCount}セル / 表示中part:${visibleCount}セル`);
+  } else {
+    log_('[ai] AI返答は受信しましたが、コード下書きは空のため失敗');
+    log_('UI apply failure: 非空AI下書きが state / 表示対象にありません');
+  }
   (response.logs || []).forEach((line)=>log_(line));
 }
 
@@ -613,6 +620,17 @@ function buildYoutubeEmbedUrlClient_(rawValue){ const text = String(rawValue || 
 function normalizeYoutubeOpenUrl_(rawValue){ const embed = buildYoutubeEmbedUrlClient_(rawValue); return embed ? embed.replace('/embed/','/watch?v=') : rawValue; }
 function log_(message){ const box = $('logBox'); const stamp = new Date().toLocaleTimeString('ja-JP', {hour12:false}); box.textContent = `[${stamp}] ${message}\n` + box.textContent; }
 function esc_(value){ return String(value == null ? '' : value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+function countAiDraftCellsInState_(){
+  return state.song.parts.reduce((sum, part)=>{
+    return sum + part.bars.reduce((barSum, bar)=>{
+      return barSum + (bar.aiDraftFirstHalf ? 1 : 0) + (bar.aiDraftSecondHalf ? 1 : 0);
+    },0);
+  },0);
+}
+function countVisibleAiDraftCells_(){
+  const part = getActivePart_();
+  return part.bars.reduce((sum, bar)=>sum + (bar.aiDraftFirstHalf ? 1 : 0) + (bar.aiDraftSecondHalf ? 1 : 0), 0);
+}
 </script>
 </body>
 </html>

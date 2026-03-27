@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 const OPENAI_MODEL = 'gpt-5';
 const ENABLE_RULE_BASED_FALLBACK = false;
 const AI_JSON_RETRY_MAX = 2;
@@ -111,18 +111,45 @@ function suggestOriginalChords(baseId) {
 
     try {
       var draft = requestAiOriginalChordDraft_(bundle, aiConfig);
+      var aiCellCount = countNonEmptyDraftCells_(draft.partMap);
+      if (aiCellCount <= 0) {
+        throw new Error('AI returned empty bars');
+      }
       applyAiDraftToResponse_(response, draft);
-      response.message = 'AI original_Chord 下書きを取得しました（OpenAI web_search）。';
+      var appliedCount = countAppliedAiDraftCellsInResponse_(response.parts);
+      if (appliedCount <= 0) {
+        throw new Error('UI apply failure: response.parts へAI下書きを反映できませんでした');
+      }
+      response.message = 'AI original_Chord 下書きを取得し、' + appliedCount + 'セルをUI表示用に反映しました。';
       response.logs = (response.logs || []).concat(draft.logs || []);
+      response.logs.push('AI original_Chord 下書き成功: ' + appliedCount + 'セルを response.parts に反映');
     } catch (aiError) {
       response.stage = 'metadata_only';
-      response.message = 'AI JSON整形失敗のため、metadata補助のみ返しました。';
       if (aiError && Array.isArray(aiError.draftLogs)) {
         response.logs = (response.logs || []).concat(aiError.draftLogs);
       }
+      var fallbackResearch = hydrateDraftMetadataFromWeb_(bundle, response, { metadataOnly: false });
+      var fallbackDraft = buildRuleBasedDraftFromResearch_(bundle, fallbackResearch);
+      var fallbackCount = countNonEmptyDraftCells_(fallbackDraft && fallbackDraft.partMap);
+      if (fallbackDraft && fallbackCount > 0) {
+        applyAiDraftToResponse_(response, fallbackDraft);
+        var appliedFallbackCount = countAppliedAiDraftCellsInResponse_(response.parts);
+        if (appliedFallbackCount > 0) {
+          response.stage = 'ai_chord_drafted';
+          response.message = 'AI返答は空でしたが、公開情報の補完下書きを' + appliedFallbackCount + 'セル分表示しました。';
+          response.logs = (response.logs || []).concat([
+            'AI returned empty bars',
+            'fallback applied: research.sources から叩き台を生成',
+            'AI original_Chord 下書き成功(補完): ' + appliedFallbackCount + 'セルを response.parts に反映'
+          ]);
+          return response;
+        }
+      }
+      var failureType = classifyAiDraftError_(aiError);
+      response.message = 'AI返答は受信しましたが、コード下書きは空のため失敗しました。';
       response.logs = (response.logs || []).concat([
-        'OpenAI API error / JSON parse error / schema validation error のいずれかで失敗',
-        'AI JSON整形失敗: ' + aiError.message,
+        failureType + ': ' + aiError.message,
+        'AI返答は受信したが、コード下書きは空のため失敗',
         'UI apply skipped: AIドラフトは反映していません'
       ]);
     }
@@ -841,20 +868,29 @@ function requestAiOriginalChordDraft_(bundle, config) {
   ];
   var lastError = null;
   var rawTextForRetry = '';
+  var retryHint = '';
   for (var attempt = 1; attempt <= AI_JSON_RETRY_MAX; attempt += 1) {
     try {
       logs.push('AI JSON生成 attempt ' + attempt + '/' + AI_JSON_RETRY_MAX);
-      var aiJson = runAiDraftAttempt_(bundle, config, attempt, rawTextForRetry);
+      var aiJson = runAiDraftAttempt_(bundle, config, attempt, rawTextForRetry, retryHint);
       rawTextForRetry = extractResponseText_(aiJson);
       var parsed = extractStructuredDraftObject_(aiJson, logs);
       validateAiDraftSchema_(parsed);
       var draft = normalizeAiDraftResponse_(parsed, bundle);
+      var draftCount = countNonEmptyDraftCells_(draft.partMap);
+      if (draftCount <= 0) {
+        throw new Error('AI returned empty bars');
+      }
       logs.push('AI下書き受領');
       logs.push('JSON検証OK');
+      logs.push('non-empty draft count: ' + draftCount);
       draft.logs = logs;
       return draft;
     } catch (error) {
       lastError = error;
+      retryHint = /empty bars/i.test(String(error && error.message || ''))
+        ? '前回は bars が空でした。各partに最低1小節以上、可能なら8小節埋めてください。'
+        : '前回はJSON整形に失敗しました。JSON以外を一切含めないでください。';
       var parsePos = extractJsonErrorPosition_(error.message);
       var errorType = classifyAiDraftError_(error);
       logs.push(errorType + ' attempt ' + attempt + ': ' + error.message);
@@ -908,13 +944,16 @@ function extractResponseText_(json) {
 }
 
 function buildChordResearchPrompt_(bundle, previousRawText) {
+  var retryHint = arguments.length > 2 ? String(arguments[2] || '').trim() : '';
   var first = bundle.rows[0];
   var retrySection = previousRawText ? [
     '前回出力がJSONスキーマ不一致でした。JSON以外を一切含めず、schema準拠オブジェクトのみ返してください。',
     '--- previous output start ---',
     previousRawText.slice(0, 4000),
-    '--- previous output end ---'
+    '--- previous output end ---',
+    retryHint
   ].join('\n') : '';
+  if (!retrySection && retryHint) retrySection = retryHint;
   return [
     '以下の楽曲について、OpenAI web_search で公開情報を調査し、original_key / YouTube / intro,A,B,サビ の original_chord 下書きを返してください。',
     '参照優先順位: 1) 公式YouTube 2) U-FRET/ChordWiki 3) その他公開Web情報',
@@ -932,6 +971,9 @@ function buildChordResearchPrompt_(bundle, previousRawText) {
     '- 1小節2コード時だけ firstHalf/secondHalf を使用',
     '- 不明な箇所は空文字、推測で埋めすぎない',
     '- 公開情報が十分なら part 単位で整理して返す',
+    '- 各 part に最低1小節以上は firstHalf を埋めること（全part空欄は不可）',
+    '- 可能なら8小節すべて埋める。4小節反復が明確なら5〜8小節へ反復してよい',
+    '- 前回が空barsだった場合は、曖昧でも公開情報から叩き台を構成して埋めること',
     '- notes は短文のみ（citation text / markdown link / URL本文は書かない）',
     retrySection
   ].join('\n');
@@ -977,11 +1019,11 @@ function buildAiResponseSchema_() {
   };
 }
 
-function runAiDraftAttempt_(bundle, config, attempt, previousRawText) {
+function runAiDraftAttempt_(bundle, config, attempt, previousRawText, retryHint) {
   return callOpenAiResponsesApiRaw_(config.apiKey, {
     model: config.model,
     tools: [{ type: 'web_search' }],
-    input: buildChordResearchPrompt_(bundle, attempt > 1 ? previousRawText : ''),
+    input: buildChordResearchPrompt_(bundle, attempt > 1 ? previousRawText : '', attempt > 1 ? retryHint : ''),
     text: {
       format: {
         type: 'json_schema',
@@ -1035,6 +1077,8 @@ function validateAiDraftSchema_(raw) {
 
 function classifyAiDraftError_(error) {
   var message = String((error && error.message) || error || '');
+  if (/ui apply failure/i.test(message)) return 'UI apply failure';
+  if (/empty bars/i.test(message)) return 'AI returned empty bars';
   if (/schema validation error/i.test(message)) return 'schema validation error';
   if (/json parse error|unexpected|json/i.test(message)) return 'JSON parse error';
   if (/openai api error/i.test(message)) return 'OpenAI API error';
@@ -1475,11 +1519,19 @@ function buildRuleBasedDraftFromResearch_(bundle, research) {
 
   PART_ORDER.forEach(function(part, partIndex) {
     draft.partMap[part] = [];
+    var partSeed = chordPool.slice(partIndex * 4, partIndex * 4 + 8);
+    if (!partSeed.length) partSeed = chordPool.slice(0, Math.min(8, chordPool.length));
+    if (partSeed.length >= 4 && partSeed.length < 8) {
+      while (partSeed.length < 8) {
+        partSeed.push(partSeed[partSeed.length % 4]);
+      }
+    }
     for (var i = 0; i < BAR_COUNT; i += 1) {
-      var poolIndex = (partIndex * BAR_COUNT + i) % chordPool.length;
+      var poolIndex = i % Math.max(partSeed.length, 1);
+      var chordText = partSeed[poolIndex] || chordPool[(partIndex * BAR_COUNT + i) % chordPool.length];
       draft.partMap[part].push({
         bar: i + 1,
-        firstHalf: chordPool[poolIndex],
+        firstHalf: chordText || '',
         secondHalf: ''
       });
     }
@@ -1607,4 +1659,30 @@ function applyAiDraftToResponse_(response, draft) {
       bar.aiDraftSecondHalf = aiBar.secondHalf || '';
     });
   });
+}
+
+function countNonEmptyDraftCells_(partMap) {
+  if (!partMap || typeof partMap !== 'object') return 0;
+  var count = 0;
+  PART_ORDER.forEach(function(part) {
+    var bars = partMap[part] || [];
+    bars.forEach(function(bar) {
+      if (!bar) return;
+      if (sanitizeChordInput_(bar.firstHalf)) count += 1;
+      if (sanitizeChordInput_(bar.secondHalf)) count += 1;
+    });
+  });
+  return count;
+}
+
+function countAppliedAiDraftCellsInResponse_(parts) {
+  if (!Array.isArray(parts)) return 0;
+  var count = 0;
+  parts.forEach(function(part) {
+    (part.bars || []).forEach(function(bar) {
+      if (sanitizeChordInput_(bar.aiDraftFirstHalf)) count += 1;
+      if (sanitizeChordInput_(bar.aiDraftSecondHalf)) count += 1;
+    });
+  });
+  return count;
 }
