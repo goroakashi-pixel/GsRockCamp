@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.1.3';
 const OPENAI_MODEL = 'gpt-5-mini';
 const ENABLE_RULE_BASED_FALLBACK = false;
 const AI_JSON_RETRY_MAX = 2;
@@ -877,6 +877,12 @@ function requestAiOriginalChordDraft_(bundle, config) {
       var parsed = extractStructuredDraftObject_(aiJson, logs);
       validateAiDraftSchema_(parsed);
       var draft = normalizeAiDraftResponse_(parsed, bundle);
+      var keyCheck = checkDraftBarsKeyAgainstOriginal_(draft, bundle);
+      if (keyCheck.retry) {
+        logs.push('AI bars key check: originalKey=' + keyCheck.originalKey + ' / suspectedBarsKey=' + keyCheck.suspectedBarsKey + ' / retry');
+        throw new Error('AI bars appear transposed to Quiz_key');
+      }
+      logs.push('AI bars accepted in original key: ' + keyCheck.originalKey);
       var draftCount = countNonEmptyDraftCells_(draft.partMap);
       if (draftCount <= 0) {
         throw new Error('AI returned empty bars');
@@ -888,9 +894,14 @@ function requestAiOriginalChordDraft_(bundle, config) {
       return draft;
     } catch (error) {
       lastError = error;
-      retryHint = /empty bars/i.test(String(error && error.message || ''))
-        ? '前回は bars が空でした。各partに最低1小節以上、可能なら8小節埋めてください。'
-        : '前回はJSON整形に失敗しました。JSON以外を一切含めないでください。';
+      var errText = String(error && error.message || '');
+      if (/transposed to Quiz_key/i.test(errText)) {
+        retryHint = '前回は C/Am 側へ転調されていました。今回は必ず original_key のまま返し、C/Amへ移調しないでください。';
+      } else if (/empty bars/i.test(errText)) {
+        retryHint = '前回は bars が空でした。各partに最低1小節以上、可能なら8小節埋めてください。';
+      } else {
+        retryHint = '前回はJSON整形に失敗しました。JSON以外を一切含めないでください。';
+      }
       var parsePos = extractJsonErrorPosition_(error.message);
       var errorType = classifyAiDraftError_(error);
       logs.push(errorType + ' attempt ' + attempt + ': ' + error.message);
@@ -966,6 +977,11 @@ function buildChordResearchPrompt_(bundle, previousRawText) {
     '出力制約:',
     '- part は intro / A / B / サビ',
     '- bars は各 part 8件',
+    '- bars は必ず original_key（原曲キー）のコードで返すこと',
+    '- Quiz_key(C/Am) への変換は禁止。C/Am へ移調したコードを返さないこと',
+    '- return only original_Chord bars; do not output change_Chord/degree/function',
+    '- Return chord bars only in the song original key. Never transpose bars to C or Am.',
+    '- Quiz_key is only for later theory conversion, not for returned bars.',
     '- secondHalf only 禁止',
     '- slash はオンコード専用',
     '- 1小節2コード時だけ firstHalf/secondHalf を使用',
@@ -1078,6 +1094,7 @@ function validateAiDraftSchema_(raw) {
 function classifyAiDraftError_(error) {
   var message = String((error && error.message) || error || '');
   if (/ui apply failure/i.test(message)) return 'UI apply failure';
+  if (/transposed to Quiz_key/i.test(message)) return 'AI bars key mismatch';
   if (/empty bars/i.test(message)) return 'AI returned empty bars';
   if (/schema validation error/i.test(message)) return 'schema validation error';
   if (/json parse error|unexpected|json/i.test(message)) return 'JSON parse error';
@@ -1685,4 +1702,55 @@ function countAppliedAiDraftCellsInResponse_(parts) {
     });
   });
   return count;
+}
+
+function checkDraftBarsKeyAgainstOriginal_(draft, bundle) {
+  var originalKey = sanitizeKeyInput_(draft.originalKey) || sanitizeKeyInput_(bundle.rows[0].originalKey) || inferOriginalKeyFromBundle_(bundle) || 'C';
+  var quizKey = determineQuizKey_(originalKey);
+  var chords = collectDraftChords_(draft.partMap);
+  if (!chords.length) {
+    return { retry: false, originalKey: originalKey, suspectedBarsKey: '' };
+  }
+  if (originalKey === 'C' || originalKey === 'Am') {
+    return { retry: false, originalKey: originalKey, suspectedBarsKey: inferOriginalKeyFromChordList_(chords) || '' };
+  }
+  var suspectedBarsKey = inferOriginalKeyFromChordList_(chords) || '';
+  var scoreOriginal = scoreDraftFitForKey_(chords, originalKey);
+  var scoreQuiz = scoreDraftFitForKey_(chords, quizKey);
+  var retry = suspectedBarsKey === quizKey && scoreQuiz >= scoreOriginal + 3;
+  return {
+    retry: retry,
+    originalKey: originalKey,
+    suspectedBarsKey: suspectedBarsKey || '(unknown)',
+    scoreOriginal: scoreOriginal,
+    scoreQuiz: scoreQuiz
+  };
+}
+
+function collectDraftChords_(partMap) {
+  var chords = [];
+  PART_ORDER.forEach(function(part) {
+    var bars = (partMap && partMap[part]) || [];
+    bars.forEach(function(bar) {
+      var first = sanitizeChordInput_(bar && bar.firstHalf);
+      var second = sanitizeChordInput_(bar && bar.secondHalf);
+      if (first) chords.push(first);
+      if (second) chords.push(second);
+    });
+  });
+  return chords;
+}
+
+function scoreDraftFitForKey_(chords, keyName) {
+  var score = 0;
+  (chords || []).forEach(function(chord, index) {
+    try {
+      var roman = getRomanDegree_(parseChordSymbol_(chord).root, keyName);
+      if (isChordDiatonic_(chord, keyName)) score += 3;
+      if (/Ⅰ|Ⅳ|Ⅴ|Ⅵ/.test(roman)) score += 2;
+      if (index === 0 && /^(Ⅰ|Ⅵ)/.test(roman)) score += 1;
+      if (index === (chords.length - 1) && /^(Ⅰ|Ⅵ)/.test(roman)) score += 2;
+    } catch (_error) {}
+  });
+  return score;
 }
