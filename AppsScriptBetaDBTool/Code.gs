@@ -78,82 +78,64 @@ function checkAuthorizationStatus() {
 
 function suggestOriginalChords(baseId) {
   try {
-    var normalizedBaseId = normalizeBaseId_(baseId);
+    var request = normalizeSuggestRequest_(baseId);
+    var normalizedBaseId = normalizeBaseId_(request.baseId);
     var bundle = fetchSongBundle_(normalizedBaseId);
     var response = buildSongResponse_(bundle, {
       ok: true,
       action: 'suggestOriginalChords',
       stage: 'ai_chord_drafted'
     });
+    response.metadata = response.metadata || {};
+    response.metadata.referenceUrl = request.referenceUrl || '';
     var aiConfig = getOpenAiConfig_(true);
-    var research = hydrateDraftMetadataFromWeb_(bundle, response, { metadataOnly: false });
+    var research = researchYouTubeOnly_(bundle);
+    applyResearchMetadataToResponse_(response, research);
+    response.logs = (response.logs || []).concat((research.logs || []).map(function(line){ return '[ai][youtube] ' + line; }));
+
     response.logs = (response.logs || []).concat([
-      'AI precheck: OPENAI_API_KEY ' + (aiConfig.configured ? 'configured' : 'missing')
+      'AI precheck: OPENAI_API_KEY ' + (aiConfig.configured ? 'configured' : 'missing'),
+      '[ai][chord] reference url: ' + (request.referenceUrl || '(none)')
     ]);
-    if (!aiConfig.configured) {
+
+    var chordResult = fetchUfretChordsFromReferenceUrl_(bundle, request.referenceUrl);
+    response.logs = (response.logs || []).concat(chordResult.logs || []);
+    if (!chordResult.ok) {
       response.stage = 'metadata_only';
-      if (ENABLE_RULE_BASED_FALLBACK) {
-        var research = hydrateDraftMetadataFromWeb_(bundle, response, { metadataOnly: false });
-        var heuristicDraft = buildRuleBasedDraftFromResearch_(bundle, research);
-        if (heuristicDraft) {
-          applyAiDraftToResponse_(response, heuristicDraft);
-          response.message = 'OPENAI_API_KEY 未設定のため、公開Web調査ベースで original_Chord の仮下書きを生成しました。';
-          response.logs = (response.logs || []).concat(['AI fallback draft: web chord scrape から生成しました。']);
-        }
-      }
-      if (!response.message) response.message = buildResearchOnlyMessage_(research);
-      response.logs = (response.logs || []).concat(buildResearchOnlyLogs_(research));
+      response.metadata.draftNotes = (response.metadata.draftNotes || []).concat(chordResult.notes || []);
+      response.message = 'U-FRET 参照URLから original_Chord を取得できませんでした。URLを確認してください。';
       return response;
     }
 
-    try {
-      var draft = requestAiOriginalChordDraft_(bundle, aiConfig);
-      var aiCellCount = countNonEmptyDraftCells_(draft.partMap);
-      if (aiCellCount <= 0) {
-        throw new Error('AI returned empty bars');
-      }
-      applyAiDraftToResponse_(response, draft);
-      var appliedCount = countAppliedAiDraftCellsInResponse_(response.parts);
-      if (appliedCount <= 0) {
-        throw new Error('UI apply failure: response.parts へAI下書きを反映できませんでした');
-      }
-      response.message = 'AI original_Chord 下書きを取得し、' + appliedCount + 'セルをUI表示用に反映しました。';
-      response.logs = (response.logs || []).concat(draft.logs || []);
-      response.logs.push('AI original_Chord 下書き成功: ' + appliedCount + 'セルを response.parts に反映');
-    } catch (aiError) {
+    var draft = buildDraftFromReferenceChords_(bundle, chordResult, response.metadata.draftYoutubeUrl || '');
+    applyAiDraftToResponse_(response, draft);
+    response.metadata.draftNotes = (response.metadata.draftNotes || []).concat(chordResult.notes || []);
+    var appliedCount = countAppliedAiDraftCellsInResponse_(response.parts);
+    if (appliedCount <= 0) {
       response.stage = 'metadata_only';
-      if (aiError && Array.isArray(aiError.draftLogs)) {
-        response.logs = (response.logs || []).concat(aiError.draftLogs);
-      }
-      var fallbackResearch = hydrateDraftMetadataFromWeb_(bundle, response, { metadataOnly: false });
-      var fallbackDraft = buildRuleBasedDraftFromResearch_(bundle, fallbackResearch);
-      var fallbackCount = countNonEmptyDraftCells_(fallbackDraft && fallbackDraft.partMap);
-      if (fallbackDraft && fallbackCount > 0) {
-        applyAiDraftToResponse_(response, fallbackDraft);
-        var appliedFallbackCount = countAppliedAiDraftCellsInResponse_(response.parts);
-        if (appliedFallbackCount > 0) {
-          response.stage = 'ai_chord_drafted';
-          response.message = 'AI返答は空でしたが、公開情報の補完下書きを' + appliedFallbackCount + 'セル分表示しました。';
-          response.logs = (response.logs || []).concat([
-            'AI returned empty bars',
-            'fallback applied: research.sources から叩き台を生成',
-            'AI original_Chord 下書き成功(補完): ' + appliedFallbackCount + 'セルを response.parts に反映'
-          ]);
-          return response;
-        }
-      }
-      var failureType = classifyAiDraftError_(aiError);
-      response.message = 'AI返答は受信しましたが、コード下書きは空のため失敗しました。';
-      response.logs = (response.logs || []).concat([
-        failureType + ': ' + aiError.message,
-        'AI返答は受信したが、コード下書きは空のため失敗',
-        'UI apply skipped: AIドラフトは反映していません'
-      ]);
+      response.message = '参照URLのコード抽出は成功しましたが、下書き反映に失敗しました。';
+      response.logs.push('[ai][chord] UI apply failure');
+      return response;
     }
+    response.message = '参照URL(U-FRET)から original_Chord 下書きを取得し、' + appliedCount + 'セルを反映しました。';
+    response.logs.push('[ai][chord] draft apply success: ' + appliedCount + ' cells');
     return response;
   } catch (error) {
     return buildErrorResponse_(error, { action: 'suggestOriginalChords', baseId: baseId });
   }
+}
+
+function normalizeSuggestRequest_(input) {
+  if (typeof input === 'object' && input) {
+    return {
+      baseId: input.baseId,
+      referenceUrl: sanitizeUrlInput_(input.referenceUrl)
+    };
+  }
+  return {
+    baseId: input,
+    referenceUrl: ''
+  };
 }
 
 function saveSong(payload) {
@@ -1108,6 +1090,91 @@ function summarizeRawText_(text, maxLength) {
   var normalized = String(text || '').replace(/\s+/g, ' ').trim();
   if (!normalized) return '(empty)';
   return normalized.slice(0, maxLength || 300);
+}
+
+function researchYouTubeOnly_(bundle) {
+  var first = bundle.rows[0];
+  var youtubeSearch = searchYoutubeCandidate_(first.artist, first.title);
+  var youtubeUrl = youtubeSearch.candidate ? youtubeSearch.candidate.url : '';
+  var logs = ['search start'].concat(youtubeSearch.logs || []);
+  if (youtubeUrl) logs.push('candidate found: ' + youtubeUrl);
+  else logs.push('no match');
+  return {
+    ok: true,
+    originalKey: '',
+    originalKeySource: '',
+    youtubeUrl: youtubeUrl,
+    youtubeSource: youtubeUrl ? 'web_research' : '',
+    sources: youtubeSearch.candidate ? [youtubeSearch.candidate] : [],
+    logs: logs,
+    notes: youtubeUrl ? ['公開Web調査から YouTube 候補を取得しました。公式動画か確認してください。'] : ['公開Web調査では YouTube 候補を取得できませんでした。検索リンクで確認してください。']
+  };
+}
+
+function fetchUfretChordsFromReferenceUrl_(bundle, referenceUrl) {
+  var logs = ['[ai][chord] U-FRET direct url mode'];
+  var notes = [];
+  var url = sanitizeUrlInput_(referenceUrl);
+  if (!url) {
+    notes.push('参照URL未入力です。U-FRET の曲URLを入力してください。');
+    logs.push('[ai][chord] U-FRET no match: reference URL empty');
+    return { ok: false, logs: logs, notes: notes, chords: [], keyHints: [], sourceUrl: '' };
+  }
+  if (!/^https?:\/\/(www\.)?ufret\.jp\/song\.php\?/.test(url)) {
+    notes.push('参照URLは U-FRET 曲ページ(song.php)を入力してください。');
+    logs.push('[ai][chord] U-FRET page rejected: invalid url');
+    return { ok: false, logs: logs, notes: notes, chords: [], keyHints: [], sourceUrl: url };
+  }
+
+  try {
+    var html = fetchHtmlText_(url);
+    var pageCheck = validateUfretChordPage_({ url: url, title: '' }, html, bundle.rows[0].originalKey);
+    if (!pageCheck.accepted) {
+      notes.push('U-FRET 条件不一致: ' + pageCheck.reason);
+      logs.push('[ai][chord] U-FRET page rejected: ' + pageCheck.reason);
+      return { ok: false, logs: logs, notes: notes, chords: [], keyHints: [], sourceUrl: url };
+    }
+    var chords = extractChordCandidatesFromHtml_(html).slice(0, 64);
+    var keyHints = extractOriginalKeyHintsFromHtml_(html).slice(0, 8);
+    if (!chords.length) {
+      notes.push('U-FRET 該当なし（コード抽出失敗）');
+      logs.push('[ai][chord] U-FRET scrape failed: chords empty');
+      return { ok: false, logs: logs, notes: notes, chords: [], keyHints: keyHints, sourceUrl: url };
+    }
+    logs.push('[ai][chord] U-FRET scrape success');
+    return { ok: true, logs: logs, notes: notes, chords: chords, keyHints: keyHints, sourceUrl: url };
+  } catch (error) {
+    notes.push('U-FRET 該当なし（取得失敗）');
+    logs.push('[ai][chord] U-FRET scrape failed: ' + error.message);
+    return { ok: false, logs: logs, notes: notes, chords: [], keyHints: [], sourceUrl: url };
+  }
+}
+
+function buildDraftFromReferenceChords_(bundle, chordResult, youtubeUrl) {
+  var chordPool = chordResult.chords || [];
+  var originalKey = '';
+  if (chordResult.keyHints && chordResult.keyHints.length) originalKey = sanitizeKeyInput_(chordResult.keyHints[0]);
+  if (!originalKey) originalKey = inferOriginalKeyFromChordList_(chordPool) || sanitizeKeyInput_(bundle.rows[0].originalKey) || '';
+  var draft = {
+    originalKey: originalKey,
+    quizKey: determineQuizKey_(originalKey),
+    youtubeUrl: sanitizeUrlInput_(youtubeUrl),
+    notes: ['＜音寧コメ＞参照URLから抽出したU-FRETコードを下書き化しました。'],
+    partMap: {}
+  };
+  PART_ORDER.forEach(function(part, partIndex) {
+    draft.partMap[part] = [];
+    var seed = chordPool.slice(partIndex * 4, partIndex * 4 + 8);
+    if (!seed.length) seed = chordPool.slice(0, Math.min(8, chordPool.length));
+    if (seed.length >= 4 && seed.length < 8) {
+      while (seed.length < 8) seed.push(seed[seed.length % 4]);
+    }
+    for (var i = 0; i < BAR_COUNT; i += 1) {
+      var code = seed[i % Math.max(seed.length, 1)] || '';
+      draft.partMap[part].push({ bar: i + 1, firstHalf: code, secondHalf: '' });
+    }
+  });
+  return draft;
 }
 
 function hydrateDraftMetadataFromWeb_(bundle, response, options) {

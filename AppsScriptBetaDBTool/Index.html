@@ -103,6 +103,12 @@
     </div>
   </div>
   <div class="row" style="margin-top:8px;">
+    <div style="flex:1; min-width:260px;">
+      <label>参照URL（U-FRET曲ページ）</label>
+      <input id="referenceUrlInput" placeholder="https://www.ufret.jp/song.php?..." />
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px;">
     <button class="btn small" id="applyQuizKeyButton">Quiz_key を再計算</button>
     <button class="btn small warn" id="clearYoutubeButton">YouTube 下書きクリア</button>
   </div>
@@ -185,7 +191,7 @@ function createEmptySong_(){
     ok:false,
     appVersion:APP_VERSION,
     connection:{connected:false},
-    metadata:{data:'',artist:'',title:'',rank:'',era:'',youtubeUrl:'',youtubeEmbedUrl:'',youtubeSearchUrl:'',originalKey:'',quizKey:'',draftOriginalKey:'',draftQuizKey:'',draftYoutubeUrl:'',draftNotes:[],draftStatus:{},aiStatus:{configured:false,model:'gpt-5'}},
+    metadata:{data:'',artist:'',title:'',rank:'',era:'',youtubeUrl:'',youtubeEmbedUrl:'',youtubeSearchUrl:'',originalKey:'',quizKey:'',draftOriginalKey:'',draftQuizKey:'',draftYoutubeUrl:'',referenceUrl:'',draftNotes:[],draftStatus:{},aiStatus:{configured:false,model:'gpt-5'}},
     parts:PART_ORDER.map(createEmptyPart_),
     logs:[]
   };
@@ -215,6 +221,7 @@ function bindEvents_(){
   $('draftOriginalKeyInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
   $('draftQuizKeyInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
   $('draftYoutubeInput').addEventListener('input', () => { syncDraftInputsToState_(); renderYoutube_(true); renderMetaOnly_(); });
+  $('referenceUrlInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
   $('baseIdInput').addEventListener('keydown', (event)=>{ if(event.key==='Enter'){ event.preventDefault(); handleLoad_(); } });
   $('btn4barRep').onclick = fourBarRepeat_;
   $('btnClearBar').onclick = clearSelected_;
@@ -244,7 +251,7 @@ function handleAiChord_(){
   setBusy_(true,false);
   startAiProgressNote_();
   log_(`suggestOriginalChords(${state.baseId}) を呼び出します。公開Web調査 → OPENAI_API_KEY があれば AI original_Chord 下書き、無ければ metadata 候補まで取得します。`);
-  runServer_('suggestOriginalChords', state.baseId)
+  runServer_('suggestOriginalChords', { baseId: state.baseId, referenceUrl: $('referenceUrlInput').value.trim() })
     .then((response)=>applyAiDraftResponse_(response))
     .catch((error)=>handleClientError_(error,'ai'))
     .finally(()=>{ stopAiProgressNote_(); setBusy_(false,false); });
@@ -320,6 +327,7 @@ function applyAiDraftResponse_(response){
   if(!$('draftOriginalKeyInput').value.trim()) currentMeta.draftOriginalKey = incoming.metadata.draftOriginalKey || currentMeta.draftOriginalKey;
   if(!$('draftQuizKeyInput').value.trim()) currentMeta.draftQuizKey = incoming.metadata.draftQuizKey || currentMeta.draftQuizKey;
   if(!$('draftYoutubeInput').value.trim()) currentMeta.draftYoutubeUrl = incoming.metadata.draftYoutubeUrl || currentMeta.draftYoutubeUrl;
+  if(!$('referenceUrlInput').value.trim()) currentMeta.referenceUrl = incoming.metadata.referenceUrl || currentMeta.referenceUrl;
   currentMeta.youtubeSearchUrl = incoming.metadata.youtubeSearchUrl || currentMeta.youtubeSearchUrl;
   currentMeta.draftNotes = incoming.metadata.draftNotes || currentMeta.draftNotes;
   currentMeta.draftStatus = incoming.metadata.draftStatus || currentMeta.draftStatus;
@@ -384,6 +392,7 @@ function syncDraftInputsFromState_(overwrite){
   if(overwrite || !$('draftOriginalKeyInput').value.trim()) $('draftOriginalKeyInput').value = meta.draftOriginalKey || '';
   if(overwrite || !$('draftQuizKeyInput').value.trim()) $('draftQuizKeyInput').value = meta.draftQuizKey || '';
   if(overwrite || !$('draftYoutubeInput').value.trim()) $('draftYoutubeInput').value = meta.draftYoutubeUrl || '';
+  if(overwrite || !$('referenceUrlInput').value.trim()) $('referenceUrlInput').value = meta.referenceUrl || '';
   syncDraftInputsToState_();
 }
 
@@ -391,6 +400,7 @@ function syncDraftInputsToState_(){
   state.song.metadata.draftOriginalKey = sanitizeKey_($('draftOriginalKeyInput').value);
   state.song.metadata.draftQuizKey = sanitizeQuizKey_($('draftQuizKeyInput').value);
   state.song.metadata.draftYoutubeUrl = $('draftYoutubeInput').value.trim();
+  state.song.metadata.referenceUrl = $('referenceUrlInput').value.trim();
 }
 
 function renderAll_(forceYoutube){
@@ -446,7 +456,8 @@ function renderMetaOnly_(){
     ['DB Quiz_key', meta.quizKey || '-', `AI下書き: ${meta.draftQuizKey || '-'}`],
     ['DB YouTube', meta.youtubeUrl || '-', meta.youtubeUrl ? 'DB既存値あり' : 'DB空欄'],
     ['AI状態', aiStatusLabel, `検索URL: ${meta.youtubeSearchUrl || '-'}`],
-    ['Version', state.song.appVersion || APP_VERSION, `YouTube候補: ${meta.draftYoutubeUrl || '-'}`]
+    ['Version', state.song.appVersion || APP_VERSION, `YouTube候補: ${meta.draftYoutubeUrl || '-'}`],
+    ['参照URL', meta.referenceUrl || '-', 'U-FRET曲ページを入力']
   ];
   $('metaGrid').innerHTML = items.map(([k,v,s]) => `<div class="metaItem"><div class="k">${esc_(k)}</div><div class="v">${esc_(v)}</div><div class="s">${esc_(s || '')}</div></div>`).join('');
   $('draftNotes').textContent = Array.isArray(meta.draftNotes) && meta.draftNotes.length ? meta.draftNotes.join('\n') : 'AI下書きがまだありません。まず「読み込み」でDB表示を確認し、その後「AIでoriginal_Chord取得」で候補を作成してください。';
@@ -614,7 +625,8 @@ function startAiProgressNote_(){
     $('draftNotes').textContent = [
       `AI下書き作業中${dots}`,
       `利用API: OpenAI Responses API (${model})`,
-      '公開Web探索: Bing / DuckDuckGo / YouTube / U-FRET / ChordWiki',
+      'chord取得: 参照URL(U-FRET)を直接解析',
+      'YouTube探索: 公開Web検索',
       '実行内容: original_key・YouTube候補・part別original_Chord下書きを作成中',
       `経過: ${state.aiProgressTick}秒`
     ].join('\n');
