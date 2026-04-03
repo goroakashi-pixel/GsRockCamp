@@ -37,7 +37,7 @@
     .youtubeEmpty{display:flex;align-items:center;justify-content:center;height:100%;color:#e5e7eb;text-align:center;padding:12px;line-height:1.6;}
     .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
     .tab{min-height:var(--tap-min-h);padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:#fff;font-weight:700;cursor:pointer;}
-    .tab.active{border-color:var(--blue);color:var(--blue);box-shadow:0 0 0 2px rgba(29,78,216,0.08);}
+    .tab.active{border-color:var(--blue);color:#fff;background:var(--blue);box-shadow:0 0 0 2px rgba(29,78,216,0.18);}
     .grid{display:grid;grid-template-columns:1fr;gap:6px;}
     .bar{display:grid;grid-template-columns:46px 1fr 1fr;gap:6px;align-items:stretch;}
     .bar .idx{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:10px;background:#fafafa;font-weight:700;font-size:14px;min-height:26px;}
@@ -173,6 +173,8 @@ const state = {
   selectedBar:1,
   selectedHalf:'A',
   bassMode:false,
+  aiProgressTimer:null,
+  aiProgressTick:0,
   youtubeSrcApplied:'',
   auth:{authorized:false, checked:false, authorizationUrl:'', authorizationStatus:'UNKNOWN'},
   song:createEmptySong_()
@@ -240,11 +242,12 @@ function handleAiChord_(){
   if(state.loading || state.saving) return;
   if(!state.baseId){ log_('AI取得前に先頭IDを読み込んでください。'); return; }
   setBusy_(true,false);
+  startAiProgressNote_();
   log_(`suggestOriginalChords(${state.baseId}) を呼び出します。公開Web調査 → OPENAI_API_KEY があれば AI original_Chord 下書き、無ければ metadata 候補まで取得します。`);
   runServer_('suggestOriginalChords', state.baseId)
     .then((response)=>applyAiDraftResponse_(response))
     .catch((error)=>handleClientError_(error,'ai'))
-    .finally(()=>setBusy_(false,false));
+    .finally(()=>{ stopAiProgressNote_(); setBusy_(false,false); });
 }
 
 function handleSave_(){
@@ -589,6 +592,9 @@ function handleClientError_(error, phase){
   const message = error && error.message ? error.message : String(error);
   $('connectionStatus').textContent = `${phase} error: ${message}`;
   log_(`ERROR [${phase}] ${message}`);
+  if(phase === 'ai'){
+    $('draftNotes').textContent = `AI処理エラー: ${message}\nログ欄を確認してください。`;
+  }
 }
 
 function sanitizeChord_(value){ return String(value == null ? '' : value).replace(/\s+/g,' ').trim().replace(/｜/g,'│'); }
@@ -598,6 +604,30 @@ function buildYoutubeEmbedUrlClient_(rawValue){ const text = String(rawValue || 
 function normalizeYoutubeOpenUrl_(rawValue){ const embed = buildYoutubeEmbedUrlClient_(rawValue); return embed ? embed.replace('/embed/','/watch?v=') : rawValue; }
 function log_(message){ const box = $('logBox'); const stamp = new Date().toLocaleTimeString('ja-JP', {hour12:false}); box.textContent = `[${stamp}] ${message}\n` + box.textContent; }
 function esc_(value){ return String(value == null ? '' : value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+function startAiProgressNote_(){
+  stopAiProgressNote_();
+  state.aiProgressTick = 0;
+  const model = (state.song.metadata && state.song.metadata.aiStatus && state.song.metadata.aiStatus.model) || 'gpt-5-mini';
+  const update = () => {
+    state.aiProgressTick += 1;
+    const dots = '.'.repeat((state.aiProgressTick % 3) + 1);
+    $('draftNotes').textContent = [
+      `AI下書き作業中${dots}`,
+      `利用API: OpenAI Responses API (${model})`,
+      '公開Web探索: Bing / DuckDuckGo / YouTube / U-FRET / ChordWiki',
+      '実行内容: original_key・YouTube候補・part別original_Chord下書きを作成中',
+      `経過: ${state.aiProgressTick}秒`
+    ].join('\n');
+  };
+  update();
+  state.aiProgressTimer = setInterval(update, 1000);
+}
+function stopAiProgressNote_(){
+  if(state.aiProgressTimer){
+    clearInterval(state.aiProgressTimer);
+    state.aiProgressTimer = null;
+  }
+}
 function countAiDraftCellsInState_(){
   return state.song.parts.reduce((sum, part)=>{
     return sum + part.bars.reduce((barSum, bar)=>{
