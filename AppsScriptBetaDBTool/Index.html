@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>GoRockCamp DB投入支援ツール β v<?= appVersion ?></title>
+  <style>
+    :root{
+      --text:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fff;
+      --blue:#1d4ed8; --warn:#b91c1c; --ok:#065f46; --ok-bg:#ecfdf5;
+      --note:#1e3a8a; --note-bg:#eff6ff; --btn-radius:14px; --tap-min-h:44px;
+    }
+    body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;margin:16px;color:var(--text);background:var(--bg);padding-bottom:120px;}
+    h2{margin:0 0 10px;font-size:20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    .version{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--muted);background:#fafafa;}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+    .card{border:1px solid var(--line);border-radius:16px;padding:12px;background:var(--card);margin:10px 0;}
+    label{font-size:13px;color:var(--muted);display:block;margin:8px 0 4px;}
+    input{width:100%;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;min-height:var(--tap-min-h);box-sizing:border-box;background:#fff;}
+    .btn{min-height:var(--tap-min-h);padding:10px 12px;border-radius:var(--btn-radius);border:1px solid var(--line);background:#fff;font-size:16px;cursor:pointer;}
+    .btn.primary{border:2px solid var(--blue);color:var(--blue);font-weight:700;}
+    .btn.warn{border:2px solid var(--warn);color:var(--warn);font-weight:700;}
+    .btn.small{font-size:14px;padding:8px 10px;min-height:40px;}
+    .btn:disabled{opacity:.55;cursor:progress;}
+    .muted{color:var(--muted);font-size:13px;}
+    .status{padding:10px 12px;border-radius:12px;background:var(--ok-bg);color:var(--ok);border:1px solid #a7f3d0;}
+    .warnBox{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;font-weight:700;}
+    .warnBox.show{display:block;}
+    .noteBox{padding:10px 12px;border-radius:12px;background:var(--note-bg);color:var(--note);border:1px solid #bfdbfe;white-space:pre-wrap;}
+    .metaGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+    .metaItem{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fafafa;}
+    .metaItem .k{font-size:12px;color:var(--muted);}
+    .metaItem .v{font-size:15px;font-weight:600;margin-top:4px;word-break:break-word;}
+    .metaItem .s{font-size:12px;color:var(--muted);margin-top:4px;word-break:break-word;}
+    .youtubeWrap{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#111;margin-top:10px;}
+    .youtubeWrap iframe{width:100%;height:100%;border:0;}
+    .youtubeEmpty{display:flex;align-items:center;justify-content:center;height:100%;color:#e5e7eb;text-align:center;padding:12px;line-height:1.6;}
+    .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+    .tab{min-height:var(--tap-min-h);padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:#fff;font-weight:700;cursor:pointer;}
+    .tab.active{border-color:var(--blue);color:#fff;background:var(--blue);box-shadow:0 0 0 2px rgba(29,78,216,0.18);}
+    .grid{display:grid;grid-template-columns:1fr;gap:6px;}
+    .bar{display:grid;grid-template-columns:46px 1fr 1fr;gap:6px;align-items:stretch;}
+    .bar .idx{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:10px;background:#fafafa;font-weight:700;font-size:14px;min-height:26px;}
+    .slot{border:2px solid var(--line);border-radius:10px;padding:4px 8px;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:6px;background:#fff;cursor:pointer;}
+    .slot.active{border-color:var(--blue);box-shadow:0 0 0 2px rgba(29,78,216,0.12);}
+    .slot .txt{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .badge{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:1px 6px;border-radius:999px;background:#f7f7f7;line-height:1.2;}
+    .kbd{display:flex;gap:8px;flex-wrap:wrap;}
+    .toneBox{margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#fafafa;}
+    .toneTitle{font-size:12px;color:var(--muted);margin-bottom:4px;}
+    .toneValue{font-size:15px;font-weight:600;min-height:20px;word-break:break-word;}
+    .youtubeLinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+    .linkBtn{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:12px;padding:8px 10px;text-decoration:none;color:var(--blue);background:#fff;min-height:40px;}
+    .logBox{background:#0f172a;color:#dbeafe;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;min-height:120px;font-size:12px;padding:12px;border-radius:12px;}
+    @media (max-width: 767px){ .metaGrid{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+<h2>GoRockCamp DB投入支援ツール β <span class="version">v<?= appVersion ?></span></h2>
+<div class="muted">接続 → AI下書き(original_key / YouTube / original_Chord) → ユーザー修正 → 確定保存。</div>
+
+<div class="card">
+  <div class="row">
+    <div style="flex:1; min-width:180px;">
+      <label>先頭ID</label>
+      <input id="baseIdInput" inputmode="numeric" placeholder="例：201061" value="201061" />
+    </div>
+    <div style="flex:2; min-width:260px;">
+      <label>接続状態</label>
+      <div id="connectionStatus" class="status">未接続</div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px;">
+    <button class="btn primary" id="loadButton">読み込み</button>
+    <button class="btn" id="aiChordButton">AIでoriginal_Chord取得</button>
+    <button class="btn" id="reloadButton">再読込</button>
+    <button class="btn primary" id="saveButton">確定保存</button>
+  </div>
+  <div class="row" style="margin-top:8px;">
+    <button class="btn small" id="checkAuthButton">権限確認</button>
+    <span class="muted" id="authStatusText">権限状態: 未確認</span>
+    <a class="linkBtn" id="authUrlLink" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">承認URLを開く</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="muted">ヘッダー情報 / AI下書き</div>
+  <div class="metaGrid" id="metaGrid"></div>
+  <div id="dataWarning" class="warnBox">Data が TRUE です。既存データ上書きに注意してください。</div>
+  <div id="draftNotes" class="noteBox" style="margin-top:10px;">まず「読み込み」でDB表示を確認し、その後に「AIでoriginal_Chord取得」で候補を作成します。</div>
+  <div class="row" style="margin-top:10px;">
+    <div style="flex:1; min-width:160px;">
+      <label>AI下書き original_key</label>
+      <input id="draftOriginalKeyInput" placeholder="例：E / Am" />
+    </div>
+    <div style="flex:1; min-width:120px;">
+      <label>AI下書き Quiz_key</label>
+      <input id="draftQuizKeyInput" placeholder="C または Am" />
+    </div>
+    <div style="flex:2; min-width:260px;">
+      <label>保存対象 YouTube URL / ID</label>
+      <input id="draftYoutubeInput" placeholder="https://www.youtube.com/watch?v=..." />
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px;">
+    <div style="flex:1; min-width:260px;">
+      <label>参照URL（U-FRET曲ページ）</label>
+      <input id="referenceUrlInput" placeholder="https://www.ufret.jp/song.php?..." />
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px;">
+    <button class="btn small" id="applyQuizKeyButton">Quiz_key を再計算</button>
+    <button class="btn small warn" id="clearYoutubeButton">YouTube 下書きクリア</button>
+  </div>
+  <div class="youtubeWrap" id="youtubeWrap"><div class="youtubeEmpty">YouTube URL が入るとここに埋め込み表示します。</div></div>
+  <div class="youtubeLinks" id="youtubeLinks"></div>
+</div>
+
+<div class="card">
+  <div class="row" style="justify-content:space-between;">
+    <div class="muted">Partタブ / entry.html 互換の小節入力UI</div>
+    <div class="muted" id="partMeta">draft original_key: - / Quiz_key: -</div>
+  </div>
+  <div class="tabs" id="partTabs"></div>
+  <div class="toneBox">
+    <div class="toneTitle">選択中セル</div>
+    <div class="toneValue" id="selectedCell">intro / 1小節 / A</div>
+  </div>
+  <div class="grid" id="barGrid" style="margin-top:8px;"></div>
+</div>
+
+<div class="card">
+  <div class="row" style="justify-content:space-between;">
+    <div class="muted">コード入力：entry.html と同じく ルート → クオリティ → 必要ならオンベース</div>
+    <div class="row">
+      <button class="btn small" id="btn4barRep">4barRep.</button>
+      <button class="btn small warn" id="btnClearBar">選択セルクリア</button>
+      <button class="btn small warn" id="btnResetAll">全リセット</button>
+    </div>
+  </div>
+  <div class="row" style="margin-top:10px;">
+    <div style="flex:1;">
+      <div class="muted">①ルート（押すと即上書き）</div>
+      <div class="kbd" id="rootPad"></div>
+    </div>
+  </div>
+  <div style="height:10px;"></div>
+  <div class="row">
+    <div style="flex:1;">
+      <div class="muted">②クオリティ（押すと即上書き）</div>
+      <div class="kbd" id="qualPad"></div>
+    </div>
+  </div>
+  <div style="height:10px;"></div>
+  <div class="row">
+    <button class="btn" id="btnBassMode">オンベース入力（/）</button>
+    <button class="btn warn" id="btnBassClear">オンベース解除</button>
+    <button class="btn warn" id="btnQualClear">クオリティ解除</button>
+  </div>
+  <div class="muted">オンベース：押す → 次にルートで /Root（例：C/E）</div>
+</div>
+
+<div class="card">
+  <div class="muted">ログ</div>
+  <div id="logBox" class="logBox">起動しました。読み込みボタンで開始できます。</div>
+</div>
+
+<script>
+const APP_VERSION = '<?= appVersion ?>';
+const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
+const ROOTS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B','Db','Eb','Gb','Ab','Bb'];
+const QUALS = ['','m','7','m7','maj7','mM7','dim','aug','sus4','m7-5','add9','9','6','m6'];
+
+const state = {
+  loading:false,
+  saving:false,
+  baseId:'',
+  activePart:'intro',
+  selectedBar:1,
+  selectedHalf:'A',
+  bassMode:false,
+  aiProgressTimer:null,
+  aiProgressTick:0,
+  youtubeSrcApplied:'',
+  auth:{authorized:false, checked:false, authorizationUrl:'', authorizationStatus:'UNKNOWN'},
+  song:createEmptySong_()
+};
+
+function createEmptySong_(){
+  return {
+    ok:false,
+    appVersion:APP_VERSION,
+    connection:{connected:false},
+    metadata:{data:'',artist:'',title:'',rank:'',era:'',youtubeUrl:'',youtubeEmbedUrl:'',youtubeSearchUrl:'',originalKey:'',quizKey:'',draftOriginalKey:'',draftQuizKey:'',draftYoutubeUrl:'',referenceUrl:'',draftNotes:[],draftStatus:{},aiStatus:{configured:false,model:'gpt-5'}},
+    parts:PART_ORDER.map(createEmptyPart_),
+    logs:[]
+  };
+}
+
+function createEmptyPart_(part){
+  return { part, partLabel: part, bars:Array.from({length:8}, (_,i)=>({bar:i+1, firstHalf:'', secondHalf:'', aiDraftFirstHalf:'', aiDraftSecondHalf:'', changeChord:'', degree:'', functionText:'', nonDiatonic:''})) };
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.title = `GoRockCamp DB投入支援ツール β v${APP_VERSION}`;
+  bindEvents_();
+  renderPads_();
+  renderTabs_();
+  renderAll_();
+  log_(`DOM ready / version ${APP_VERSION}`);
+});
+
+function bindEvents_(){
+  $('loadButton').addEventListener('click', handleLoad_);
+  $('aiChordButton').addEventListener('click', handleAiChord_);
+  $('reloadButton').addEventListener('click', () => state.baseId ? handleLoad_() : log_('再読込前に先頭IDを読み込んでください。'));
+  $('saveButton').addEventListener('click', handleSave_);
+  $('checkAuthButton').addEventListener('click', handleAuthCheck_);
+  $('applyQuizKeyButton').addEventListener('click', handleQuizKeyAutoFill_);
+  $('clearYoutubeButton').addEventListener('click', () => { $('draftYoutubeInput').value=''; syncDraftInputsToState_(); renderYoutube_(true); });
+  $('draftOriginalKeyInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
+  $('draftQuizKeyInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
+  $('draftYoutubeInput').addEventListener('input', () => { syncDraftInputsToState_(); renderYoutube_(true); renderMetaOnly_(); });
+  $('referenceUrlInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
+  $('baseIdInput').addEventListener('keydown', (event)=>{ if(event.key==='Enter'){ event.preventDefault(); handleLoad_(); } });
+  $('btn4barRep').onclick = fourBarRepeat_;
+  $('btnClearBar').onclick = clearSelected_;
+  $('btnResetAll').onclick = resetAllBoxes_;
+  $('btnBassMode').onclick = toggleBassMode_;
+  $('btnBassClear').onclick = clearBass_;
+  $('btnQualClear').onclick = clearQuality_;
+}
+
+function $(id){ return document.getElementById(id); }
+
+function handleLoad_(){
+  if(state.loading || state.saving) return;
+  const baseId = $('baseIdInput').value.trim();
+  state.baseId = baseId;
+  setBusy_(true,false);
+  log_(`loadSong(${baseId}) を呼び出します。`);
+  runServer_('loadSong', baseId)
+    .then((response)=>applySongResponse_(response,'load'))
+    .catch((error)=>handleClientError_(error,'load'))
+    .finally(()=>setBusy_(false,false));
+}
+
+function handleAiChord_(){
+  if(state.loading || state.saving) return;
+  if(!state.baseId){ log_('AI取得前に先頭IDを読み込んでください。'); return; }
+  setBusy_(true,false);
+  startAiProgressNote_();
+  log_(`suggestOriginalChords(${state.baseId}) を呼び出します。公開Web調査 → OPENAI_API_KEY があれば AI original_Chord 下書き、無ければ metadata 候補まで取得します。`);
+  runServer_('suggestOriginalChords', { baseId: state.baseId, referenceUrl: $('referenceUrlInput').value.trim() })
+    .then((response)=>applyAiDraftResponse_(response))
+    .catch((error)=>handleClientError_(error,'ai'))
+    .finally(()=>{ stopAiProgressNote_(); setBusy_(false,false); });
+}
+
+function handleSave_(){
+  if(state.loading || state.saving) return;
+  if(!state.baseId){ log_('保存前に先頭IDを読み込んでください。'); return; }
+  let payload;
+  try{ payload = buildSavePayload_(); }
+  catch(error){ handleClientError_(error,'validate'); return; }
+  setBusy_(false,true);
+  log_('saveSong(payload) を呼び出します。');
+  runServer_('saveSong', payload)
+    .then((response)=>applySongResponse_(response,'save'))
+    .catch((error)=>handleClientError_(error,'save'))
+    .finally(()=>setBusy_(false,false));
+}
+
+function handleQuizKeyAutoFill_(){
+  const originalKey = sanitizeKey_($('draftOriginalKeyInput').value);
+  $('draftQuizKeyInput').value = originalKey && /m$/i.test(originalKey) ? 'Am' : 'C';
+  syncDraftInputsToState_();
+  renderMetaOnly_();
+  log_('Quiz_key を original_key から再計算しました。');
+}
+
+function handleAuthCheck_(){
+  if(state.loading || state.saving) return;
+  log_('checkAuthorizationStatus() を呼び出します。');
+  runServer_('checkAuthorizationStatus')
+    .then((response)=>{
+      if(!response || !response.ok){ throw new Error(response && response.error ? response.error : 'authorization check failed'); }
+      state.auth = {
+        authorized: !!response.authorized,
+        checked: true,
+        authorizationUrl: response.authorizationUrl || '',
+        authorizationStatus: response.authorizationStatus || ''
+      };
+      renderAuthStatus_();
+      log_(response.message || (response.authorized ? '権限OK' : '未承認の権限があります。'));
+      if(response.authorizationUrl) log_('承認URLを表示しました。');
+    })
+    .catch((error)=>handleClientError_(error,'auth'));
+}
+
+function runServer_(functionName, payload){
+  return new Promise((resolve, reject) => {
+    if (!window.google || !google.script || !google.script.run) {
+      reject(new Error('google.script.run が見つかりません。standalone Apps Script の Web アプリとして開いてください。'));
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler((error)=>reject(error instanceof Error ? error : new Error(error && error.message ? error.message : String(error))))[functionName](payload);
+  });
+}
+
+function applySongResponse_(response, phase){
+  if(!response || !response.ok){ throw new Error(response && response.error ? response.error : `${phase} failed`); }
+  state.song = normalizeSongResponse_(response);
+  syncDraftInputsFromState_(true);
+  renderAll_(phase === 'load');
+  log_(`[${phase}] ${response.message || 'OK'}`);
+  (response.logs || []).forEach((line)=>log_(line));
+  (response.skipped || []).forEach((line)=>log_('SKIP: ' + line));
+}
+
+function applyAiDraftResponse_(response){
+  if(!response || !response.ok){ throw new Error(response && response.error ? response.error : 'ai failed'); }
+  const incoming = normalizeSongResponse_(response);
+  const currentMeta = state.song.metadata || {};
+  if(!$('draftOriginalKeyInput').value.trim()) currentMeta.draftOriginalKey = incoming.metadata.draftOriginalKey || currentMeta.draftOriginalKey;
+  if(!$('draftQuizKeyInput').value.trim()) currentMeta.draftQuizKey = incoming.metadata.draftQuizKey || currentMeta.draftQuizKey;
+  if(!$('draftYoutubeInput').value.trim()) currentMeta.draftYoutubeUrl = incoming.metadata.draftYoutubeUrl || currentMeta.draftYoutubeUrl;
+  if(!$('referenceUrlInput').value.trim()) currentMeta.referenceUrl = incoming.metadata.referenceUrl || currentMeta.referenceUrl;
+  currentMeta.youtubeSearchUrl = incoming.metadata.youtubeSearchUrl || currentMeta.youtubeSearchUrl;
+  currentMeta.draftNotes = incoming.metadata.draftNotes || currentMeta.draftNotes;
+  currentMeta.draftStatus = incoming.metadata.draftStatus || currentMeta.draftStatus;
+  state.song.metadata = currentMeta;
+
+  PART_ORDER.forEach((partName) => {
+    const currentPart = getPart_(partName);
+    const aiPart = incoming.parts.find((part)=>part.part===partName) || createEmptyPart_(partName);
+    currentPart.bars.forEach((bar, index) => {
+      const aiBar = aiPart.bars[index] || {};
+      bar.aiDraftFirstHalf = aiBar.aiDraftFirstHalf || '';
+      bar.aiDraftSecondHalf = aiBar.aiDraftSecondHalf || '';
+      if (!bar.firstHalf && aiBar.aiDraftFirstHalf) bar.firstHalf = aiBar.aiDraftFirstHalf;
+      if (!bar.secondHalf && aiBar.aiDraftSecondHalf) bar.secondHalf = aiBar.aiDraftSecondHalf;
+    });
+  });
+
+  const reflectedCount = countAiDraftCellsInState_();
+  syncDraftInputsFromState_(false);
+  renderAll_(false);
+  if(reflectedCount > 0){
+    const visibleCount = countVisibleAiDraftCells_();
+    log_(`[ai] ${response.message || 'OK'} / state反映:${reflectedCount}セル / 表示中part:${visibleCount}セル`);
+  } else {
+    log_('[ai] AI返答は受信しましたが、コード下書きは空のため失敗');
+    log_('UI apply failure: 非空AI下書きが state / 表示対象にありません');
+  }
+  (response.logs || []).forEach((line)=>log_(line));
+}
+
+function normalizeSongResponse_(response){
+  return {
+    ...response,
+    appVersion: response.appVersion || APP_VERSION,
+    metadata: { ...createEmptySong_().metadata, ...(response.metadata || {}) },
+    parts: PART_ORDER.map((part)=>{
+      const serverPart = (response.parts || []).find((item)=>item.part===part) || createEmptyPart_(part);
+      return {
+        ...createEmptyPart_(part),
+        ...serverPart,
+        bars: Array.from({length:8}, (_, index)=>{
+          const bar = (serverPart.bars || [])[index] || {};
+          return {
+            bar:index+1,
+            firstHalf: bar.firstHalf || '',
+            secondHalf: bar.secondHalf || '',
+            aiDraftFirstHalf: bar.aiDraftFirstHalf || '',
+            aiDraftSecondHalf: bar.aiDraftSecondHalf || '',
+            changeChord: bar.changeChord || '',
+            degree: bar.degree || '',
+            functionText: bar.functionText || '',
+            nonDiatonic: bar.nonDiatonic || ''
+          };
+        })
+      };
+    })
+  };
+}
+
+function syncDraftInputsFromState_(overwrite){
+  const meta = state.song.metadata || {};
+  if(overwrite || !$('draftOriginalKeyInput').value.trim()) $('draftOriginalKeyInput').value = meta.draftOriginalKey || '';
+  if(overwrite || !$('draftQuizKeyInput').value.trim()) $('draftQuizKeyInput').value = meta.draftQuizKey || '';
+  if(overwrite || !$('draftYoutubeInput').value.trim()) $('draftYoutubeInput').value = meta.draftYoutubeUrl || '';
+  if(overwrite || !$('referenceUrlInput').value.trim()) $('referenceUrlInput').value = meta.referenceUrl || '';
+  syncDraftInputsToState_();
+}
+
+function syncDraftInputsToState_(){
+  state.song.metadata.draftOriginalKey = sanitizeKey_($('draftOriginalKeyInput').value);
+  state.song.metadata.draftQuizKey = sanitizeQuizKey_($('draftQuizKeyInput').value);
+  state.song.metadata.draftYoutubeUrl = $('draftYoutubeInput').value.trim();
+  state.song.metadata.referenceUrl = $('referenceUrlInput').value.trim();
+}
+
+function renderAll_(forceYoutube){
+  renderHeader_();
+  renderAuthStatus_();
+  renderTabs_();
+  renderBars_();
+  renderMetaOnly_();
+  renderYoutube_(!!forceYoutube);
+}
+
+function renderHeader_(){
+  const conn = state.song.connection && state.song.connection.connected;
+  $('connectionStatus').textContent = conn ? `接続OK / ${state.song.connection.sheetName} / ${state.song.connection.spreadsheetId} / v${state.song.appVersion || APP_VERSION}` : '未接続';
+  $('dataWarning').classList.toggle('show', String(state.song.metadata.data || '').toUpperCase() === 'TRUE');
+}
+
+function renderAuthStatus_(){
+  const checked = state.auth && state.auth.checked;
+  const authorized = state.auth && state.auth.authorized;
+  const link = $('authUrlLink');
+  const text = $('authStatusText');
+  if(!checked){
+    text.textContent = '権限状態: 未確認';
+    link.style.display = 'none';
+    return;
+  }
+  if(authorized){
+    text.textContent = '権限状態: 権限OK';
+    link.style.display = 'none';
+    return;
+  }
+  text.textContent = '権限状態: 未承認（承認URLを開いてください）';
+  if(state.auth.authorizationUrl){
+    link.href = state.auth.authorizationUrl;
+    link.style.display = 'inline-flex';
+  } else {
+    link.style.display = 'none';
+  }
+}
+
+function renderMetaOnly_(){
+  const meta = state.song.metadata || {};
+  const aiStatusLabel = meta.aiStatus && meta.aiStatus.configured
+    ? `利用可 / ${meta.aiStatus.model || 'gpt-5'}`
+    : '未設定（公開Web調査のみ）';
+  const items = [
+    ['Data', meta.data || '-',''],
+    ['Artist', meta.artist || '-',''],
+    ['title', meta.title || '-',''],
+    ['Rank / ERA', [meta.rank || '-', meta.era || '-'].join(' / '),''],
+    ['DB original_key', meta.originalKey || '-', `AI下書き: ${meta.draftOriginalKey || '-'}`],
+    ['DB Quiz_key', meta.quizKey || '-', `AI下書き: ${meta.draftQuizKey || '-'}`],
+    ['DB YouTube', meta.youtubeUrl || '-', meta.youtubeUrl ? 'DB既存値あり' : 'DB空欄'],
+    ['AI状態', aiStatusLabel, `検索URL: ${meta.youtubeSearchUrl || '-'}`],
+    ['Version', state.song.appVersion || APP_VERSION, `YouTube候補: ${meta.draftYoutubeUrl || '-'}`],
+    ['参照URL', meta.referenceUrl || '-', 'U-FRET曲ページを入力']
+  ];
+  $('metaGrid').innerHTML = items.map(([k,v,s]) => `<div class="metaItem"><div class="k">${esc_(k)}</div><div class="v">${esc_(v)}</div><div class="s">${esc_(s || '')}</div></div>`).join('');
+  $('draftNotes').textContent = Array.isArray(meta.draftNotes) && meta.draftNotes.length ? meta.draftNotes.join('\n') : 'AI下書きがまだありません。まず「読み込み」でDB表示を確認し、その後「AIでoriginal_Chord取得」で候補を作成してください。';
+  $('partMeta').textContent = `draft original_key: ${state.song.metadata.draftOriginalKey || '-'} / Quiz_key: ${state.song.metadata.draftQuizKey || '-'}`;
+}
+
+function renderYoutube_(force){
+  const draftUrl = $('draftYoutubeInput').value.trim();
+  const embedUrl = buildYoutubeEmbedUrlClient_(draftUrl) || buildYoutubeEmbedUrlClient_(state.song.metadata.youtubeUrl) || '';
+  const wrap = $('youtubeWrap');
+  if(force || state.youtubeSrcApplied !== embedUrl){
+    state.youtubeSrcApplied = embedUrl;
+    wrap.innerHTML = embedUrl
+      ? `<iframe src="${esc_(embedUrl)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`
+      : '<div class="youtubeEmpty">YouTube URL が未確定です。検索リンクから公式動画URLを確認して貼り付けてください。</div>';
+  }
+  const links = [];
+  if(draftUrl) links.push(`<a class="linkBtn" href="${esc_(normalizeYoutubeOpenUrl_(draftUrl))}" target="_blank" rel="noopener noreferrer">下書きURLを開く</a>`);
+  if(state.song.metadata.youtubeSearchUrl) links.push(`<a class="linkBtn" href="${esc_(state.song.metadata.youtubeSearchUrl)}" target="_blank" rel="noopener noreferrer">公式候補を検索</a>`);
+  $('youtubeLinks').innerHTML = links.join('');
+}
+
+function renderTabs_(){
+  $('partTabs').innerHTML = PART_ORDER.map((part)=>`<button type="button" class="tab${state.activePart===part?' active':''}" data-part="${part}">${part}</button>`).join('');
+  Array.from($('partTabs').querySelectorAll('[data-part]')).forEach((button)=>{
+    button.onclick = () => { state.activePart = button.dataset.part; renderTabs_(); renderBars_(); renderMetaOnly_(); };
+  });
+}
+
+function renderBars_(){
+  const part = getActivePart_();
+  $('selectedCell').textContent = `${part.part} / ${state.selectedBar}小節 / ${state.selectedHalf}`;
+  const html = [];
+  for(let i=1;i<=8;i++){
+    const bar = part.bars[i-1];
+    html.push(`<div class="bar"><div class="idx">${i}</div>${buildSlotHtml_(i,'A',bar.firstHalf)}${buildSlotHtml_(i,'B',bar.secondHalf)}</div>`);
+  }
+  $('barGrid').innerHTML = html.join('');
+  Array.from($('barGrid').querySelectorAll('.slot')).forEach((slot)=>{
+    slot.onclick = () => { state.selectedBar = Number(slot.dataset.bar); state.selectedHalf = slot.dataset.half; state.bassMode = false; renderBars_(); };
+  });
+}
+
+function buildSlotHtml_(bar, half, value){
+  const active = state.selectedBar===bar && state.selectedHalf===half && state.activePart;
+  return `<div class="slot${active ? ' active' : ''}" data-bar="${bar}" data-half="${half}"><div class="txt">${esc_(value || (half==='A' ? '（前半）' : '（後半）'))}</div><div class="badge">${half}</div></div>`;
+}
+
+function renderPads_(){
+  $('rootPad').innerHTML = ROOTS.map((root)=>`<button type="button" class="btn" data-root="${root}">${root}</button>`).join('');
+  $('qualPad').innerHTML = QUALS.map((qual)=>`<button type="button" class="btn" data-qual="${qual}">${qual || '（なし）'}</button>`).join('');
+  Array.from($('rootPad').querySelectorAll('[data-root]')).forEach((btn)=>btn.onclick=()=>applyRoot_(btn.dataset.root));
+  Array.from($('qualPad').querySelectorAll('[data-qual]')).forEach((btn)=>btn.onclick=()=>applyQuality_(btn.dataset.qual));
+}
+
+function getPart_(partName){ return state.song.parts.find((item)=>item.part===partName) || state.song.parts[0]; }
+function getActivePart_(){ return getPart_(state.activePart); }
+function getSelectedSlot_(){ return getActivePart_().bars[state.selectedBar-1]; }
+
+function slotPieces_(partName, barNumber, half){
+  const bar = getPart_(partName).bars[barNumber-1];
+  const text = half === 'A' ? bar.firstHalf : bar.secondHalf;
+  return parseChordToPieces_(text);
+}
+
+function setSlotValue_(partName, barNumber, half, value){
+  const bar = getPart_(partName).bars[barNumber-1];
+  if(half === 'A') bar.firstHalf = sanitizeChord_(value); else bar.secondHalf = sanitizeChord_(value);
+}
+
+function clearSelected_(){ setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, ''); state.bassMode=false; renderBars_(); }
+function resetAllBoxes_(){ state.song.parts.forEach((part)=>part.bars.forEach((bar)=>{ bar.firstHalf=''; bar.secondHalf=''; })); state.selectedBar=1; state.selectedHalf='A'; state.bassMode=false; renderBars_(); log_('全小節をリセットしました。'); }
+function toggleBassMode_(){ state.bassMode = !state.bassMode; log_(state.bassMode ? 'オンベース入力モード：次のルートを / で適用します。' : 'オンベース入力モード解除'); }
+function clearBass_(){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); pieces.bass=''; setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); state.bassMode=false; renderBars_(); }
+function clearQuality_(){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); pieces.qual=''; setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); renderBars_(); }
+function applyRoot_(root){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); if(state.bassMode){ pieces.bass=root; state.bassMode=false; } else { pieces.root=root; } setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); renderBars_(); }
+function applyQuality_(qual){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); pieces.qual=qual; setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); renderBars_(); }
+function fourBarRepeat_(){ const part = getActivePart_(); for(let i=0;i<4;i++){ part.bars[i+4].firstHalf = part.bars[i].firstHalf; part.bars[i+4].secondHalf = part.bars[i].secondHalf; } renderBars_(); log_(`${part.part} の 1〜4小節を 5〜8小節へ複写しました。`); }
+
+function parseChordToPieces_(chord){
+  const text = sanitizeChord_(chord);
+  if(!text) return {root:'',qual:'',bass:''};
+  const slash = text.split('/');
+  const main = slash[0] || '';
+  const bass = slash[1] || '';
+  const m = main.match(/^([A-G](?:#|b|♭)?)(.*)$/);
+  return { root: m ? m[1] : '', qual: m ? (m[2] || '') : '', bass: bass || '' };
+}
+
+function buildChordFromPieces_(pieces){
+  const root = sanitizeChord_(pieces.root || '');
+  const qual = sanitizeChord_(pieces.qual || '');
+  const bass = sanitizeChord_(pieces.bass || '');
+  if(!root) return '';
+  return root + qual + (bass ? '/' + bass : '');
+}
+
+function buildSavePayload_(){
+  const baseId = $('baseIdInput').value.trim();
+  if(!/^\d+$/.test(baseId)) throw new Error('先頭IDは数値で入力してください。');
+  const originalKey = sanitizeKey_($('draftOriginalKeyInput').value);
+  const quizKey = sanitizeQuizKey_($('draftQuizKeyInput').value) || (originalKey.endsWith('m') ? 'Am' : 'C');
+  const youtubeUrl = $('draftYoutubeInput').value.trim();
+  if(!originalKey) throw new Error('original_key を入力してください。');
+  if(!/^[A-G](?:#|b)?m?$/.test(originalKey)) throw new Error(`original_key の形式が不正です: ${originalKey}`);
+  if(quizKey && !['C','Am'].includes(quizKey)) throw new Error('Quiz_key は C または Am で入力してください。');
+  if(youtubeUrl && !buildYoutubeEmbedUrlClient_(youtubeUrl)) throw new Error('YouTube は動画URL / youtu.be / 11文字ID を入力してください。');
+
+  return {
+    baseId,
+    metadata:{ originalKey, quizKey, youtubeUrl },
+    parts: state.song.parts.map((part)=>({
+      part: part.part,
+      bars: part.bars.map((bar, index)=>{
+        validateBarClient_(bar, part.part, index+1);
+        return { firstHalf: sanitizeChord_(bar.firstHalf), secondHalf: sanitizeChord_(bar.secondHalf) };
+      })
+    }))
+  };
+}
+
+function validateBarClient_(bar, part, barNumber){
+  const first = sanitizeChord_(bar.firstHalf);
+  const second = sanitizeChord_(bar.secondHalf);
+  if(!first && second) throw new Error(`${part} ${barNumber}小節 は後半のみ入力できません。`);
+  [first,second].forEach((value)=>{
+    if(!value) return;
+    if(value.includes('│')) throw new Error(`${part} ${barNumber}小節 は │ を直接入力できません。`);
+    const slashCount = (value.match(/\//g) || []).length;
+    if(slashCount > 1) throw new Error(`${part} ${barNumber}小節 に不正な / 連続表記があります: ${value}`);
+    const [main,bass=''] = value.split('/');
+    if(!/^([A-G](?:#|b|♭)?)(?:[0-9A-Za-z+()#♭b\-susdimaugmajMadd]*)$/.test(main)) throw new Error(`${part} ${barNumber}小節 のコード形式が不正です: ${value}`);
+    if(slashCount === 1 && !/^[A-G](?:#|b|♭)?$/.test(bass)) throw new Error(`${part} ${barNumber}小節 のオンコード表記が不正です: ${value}`);
+  });
+}
+
+function setBusy_(loading, saving){
+  state.loading = !!loading; state.saving = !!saving;
+  ['loadButton','aiChordButton','reloadButton','saveButton','checkAuthButton','applyQuizKeyButton','clearYoutubeButton'].forEach((id)=>{ const el=$(id); if(el) el.disabled = state.loading || state.saving; });
+}
+
+function handleClientError_(error, phase){
+  const message = error && error.message ? error.message : String(error);
+  $('connectionStatus').textContent = `${phase} error: ${message}`;
+  log_(`ERROR [${phase}] ${message}`);
+  if(phase === 'ai'){
+    $('draftNotes').textContent = `AI処理エラー: ${message}\nログ欄を確認してください。`;
+  }
+}
+
+function sanitizeChord_(value){ return String(value == null ? '' : value).replace(/\s+/g,' ').trim().replace(/｜/g,'│'); }
+function sanitizeKey_(value){ return String(value == null ? '' : value).trim().replace(/♭/g,'b').replace(/＃/g,'#').replace(/major$/i,'').replace(/minor$/i,'m').replace(/^([a-g])/, (m)=>m.toUpperCase()); }
+function sanitizeQuizKey_(value){ const text = String(value == null ? '' : value).trim(); if(!text) return ''; return text.toLowerCase() === 'am' ? 'Am' : text.toUpperCase(); }
+function buildYoutubeEmbedUrlClient_(rawValue){ const text = String(rawValue || '').trim(); if(!text) return ''; const match = text.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/); const id = match ? match[1] : text; return /^[A-Za-z0-9_-]{11}$/.test(id) ? `https://www.youtube.com/embed/${id}` : ''; }
+function normalizeYoutubeOpenUrl_(rawValue){ const embed = buildYoutubeEmbedUrlClient_(rawValue); return embed ? embed.replace('/embed/','/watch?v=') : rawValue; }
+function log_(message){ const box = $('logBox'); const stamp = new Date().toLocaleTimeString('ja-JP', {hour12:false}); box.textContent = `[${stamp}] ${message}\n` + box.textContent; }
+function esc_(value){ return String(value == null ? '' : value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+function startAiProgressNote_(){
+  stopAiProgressNote_();
+  state.aiProgressTick = 0;
+  const model = (state.song.metadata && state.song.metadata.aiStatus && state.song.metadata.aiStatus.model) || 'gpt-5-mini';
+  const update = () => {
+    state.aiProgressTick += 1;
+    const dots = '.'.repeat((state.aiProgressTick % 3) + 1);
+    $('draftNotes').textContent = [
+      `AI下書き作業中${dots}`,
+      `利用API: OpenAI Responses API (${model})`,
+      'chord取得: 参照URL(U-FRET)を直接解析',
+      'YouTube探索: 公開Web検索',
+      '実行内容: original_key・YouTube候補・part別original_Chord下書きを作成中',
+      `経過: ${state.aiProgressTick}秒`
+    ].join('\n');
+  };
+  update();
+  state.aiProgressTimer = setInterval(update, 1000);
+}
+function stopAiProgressNote_(){
+  if(state.aiProgressTimer){
+    clearInterval(state.aiProgressTimer);
+    state.aiProgressTimer = null;
+  }
+}
+function countAiDraftCellsInState_(){
+  return state.song.parts.reduce((sum, part)=>{
+    return sum + part.bars.reduce((barSum, bar)=>{
+      return barSum + (bar.aiDraftFirstHalf ? 1 : 0) + (bar.aiDraftSecondHalf ? 1 : 0);
+    },0);
+  },0);
+}
+function countVisibleAiDraftCells_(){
+  const part = getActivePart_();
+  return part.bars.reduce((sum, bar)=>sum + (bar.aiDraftFirstHalf ? 1 : 0) + (bar.aiDraftSecondHalf ? 1 : 0), 0);
+}
+</script>
+</body>
+</html>
