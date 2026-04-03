@@ -49,9 +49,7 @@
     .toneBox{margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#fafafa;}
     .toneTitle{font-size:12px;color:var(--muted);margin-bottom:4px;}
     .toneValue{font-size:15px;font-weight:600;min-height:20px;word-break:break-word;}
-    .aiBarGrid{display:grid;gap:8px;margin-top:10px;}
-    .aiBarCard{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fafafa;}
-    .aiActions,.youtubeLinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+    .youtubeLinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
     .linkBtn{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:12px;padding:8px 10px;text-decoration:none;color:var(--blue);background:#fff;min-height:40px;}
     .logBox{background:#0f172a;color:#dbeafe;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;min-height:120px;font-size:12px;padding:12px;border-radius:12px;}
     @media (max-width: 767px){ .metaGrid{grid-template-columns:1fr;} }
@@ -123,7 +121,6 @@
     <div class="toneValue" id="selectedCell">intro / 1小節 / A</div>
   </div>
   <div class="grid" id="barGrid" style="margin-top:8px;"></div>
-  <div class="aiBarGrid" id="aiBarGrid"></div>
 </div>
 
 <div class="card">
@@ -398,7 +395,6 @@ function renderAll_(forceYoutube){
   renderAuthStatus_();
   renderTabs_();
   renderBars_();
-  renderAiBars_();
   renderMetaOnly_();
   renderYoutube_(!!forceYoutube);
 }
@@ -473,7 +469,7 @@ function renderYoutube_(force){
 function renderTabs_(){
   $('partTabs').innerHTML = PART_ORDER.map((part)=>`<button type="button" class="tab${state.activePart===part?' active':''}" data-part="${part}">${part}</button>`).join('');
   Array.from($('partTabs').querySelectorAll('[data-part]')).forEach((button)=>{
-    button.onclick = () => { state.activePart = button.dataset.part; renderBars_(); renderAiBars_(); renderMetaOnly_(); };
+    button.onclick = () => { state.activePart = button.dataset.part; renderBars_(); renderMetaOnly_(); };
   });
 }
 
@@ -487,31 +483,13 @@ function renderBars_(){
   }
   $('barGrid').innerHTML = html.join('');
   Array.from($('barGrid').querySelectorAll('.slot')).forEach((slot)=>{
-    slot.onclick = () => { state.selectedBar = Number(slot.dataset.bar); state.selectedHalf = slot.dataset.half; state.bassMode = false; renderBars_(); renderAiBars_(); };
+    slot.onclick = () => { state.selectedBar = Number(slot.dataset.bar); state.selectedHalf = slot.dataset.half; state.bassMode = false; renderBars_(); };
   });
 }
 
 function buildSlotHtml_(bar, half, value){
   const active = state.selectedBar===bar && state.selectedHalf===half && state.activePart;
   return `<div class="slot${active ? ' active' : ''}" data-bar="${bar}" data-half="${half}"><div class="txt">${esc_(value || (half==='A' ? '（前半）' : '（後半）'))}</div><div class="badge">${half}</div></div>`;
-}
-
-function renderAiBars_(){
-  const part = getActivePart_();
-  $('aiBarGrid').innerHTML = part.bars.map((bar)=>{
-    const theory = [bar.changeChord && `change: ${bar.changeChord}`, bar.degree && `degree: ${bar.degree}`, bar.functionText && `Function: ${bar.functionText}`, bar.nonDiatonic && `non_diatonic: ${bar.nonDiatonic}`].filter(Boolean).join(' / ') || '理論列は保存後に再計算';
-    return `<div class="aiBarCard"><div class="row" style="justify-content:space-between;"><strong>${bar.bar}小節</strong><span class="muted">${esc_(theory)}</span></div><div class="aiActions">${bar.aiDraftFirstHalf ? `<button type="button" class="btn small" data-ai-bar="${bar.bar}" data-ai-half="A">AI前半: ${esc_(bar.aiDraftFirstHalf)}</button>` : ''}${bar.aiDraftSecondHalf ? `<button type="button" class="btn small" data-ai-bar="${bar.bar}" data-ai-half="B">AI後半: ${esc_(bar.aiDraftSecondHalf)}</button>` : ''}${!bar.aiDraftFirstHalf && !bar.aiDraftSecondHalf ? '<span class="muted">AI仮置きなし</span>' : ''}</div></div>`;
-  }).join('');
-  Array.from($('aiBarGrid').querySelectorAll('[data-ai-bar]')).forEach((btn)=>{
-    btn.onclick = () => {
-      state.selectedBar = Number(btn.dataset.aiBar);
-      state.selectedHalf = btn.dataset.aiHalf;
-      const bar = getSelectedSlot_();
-      const value = btn.dataset.aiHalf === 'A' ? bar.aiDraftFirstHalf : bar.aiDraftSecondHalf;
-      setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, value);
-      renderBars_(); renderAiBars_();
-    };
-  });
 }
 
 function renderPads_(){
@@ -536,14 +514,14 @@ function setSlotValue_(partName, barNumber, half, value){
   if(half === 'A') bar.firstHalf = sanitizeChord_(value); else bar.secondHalf = sanitizeChord_(value);
 }
 
-function clearSelected_(){ setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, ''); state.bassMode=false; renderBars_(); renderAiBars_(); }
-function resetAllBoxes_(){ state.song.parts.forEach((part)=>part.bars.forEach((bar)=>{ bar.firstHalf=''; bar.secondHalf=''; })); state.selectedBar=1; state.selectedHalf='A'; state.bassMode=false; renderBars_(); renderAiBars_(); log_('全小節をリセットしました。'); }
+function clearSelected_(){ setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, ''); state.bassMode=false; renderBars_(); }
+function resetAllBoxes_(){ state.song.parts.forEach((part)=>part.bars.forEach((bar)=>{ bar.firstHalf=''; bar.secondHalf=''; })); state.selectedBar=1; state.selectedHalf='A'; state.bassMode=false; renderBars_(); log_('全小節をリセットしました。'); }
 function toggleBassMode_(){ state.bassMode = !state.bassMode; log_(state.bassMode ? 'オンベース入力モード：次のルートを / で適用します。' : 'オンベース入力モード解除'); }
 function clearBass_(){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); pieces.bass=''; setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); state.bassMode=false; renderBars_(); }
 function clearQuality_(){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); pieces.qual=''; setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); renderBars_(); }
 function applyRoot_(root){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); if(state.bassMode){ pieces.bass=root; state.bassMode=false; } else { pieces.root=root; } setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); renderBars_(); }
 function applyQuality_(qual){ const pieces = slotPieces_(state.activePart, state.selectedBar, state.selectedHalf); pieces.qual=qual; setSlotValue_(state.activePart, state.selectedBar, state.selectedHalf, buildChordFromPieces_(pieces)); renderBars_(); }
-function fourBarRepeat_(){ const part = getActivePart_(); for(let i=0;i<4;i++){ part.bars[i+4].firstHalf = part.bars[i].firstHalf; part.bars[i+4].secondHalf = part.bars[i].secondHalf; } renderBars_(); renderAiBars_(); log_(`${part.part} の 1〜4小節を 5〜8小節へ複写しました。`); }
+function fourBarRepeat_(){ const part = getActivePart_(); for(let i=0;i<4;i++){ part.bars[i+4].firstHalf = part.bars[i].firstHalf; part.bars[i+4].secondHalf = part.bars[i].secondHalf; } renderBars_(); log_(`${part.part} の 1〜4小節を 5〜8小節へ複写しました。`); }
 
 function parseChordToPieces_(chord){
   const text = sanitizeChord_(chord);
