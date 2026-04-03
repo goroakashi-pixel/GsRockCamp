@@ -95,7 +95,7 @@ function suggestOriginalChords(baseId) {
 
     response.logs = (response.logs || []).concat([
       'AI precheck: OPENAI_API_KEY ' + (aiConfig.configured ? 'configured' : 'missing'),
-      '[ai][chord] reference url: ' + (request.referenceUrl || '(none)')
+      '[ai][ufret] reference url input: ' + (request.referenceUrl || '(none)')
     ]);
 
     var chordResult = fetchUfretChordsFromReferenceUrl_(bundle, request.referenceUrl);
@@ -118,7 +118,7 @@ function suggestOriginalChords(baseId) {
       return response;
     }
     response.message = '参照URL(U-FRET)から original_Chord 下書きを取得し、' + appliedCount + 'セルを反映しました。';
-    response.logs.push('[ai][chord] draft apply success: ' + appliedCount + ' cells');
+    response.logs.push('[ai][ufret] original chord draft created: ' + appliedCount + ' cells');
     return response;
   } catch (error) {
     return buildErrorResponse_(error, { action: 'suggestOriginalChords', baseId: baseId });
@@ -1112,36 +1112,308 @@ function researchYouTubeOnly_(bundle) {
 }
 
 function fetchUfretChordsFromReferenceUrl_(bundle, referenceUrl) {
-  var logs = ['[ai][chord] U-FRET direct url mode'];
+  var logs = [];
   var notes = [];
+  var first = bundle && bundle.rows && bundle.rows.length ? bundle.rows[0] : {};
+  var expectedArtist = String(first.artist || '');
+  var expectedTitle = String(first.title || '');
+  var expectedOriginalKey = sanitizeKeyInput_(first.originalKey);
   var url = sanitizeUrlInput_(referenceUrl);
+  logs.push('[ai][ufret] reference url accepted check start');
   if (!url) {
     notes.push('参照URL未入力です。U-FRET の曲URLを入力してください。');
-    logs.push('[ai][chord] U-FRET no match: reference URL empty');
+    logs.push('[ai][ufret] reference url rejected: empty');
     return { ok: false, logs: logs, notes: notes, chords: [], keyHints: [], sourceUrl: '' };
   }
-  if (!/^https?:\/\/(www\.)?ufret\.jp\/song\.php\?/.test(url)) {
+  if (!/^https?:\/\/(www\.)?ufret\.jp\/song\.php\?/i.test(url)) {
     notes.push('参照URLは U-FRET 曲ページ(song.php)を入力してください。');
-    logs.push('[ai][chord] U-FRET page rejected: invalid url');
+    logs.push('[ai][ufret] reference url rejected: not ufret song page');
     return { ok: false, logs: logs, notes: notes, chords: [], keyHints: [], sourceUrl: url };
   }
+  logs.push('[ai][ufret] reference url accepted');
 
   try {
+    logs.push('[ai][ufret] page parse start');
     var html = fetchHtmlText_(url);
-    var chords = extractChordCandidatesFromHtml_(html).slice(0, 64);
-    var keyHints = extractOriginalKeyHintsFromHtml_(html).slice(0, 8);
-    if (!chords.length) {
-      notes.push('U-FRET 該当なし（コード抽出失敗）');
-      logs.push('[ai][chord] U-FRET scrape failed: chords empty');
-      return { ok: false, logs: logs, notes: notes, chords: [], keyHints: keyHints, sourceUrl: url };
+    var directCandidate = buildUfretCandidateFromPage_(url, html, {
+      expectedArtist: expectedArtist,
+      expectedTitle: expectedTitle,
+      expectedOriginalKey: expectedOriginalKey,
+      allowVideoPlus: true
+    });
+    if (directCandidate.accepted && directCandidate.chords.length) {
+      logs.push('[ai][ufret] page parse success');
+      return {
+        ok: true,
+        logs: logs,
+        notes: notes,
+        chords: directCandidate.chords.slice(0, 64),
+        keyHints: directCandidate.keyHints.slice(0, 8),
+        sourceUrl: url
+      };
     }
-    logs.push('[ai][chord] U-FRET scrape success (direct url trusted)');
-    return { ok: true, logs: logs, notes: notes, chords: chords, keyHints: keyHints, sourceUrl: url };
+    logs.push('[ai][ufret] page parse no chord body');
+    if (!directCandidate.accepted && directCandidate.reason) logs.push('[ai][ufret] rejected from reference: ' + directCandidate.reason);
+
+    logs.push('[ai][ufret] video-plus search start');
+    var videoPlusLinks = findUfretVideoPlusLinks_(html, url);
+    if (!videoPlusLinks.length) videoPlusLinks = findUfretVideoPlusLinksBySearch_(expectedArtist, expectedTitle);
+    for (var i = 0; i < videoPlusLinks.length; i += 1) {
+      var candidateUrl = videoPlusLinks[i];
+      try {
+        var candidateHtml = fetchHtmlText_(candidateUrl);
+        var candidate = buildUfretCandidateFromPage_(candidateUrl, candidateHtml, {
+          expectedArtist: expectedArtist,
+          expectedTitle: expectedTitle,
+          expectedOriginalKey: expectedOriginalKey,
+          allowVideoPlus: true
+        });
+        if (!candidate.accepted) {
+          if (/beginner/i.test(candidate.reason)) logs.push('[ai][ufret] rejected beginner version');
+          else logs.push('[ai][ufret] video-plus rejected: ' + candidate.reason);
+          continue;
+        }
+        if (!candidate.chords.length) {
+          logs.push('[ai][ufret] video-plus no chord body: ' + candidateUrl);
+          continue;
+        }
+        logs.push('[ai][ufret] video-plus normal version found');
+        return {
+          ok: true,
+          logs: logs,
+          notes: notes,
+          chords: candidate.chords.slice(0, 64),
+          keyHints: candidate.keyHints.slice(0, 8),
+          sourceUrl: candidateUrl
+        };
+      } catch (candidateError) {
+        logs.push('[ai][ufret] video-plus fetch failed: ' + candidateUrl + ' / ' + candidateError.message);
+      }
+    }
+
+    logs.push('[ai][ufret] snippet search start');
+    var snippetCandidate = findUfretSnippetChordCandidate_(expectedArtist, expectedTitle, expectedOriginalKey);
+    logs = logs.concat(snippetCandidate.logs || []);
+    if (snippetCandidate.ok) {
+      logs.push('[ai][ufret] snippet chord candidates found');
+      return {
+        ok: true,
+        logs: logs,
+        notes: notes,
+        chords: (snippetCandidate.chords || []).slice(0, 64),
+        keyHints: (snippetCandidate.keyHints || []).slice(0, 8),
+        sourceUrl: snippetCandidate.sourceUrl || url
+      };
+    }
+    notes.push('U-FRET 該当なし（コード抽出失敗）');
+    logs.push('[ai][ufret] no usable chord source in ufret');
+    return { ok: false, logs: logs, notes: notes, chords: [], keyHints: [], sourceUrl: url };
   } catch (error) {
     notes.push('U-FRET 該当なし（取得失敗）');
-    logs.push('[ai][chord] U-FRET scrape failed: ' + error.message);
+    logs.push('[ai][ufret] page parse failed: ' + error.message);
     return { ok: false, logs: logs, notes: notes, chords: [], keyHints: [], sourceUrl: url };
   }
+}
+
+function buildUfretCandidateFromPage_(url, html, options) {
+  options = options || {};
+  var normalizedUrl = sanitizeUrlInput_(url);
+  var text = decodeHtmlEntities_(stripTags_(html)).replace(/\s+/g, ' ').trim();
+  var titleTag = '';
+  var titleMatch = String(html || '').match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (titleMatch) titleTag = stripTags_(titleMatch[1]);
+  var artist = extractUfretArtistFromText_(titleTag + ' ' + text);
+  var title = extractUfretSongTitleFromText_(titleTag + ' ' + text);
+  var keyHints = extractOriginalKeyHintsFromHtml_(html).slice(0, 8);
+  var chords = extractChordCandidatesFromHtml_(html).slice(0, 96);
+  var checks = evaluateUfretCandidateRules_({
+    url: normalizedUrl,
+    text: text,
+    titleTag: titleTag,
+    artist: artist,
+    title: title,
+    keyHints: keyHints,
+    expectedArtist: options.expectedArtist,
+    expectedTitle: options.expectedTitle,
+    expectedOriginalKey: options.expectedOriginalKey,
+    allowVideoPlus: options.allowVideoPlus
+  });
+  return {
+    accepted: checks.accepted,
+    reason: checks.reason,
+    chords: chords,
+    keyHints: keyHints,
+    artist: artist,
+    title: title
+  };
+}
+
+function evaluateUfretCandidateRules_(input) {
+  var url = String(input.url || '');
+  var text = String(input.text || '');
+  var titleTag = String(input.titleTag || '');
+  var combined = [url, titleTag, text].join(' ');
+  var expectedArtist = normalizeCompareText_(input.expectedArtist || '');
+  var expectedTitle = normalizeCompareText_(input.expectedTitle || '');
+  var candidateArtist = normalizeCompareText_(input.artist || '');
+  var candidateTitle = normalizeCompareText_(input.title || '');
+  var keyHints = input.keyHints || [];
+  var expectedOriginalKey = sanitizeKeyInput_(input.expectedOriginalKey);
+  var allowVideoPlus = input.allowVideoPlus !== false;
+
+  if (!/^https?:\/\/(www\.)?ufret\.jp\//i.test(url)) return { accepted: false, reason: 'not ufret domain' };
+  if (/初心者|ビギナー|beginner/i.test(combined)) return { accepted: false, reason: 'beginner version' };
+  if (!allowVideoPlus && /動画プラス|movie|mv/i.test(combined)) return { accepted: false, reason: 'video-plus disabled' };
+  if (/カポ|capo/i.test(combined) && !/カポなし|capo\s*0|capo0/i.test(combined)) return { accepted: false, reason: 'capo-based' };
+  if (expectedTitle && candidateTitle && candidateTitle.indexOf(expectedTitle) < 0 && expectedTitle.indexOf(candidateTitle) < 0) {
+    return { accepted: false, reason: 'title mismatch' };
+  }
+  if (expectedArtist && candidateArtist && candidateArtist.indexOf(expectedArtist) < 0 && expectedArtist.indexOf(candidateArtist) < 0) {
+    return { accepted: false, reason: 'artist mismatch' };
+  }
+  if (expectedOriginalKey && keyHints.length && !keyHints.some(function(keyName) { return sanitizeKeyInput_(keyName) === expectedOriginalKey; })) {
+    return { accepted: false, reason: 'not original key' };
+  }
+  return { accepted: true, reason: '' };
+}
+
+function normalizeCompareText_(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[“”"'`]/g, '')
+    .replace(/[‐‑‒–—―ー\-]/g, '')
+    .replace(/[()（）［］\[\]【】『』「」]/g, '')
+    .replace(/\s+/g, '')
+    .trim();
+}
+
+function extractUfretArtistFromText_(text) {
+  var plain = String(text || '').replace(/\s+/g, ' ').trim();
+  var match = plain.match(/\/\s*([^\/\n|｜]+?)(?:\s*[-|｜]|$)/);
+  if (match && match[1]) return match[1].trim();
+  var label = plain.match(/(?:アーティスト|歌手)\s*[:：]\s*([^\n|｜]+)/i);
+  return label && label[1] ? label[1].trim() : '';
+}
+
+function extractUfretSongTitleFromText_(text) {
+  var plain = String(text || '').replace(/\s+/g, ' ').trim();
+  var match = plain.match(/^(.+?)\s*\/\s*[^\/]+/);
+  if (match && match[1]) return match[1].trim();
+  var label = plain.match(/(?:曲名|タイトル)\s*[:：]\s*([^\n|｜]+)/i);
+  return label && label[1] ? label[1].trim() : '';
+}
+
+function findUfretVideoPlusLinks_(referenceHtml, referenceUrl) {
+  var results = [];
+  var base = String(referenceUrl || '').replace(/[#?].*$/, '');
+  var regex = /<a[^>]+href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/a>/gi;
+  var match;
+  while ((match = regex.exec(String(referenceHtml || ''))) && results.length < 40) {
+    var href = normalizeCandidateUrl_(decodeHtmlEntities_(match[1] || ''));
+    var anchorText = stripTags_(decodeHtmlEntities_(match[2] || ''));
+    if (!href) continue;
+    if (!/^https?:\/\//i.test(href)) {
+      if (href.indexOf('//') === 0) href = 'https:' + href;
+      else if (href.charAt(0) === '/') href = 'https://www.ufret.jp' + href;
+      else href = base.replace(/\/[^/]*$/, '/') + href;
+    }
+    if (!/^https?:\/\/(www\.)?ufret\.jp\//i.test(href)) continue;
+    if (!/(動画プラス|movie|mv)/i.test(anchorText + ' ' + href)) continue;
+    if (/初心者|beginner/i.test(anchorText + ' ' + href)) continue;
+    if (results.indexOf(href) >= 0) continue;
+    results.push(href);
+  }
+  return results;
+}
+
+function findUfretVideoPlusLinksBySearch_(artist, title) {
+  var query = [artist || '', title || '', '動画プラス'].join(' ').trim();
+  if (!query) return [];
+  var url = 'https://www.ufret.jp/search.php?key=' + encodeURIComponent(query);
+  try {
+    var html = fetchHtmlText_(url);
+    var entries = extractUfretSearchEntriesFromHtml_(html);
+    var links = [];
+    entries.forEach(function(item) {
+      var checkText = [item.title || '', item.snippet || '', item.url || ''].join(' ');
+      if (!/(動画プラス|movie|mv)/i.test(checkText)) return;
+      if (/初心者|beginner/i.test(checkText)) return;
+      if (links.indexOf(item.url) >= 0) return;
+      links.push(item.url);
+    });
+    return links.slice(0, 10);
+  } catch (_error) {
+    return [];
+  }
+}
+
+function findUfretSnippetChordCandidate_(artist, title, expectedOriginalKey) {
+  var logs = [];
+  var results = [];
+  var queries = [
+    [artist || '', title || '', '動画プラス'].join(' ').trim(),
+    [artist || '', title || ''].join(' ').trim()
+  ];
+  queries.forEach(function(query) {
+    if (!query) return;
+    try {
+      var searchUrl = 'https://www.ufret.jp/search.php?key=' + encodeURIComponent(query);
+      var html = fetchHtmlText_(searchUrl);
+      var entries = extractUfretSearchEntriesFromHtml_(html);
+      entries.forEach(function(entry) {
+        if (!entry || !entry.url) return;
+        var checks = evaluateUfretCandidateRules_({
+          url: entry.url,
+          text: entry.snippet || '',
+          titleTag: entry.title || '',
+          artist: extractUfretArtistFromText_(entry.title || ''),
+          title: extractUfretSongTitleFromText_(entry.title || ''),
+          keyHints: [],
+          expectedArtist: artist,
+          expectedTitle: title,
+          expectedOriginalKey: expectedOriginalKey,
+          allowVideoPlus: true
+        });
+        if (!checks.accepted) return;
+        var snippetChords = extractChordTokensFromText_(String(entry.snippet || ''));
+        if (snippetChords.length < 4) return;
+        results.push({
+          url: entry.url,
+          chords: dedupeChordCandidates_(snippetChords).slice(0, 64),
+          keyHints: []
+        });
+      });
+    } catch (error) {
+      logs.push('[ai][ufret] snippet fetch failed: ' + error.message);
+    }
+  });
+  if (!results.length) return { ok: false, logs: logs, chords: [], keyHints: [], sourceUrl: '' };
+  results.sort(function(a, b) { return b.chords.length - a.chords.length; });
+  return {
+    ok: true,
+    logs: logs,
+    chords: results[0].chords,
+    keyHints: results[0].keyHints,
+    sourceUrl: results[0].url
+  };
+}
+
+function extractUfretSearchEntriesFromHtml_(html) {
+  var text = decodeHtmlEntities_(String(html || ''));
+  var entries = [];
+  var linkRegex = /<a[^>]+href=['"]([^'"]*\/song\.php\?[^'"]*)['"][^>]*>([\s\S]*?)<\/a>/gi;
+  var match;
+  while ((match = linkRegex.exec(text)) && entries.length < 120) {
+    var url = normalizeCandidateUrl_(match[1]);
+    if (!/^https?:\/\//i.test(url)) url = 'https://www.ufret.jp/' + String(url).replace(/^\//, '');
+    if (!/^https?:\/\/(www\.)?ufret\.jp\/song\.php\?/i.test(url)) continue;
+    var title = stripTags_(match[2] || '');
+    var trailing = text.slice(match.index + match[0].length, match.index + match[0].length + 800);
+    var snippetMatch = trailing.match(/<(?:p|div|span)[^>]*>([\s\S]{0,500}?)<\/(?:p|div|span)>/i);
+    var snippet = snippetMatch ? stripTags_(snippetMatch[1]) : '';
+    entries.push({ url: url, title: title, snippet: snippet });
+  }
+  return entries;
 }
 
 function buildDraftFromReferenceChords_(bundle, chordResult, youtubeUrl) {
