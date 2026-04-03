@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.1.5';
+const APP_VERSION = '1.1.6';
 const OPENAI_MODEL = 'gpt-5-mini';
 const ENABLE_RULE_BASED_FALLBACK = false;
 const AI_JSON_RETRY_MAX = 2;
@@ -1128,12 +1128,6 @@ function fetchUfretChordsFromReferenceUrl_(bundle, referenceUrl) {
 
   try {
     var html = fetchHtmlText_(url);
-    var pageCheck = validateUfretChordPage_({ url: url, title: '' }, html, bundle.rows[0].originalKey);
-    if (!pageCheck.accepted) {
-      notes.push('U-FRET 条件不一致: ' + pageCheck.reason);
-      logs.push('[ai][chord] U-FRET page rejected: ' + pageCheck.reason);
-      return { ok: false, logs: logs, notes: notes, chords: [], keyHints: [], sourceUrl: url };
-    }
     var chords = extractChordCandidatesFromHtml_(html).slice(0, 64);
     var keyHints = extractOriginalKeyHintsFromHtml_(html).slice(0, 8);
     if (!chords.length) {
@@ -1141,7 +1135,7 @@ function fetchUfretChordsFromReferenceUrl_(bundle, referenceUrl) {
       logs.push('[ai][chord] U-FRET scrape failed: chords empty');
       return { ok: false, logs: logs, notes: notes, chords: [], keyHints: keyHints, sourceUrl: url };
     }
-    logs.push('[ai][chord] U-FRET scrape success');
+    logs.push('[ai][chord] U-FRET scrape success (direct url trusted)');
     return { ok: true, logs: logs, notes: notes, chords: chords, keyHints: keyHints, sourceUrl: url };
   } catch (error) {
     notes.push('U-FRET 該当なし（取得失敗）');
