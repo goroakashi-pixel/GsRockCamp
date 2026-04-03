@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.1.3';
+const APP_VERSION = '1.1.4';
 const OPENAI_MODEL = 'gpt-5-mini';
 const ENABLE_RULE_BASED_FALLBACK = false;
 const AI_JSON_RETRY_MAX = 2;
@@ -48,7 +48,6 @@ function loadSong(baseId) {
       message: '読み込み成功: ID ' + normalizedBaseId + '〜' + (normalizedBaseId + 3),
       stage: 'draft_ready'
     });
-    hydrateDraftMetadataFromWeb_(bundle, response, { metadataOnly: true });
     return response;
   } catch (error) {
     return buildErrorResponse_(error, { action: 'loadSong', baseId: baseId });
@@ -87,6 +86,7 @@ function suggestOriginalChords(baseId) {
       stage: 'ai_chord_drafted'
     });
     var aiConfig = getOpenAiConfig_(true);
+    var research = hydrateDraftMetadataFromWeb_(bundle, response, { metadataOnly: false });
     response.logs = (response.logs || []).concat([
       'AI precheck: OPENAI_API_KEY ' + (aiConfig.configured ? 'configured' : 'missing')
     ]);
@@ -101,11 +101,8 @@ function suggestOriginalChords(baseId) {
           response.logs = (response.logs || []).concat(['AI fallback draft: web chord scrape から生成しました。']);
         }
       }
-      if (!response.message) response.message = 'OPENAI_API_KEY 未設定のため、AI original_Chord 下書きは未実行です。original_key / YouTube は検索リンクで補助してください。';
-      response.logs = (response.logs || []).concat([
-        'AI original_Chord 下書き: OPENAI_API_KEY 未設定のため未実行',
-        'metadata補助: YouTube検索リンクと既存DB情報を表示'
-      ]);
+      if (!response.message) response.message = buildResearchOnlyMessage_(research);
+      response.logs = (response.logs || []).concat(buildResearchOnlyLogs_(research));
       return response;
     }
 
@@ -352,11 +349,11 @@ function buildDraftMetadata_(bundle) {
     status.originalKeySource = originalKey ? 'inferred' : 'empty';
     notes.push(originalKey
       ? 'DB original_key は空欄です。既存コードから仮置きしました。読み込み後の候補を確認してください。'
-      : 'DB original_key は空欄です。読み込み時に公開Web調査を試みます。');
+      : 'DB original_key は空欄です。「AIでoriginal_Chord取得」で候補を作成してください。');
   }
   if (!youtubeUrl) {
     status.youtubeSource = 'manual_search';
-    notes.push('DB YouTube は空欄です。読み込み時に公開Web調査を試みます。');
+    notes.push('DB YouTube は空欄です。「AIでoriginal_Chord取得」で候補を作成してください。');
   }
 
   return {

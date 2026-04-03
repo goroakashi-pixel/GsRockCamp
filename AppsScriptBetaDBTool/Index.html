@@ -89,7 +89,7 @@
   <div class="muted">ヘッダー情報 / AI下書き</div>
   <div class="metaGrid" id="metaGrid"></div>
   <div id="dataWarning" class="warnBox">Data が TRUE です。既存データ上書きに注意してください。</div>
-  <div id="draftNotes" class="noteBox" style="margin-top:10px;">読み込み後に公開Web調査で original_key / YouTube 候補を取得し、その後に AI original_Chord 下書きを作成できます。</div>
+  <div id="draftNotes" class="noteBox" style="margin-top:10px;">まず「読み込み」でDB表示を確認し、その後に「AIでoriginal_Chord取得」で候補を作成します。</div>
   <div class="row" style="margin-top:10px;">
     <div style="flex:1; min-width:160px;">
       <label>AI下書き original_key</label>
@@ -450,7 +450,7 @@ function renderMetaOnly_(){
     ['Version', state.song.appVersion || APP_VERSION, `YouTube候補: ${meta.draftYoutubeUrl || '-'}`]
   ];
   $('metaGrid').innerHTML = items.map(([k,v,s]) => `<div class="metaItem"><div class="k">${esc_(k)}</div><div class="v">${esc_(v)}</div><div class="s">${esc_(s || '')}</div></div>`).join('');
-  $('draftNotes').textContent = Array.isArray(meta.draftNotes) && meta.draftNotes.length ? meta.draftNotes.join('\n') : 'AI下書きがまだありません。必要なら「AIでoriginal_Chord取得」を押してください。OPENAI_API_KEY が無い場合も、公開Web調査で original_key / YouTube 候補までは取得します。';
+  $('draftNotes').textContent = Array.isArray(meta.draftNotes) && meta.draftNotes.length ? meta.draftNotes.join('\n') : 'AI下書きがまだありません。まず「読み込み」でDB表示を確認し、その後「AIでoriginal_Chord取得」で候補を作成してください。';
   $('partMeta').textContent = `draft original_key: ${state.song.metadata.draftOriginalKey || '-'} / Quiz_key: ${state.song.metadata.draftQuizKey || '-'}`;
 }
 
