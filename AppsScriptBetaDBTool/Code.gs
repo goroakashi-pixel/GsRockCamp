@@ -1158,15 +1158,8 @@ function buildDraftFromReferenceChords_(bundle, chordResult, youtubeUrl) {
   };
   PART_ORDER.forEach(function(part, partIndex) {
     draft.partMap[part] = [];
-    var seed = chordPool.slice(partIndex * 4, partIndex * 4 + 8);
-    if (!seed.length) seed = chordPool.slice(0, Math.min(8, chordPool.length));
-    if (seed.length >= 4 && seed.length < 8) {
-      while (seed.length < 8) seed.push(seed[seed.length % 4]);
-    }
-    for (var i = 0; i < BAR_COUNT; i += 1) {
-      var code = seed[i % Math.max(seed.length, 1)] || '';
-      draft.partMap[part].push({ bar: i + 1, firstHalf: code, secondHalf: '' });
-    }
+    var bars = buildBarsFromChordPool_(chordPool, partIndex * BAR_COUNT * 2, BAR_COUNT);
+    for (var i = 0; i < BAR_COUNT; i += 1) draft.partMap[part].push(bars[i]);
   });
   return draft;
 }
@@ -1585,14 +1578,82 @@ function decodeHtmlEntities_(text) {
 }
 
 function extractChordCandidatesFromHtml_(html) {
-  var text = decodeHtmlEntities_(String(html || '').replace(/\n/g, ' '));
-  var matches = text.match(/\b[A-G](?:#|b)?(?:maj7|M7|m7-5|mM7|m7|m6|m|7|6|9|add9|sus4|dim|aug)?(?:\/[A-G](?:#|b)?)?\b/g) || [];
-  var blacklist = { HTML:true, HTTP:true, HTTPS:true };
+  var raw = decodeHtmlEntities_(String(html || ''));
+  if (!raw) return [];
+  var structured = extractChordCandidatesFromChordLikeTags_(raw);
+  if (structured.length >= 8) return structured;
+  var lineBased = extractChordCandidatesFromTextLines_(raw);
+  if (lineBased.length >= 8) return lineBased;
+  return dedupeChordCandidates_(extractChordTokensFromText_(stripTags_(raw)));
+}
+
+function buildBarsFromChordPool_(chordPool, startIndex, barCount) {
+  var source = (chordPool || []).filter(Boolean);
+  var bars = [];
+  if (!source.length) {
+    for (var i = 0; i < barCount; i += 1) bars.push({ bar: i + 1, firstHalf: '', secondHalf: '' });
+    return bars;
+  }
+  var cursor = Number(startIndex || 0);
+  for (var bar = 0; bar < barCount; bar += 1) {
+    var first = source[cursor % source.length] || '';
+    var second = source[(cursor + 1) % source.length] || '';
+    if (source.length === 1) second = '';
+    bars.push({ bar: bar + 1, firstHalf: first, secondHalf: second });
+    cursor += 2;
+  }
+  return bars;
+}
+
+function extractChordCandidatesFromChordLikeTags_(html) {
+  var matches = [];
+  var regex = /<(span|div|p|li|td|th|rt)\b[^>]*(?:class|id)\s*=\s*["'][^"']*(?:chord|code|key|kcode|fret|rt)[^"']*["'][^>]*>([\s\S]*?)<\/\1>/gi;
+  var match;
+  while ((match = regex.exec(html)) && matches.length < 240) {
+    matches = matches.concat(extractChordTokensFromText_(stripTags_(match[2])));
+  }
+  return dedupeChordCandidates_(matches);
+}
+
+function extractChordCandidatesFromTextLines_(html) {
+  var text = String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<(br|\/p|\/div|\/li|\/tr|\/h\d)\b[^>]*>/gi, '\n');
+  text = stripTags_(decodeHtmlEntities_(text));
+  var lines = text.split(/\r?\n/);
+  var matches = [];
+  for (var i = 0; i < lines.length; i += 1) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    var tokens = extractChordTokensFromText_(line);
+    if (tokens.length >= 2) matches = matches.concat(tokens);
+    if (matches.length >= 240) break;
+  }
+  return dedupeChordCandidates_(matches);
+}
+
+function extractChordTokensFromText_(text) {
+  var normalized = String(text || '').replace(/[|｜]/g, ' ');
+  var regex = /\b[A-G](?:#|b)?(?:maj7|M7|m7-5|mM7|m7|m6|m|7|6|9|11|13|add9|sus2|sus4|dim|aug)?(?:\([b#]?(?:5|9|11|13)\))?(?:\/[A-G](?:#|b)?)?\b/g;
+  return normalized.match(regex) || [];
+}
+
+function dedupeChordCandidates_(matches) {
+  var blacklist = { HTML:true, HTTP:true, HTTPS:true, JPG:true, PNG:true, SVG:true };
   var filtered = [];
-  matches.forEach(function(chord) {
-    if (blacklist[chord]) return;
-    if (filtered.length && filtered[filtered.length - 1] === chord) return;
+  var repeatGuard = 0;
+  var prev = '';
+  (matches || []).forEach(function(chord) {
+    if (!chord || blacklist[chord]) return;
+    if (chord === prev) {
+      repeatGuard += 1;
+      if (repeatGuard > 2) return;
+    } else {
+      repeatGuard = 0;
+    }
     filtered.push(chord);
+    prev = chord;
   });
   return filtered;
 }

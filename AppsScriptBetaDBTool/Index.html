@@ -483,7 +483,14 @@ function renderYoutube_(force){
 function renderTabs_(){
   $('partTabs').innerHTML = PART_ORDER.map((part)=>`<button type="button" class="tab${state.activePart===part?' active':''}" data-part="${part}">${part}</button>`).join('');
   Array.from($('partTabs').querySelectorAll('[data-part]')).forEach((button)=>{
-    button.onclick = () => { state.activePart = button.dataset.part; renderTabs_(); renderBars_(); renderMetaOnly_(); };
+    button.onclick = () => {
+      state.activePart = button.dataset.part;
+      Array.from($('partTabs').querySelectorAll('[data-part]')).forEach((node)=>{
+        node.classList.toggle('active', node.dataset.part === state.activePart);
+      });
+      renderBars_();
+      renderMetaOnly_();
+    };
   });
 }
 
