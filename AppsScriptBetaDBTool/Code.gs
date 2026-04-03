@@ -103,6 +103,10 @@ function suggestOriginalChords(baseId) {
     if (!chordResult.ok) {
       response.stage = 'metadata_only';
       response.metadata.draftNotes = (response.metadata.draftNotes || []).concat(chordResult.notes || []);
+      if (response.metadata.draftNotes.indexOf('U-FRET内で有効なコードソースを取得できませんでした。') < 0) {
+        response.metadata.draftNotes.push('U-FRET内で有効なコードソースを取得できませんでした。');
+      }
+      response.logs.push('[ai][ufret] skip openai: no chord source');
       response.message = 'U-FRET 参照URLから original_Chord を取得できませんでした。URLを確認してください。';
       return response;
     }
@@ -114,7 +118,7 @@ function suggestOriginalChords(baseId) {
     if (appliedCount <= 0) {
       response.stage = 'metadata_only';
       response.message = '参照URLのコード抽出は成功しましたが、下書き反映に失敗しました。';
-      response.logs.push('[ai][chord] UI apply failure');
+      response.logs.push('[ai][ufret] UI apply failure');
       return response;
     }
     response.message = '参照URL(U-FRET)から original_Chord 下書きを取得し、' + appliedCount + 'セルを反映しました。';
@@ -1141,6 +1145,11 @@ function fetchUfretChordsFromReferenceUrl_(bundle, referenceUrl) {
       expectedOriginalKey: expectedOriginalKey,
       allowVideoPlus: true
     });
+    if (directCandidate.isBeginnerPage) logs.push('[ai][ufret] page itself is beginner version');
+    else {
+      logs.push('[ai][ufret] reference page is normal version');
+      if (directCandidate.containsBeginnerLink) logs.push('[ai][ufret] reference page contains beginner link but not beginner page');
+    }
     if (directCandidate.accepted && directCandidate.chords.length) {
       logs.push('[ai][ufret] page parse success');
       return {
@@ -1156,10 +1165,10 @@ function fetchUfretChordsFromReferenceUrl_(bundle, referenceUrl) {
     if (!directCandidate.accepted && directCandidate.reason) logs.push('[ai][ufret] rejected from reference: ' + directCandidate.reason);
 
     logs.push('[ai][ufret] video-plus search start');
-    var videoPlusLinks = findUfretVideoPlusLinks_(html, url);
+    var videoPlusLinks = findUfretVideoPlusLinks_(html, url, expectedArtist, expectedTitle);
     if (!videoPlusLinks.length) videoPlusLinks = findUfretVideoPlusLinksBySearch_(expectedArtist, expectedTitle);
     for (var i = 0; i < videoPlusLinks.length; i += 1) {
-      var candidateUrl = videoPlusLinks[i];
+      var candidateUrl = videoPlusLinks[i].url;
       try {
         var candidateHtml = fetchHtmlText_(candidateUrl);
         var candidate = buildUfretCandidateFromPage_(candidateUrl, candidateHtml, {
@@ -1169,7 +1178,7 @@ function fetchUfretChordsFromReferenceUrl_(bundle, referenceUrl) {
           allowVideoPlus: true
         });
         if (!candidate.accepted) {
-          if (/beginner/i.test(candidate.reason)) logs.push('[ai][ufret] rejected beginner version');
+          if (/beginner/i.test(candidate.reason)) logs.push('[ai][ufret] video-plus candidate rejected: beginner version');
           else logs.push('[ai][ufret] video-plus rejected: ' + candidate.reason);
           continue;
         }
@@ -1177,7 +1186,8 @@ function fetchUfretChordsFromReferenceUrl_(bundle, referenceUrl) {
           logs.push('[ai][ufret] video-plus no chord body: ' + candidateUrl);
           continue;
         }
-        logs.push('[ai][ufret] video-plus normal version found');
+        logs.push('[ai][ufret] video-plus candidate found: normal');
+        logs.push('[ai][ufret] selected chord source: video-plus page');
         return {
           ok: true,
           logs: logs,
@@ -1196,6 +1206,7 @@ function fetchUfretChordsFromReferenceUrl_(bundle, referenceUrl) {
     logs = logs.concat(snippetCandidate.logs || []);
     if (snippetCandidate.ok) {
       logs.push('[ai][ufret] snippet chord candidates found');
+      logs.push('[ai][ufret] selected chord source: video-plus snippet');
       return {
         ok: true,
         logs: logs,
@@ -1206,6 +1217,7 @@ function fetchUfretChordsFromReferenceUrl_(bundle, referenceUrl) {
       };
     }
     notes.push('U-FRET 該当なし（コード抽出失敗）');
+    notes.push('U-FRET内で有効なコードソースを取得できませんでした。');
     logs.push('[ai][ufret] no usable chord source in ufret');
     return { ok: false, logs: logs, notes: notes, chords: [], keyHints: [], sourceUrl: url };
   } catch (error) {
@@ -1244,7 +1256,9 @@ function buildUfretCandidateFromPage_(url, html, options) {
     chords: chords,
     keyHints: keyHints,
     artist: artist,
-    title: title
+    title: title,
+    isBeginnerPage: checks.isBeginnerPage,
+    containsBeginnerLink: checks.containsBeginnerLink
   };
 }
 
@@ -1261,20 +1275,39 @@ function evaluateUfretCandidateRules_(input) {
   var expectedOriginalKey = sanitizeKeyInput_(input.expectedOriginalKey);
   var allowVideoPlus = input.allowVideoPlus !== false;
 
-  if (!/^https?:\/\/(www\.)?ufret\.jp\//i.test(url)) return { accepted: false, reason: 'not ufret domain' };
-  if (/初心者|ビギナー|beginner/i.test(combined)) return { accepted: false, reason: 'beginner version' };
+  if (!/^https?:\/\/(www\.)?ufret\.jp\//i.test(url)) return { accepted: false, reason: 'not ufret domain', isBeginnerPage: false, containsBeginnerLink: false };
+  var isBeginnerPage = detectUfretBeginnerPage_(url, titleTag, text);
+  var containsBeginnerLink = containsUfretBeginnerLink_(text);
+  if (isBeginnerPage) return { accepted: false, reason: 'beginner version', isBeginnerPage: true, containsBeginnerLink: containsBeginnerLink };
   if (!allowVideoPlus && /動画プラス|movie|mv/i.test(combined)) return { accepted: false, reason: 'video-plus disabled' };
-  if (/カポ|capo/i.test(combined) && !/カポなし|capo\s*0|capo0/i.test(combined)) return { accepted: false, reason: 'capo-based' };
+  if (/カポ|capo/i.test(combined) && !/カポなし|capo\s*0|capo0/i.test(combined)) return { accepted: false, reason: 'capo-based', isBeginnerPage: isBeginnerPage, containsBeginnerLink: containsBeginnerLink };
   if (expectedTitle && candidateTitle && candidateTitle.indexOf(expectedTitle) < 0 && expectedTitle.indexOf(candidateTitle) < 0) {
-    return { accepted: false, reason: 'title mismatch' };
+    return { accepted: false, reason: 'title mismatch', isBeginnerPage: isBeginnerPage, containsBeginnerLink: containsBeginnerLink };
   }
   if (expectedArtist && candidateArtist && candidateArtist.indexOf(expectedArtist) < 0 && expectedArtist.indexOf(candidateArtist) < 0) {
-    return { accepted: false, reason: 'artist mismatch' };
+    return { accepted: false, reason: 'artist mismatch', isBeginnerPage: isBeginnerPage, containsBeginnerLink: containsBeginnerLink };
   }
   if (expectedOriginalKey && keyHints.length && !keyHints.some(function(keyName) { return sanitizeKeyInput_(keyName) === expectedOriginalKey; })) {
-    return { accepted: false, reason: 'not original key' };
+    return { accepted: false, reason: 'not original key', isBeginnerPage: isBeginnerPage, containsBeginnerLink: containsBeginnerLink };
   }
-  return { accepted: true, reason: '' };
+  return { accepted: true, reason: '', isBeginnerPage: isBeginnerPage, containsBeginnerLink: containsBeginnerLink };
+}
+
+function detectUfretBeginnerPage_(url, titleTag, text) {
+  var urlText = String(url || '');
+  var titleText = String(titleTag || '');
+  if (/[?&](?:type|ver|mode)=?beginners?/i.test(urlText)) return true;
+  if (/初心者(?:ver|版)?/i.test(urlText)) return true;
+  if (/初心者(?:ver|版)?/i.test(titleText)) return true;
+  var aroundTitle = String(text || '').slice(0, 260);
+  if (/^\s*初心者(?:向け|ver|版)?\b/i.test(aroundTitle)) return true;
+  if (/動画プラス初心者/i.test(aroundTitle)) return true;
+  return false;
+}
+
+function containsUfretBeginnerLink_(text) {
+  var line = String(text || '').replace(/\s+/g, ' ');
+  return /初心者(?:向け|ver|版)?/.test(line);
 }
 
 function normalizeCompareText_(text) {
@@ -1303,7 +1336,7 @@ function extractUfretSongTitleFromText_(text) {
   return label && label[1] ? label[1].trim() : '';
 }
 
-function findUfretVideoPlusLinks_(referenceHtml, referenceUrl) {
+function findUfretVideoPlusLinks_(referenceHtml, referenceUrl, expectedArtist, expectedTitle) {
   var results = [];
   var base = String(referenceUrl || '').replace(/[#?].*$/, '');
   var regex = /<a[^>]+href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/a>/gi;
@@ -1320,10 +1353,15 @@ function findUfretVideoPlusLinks_(referenceHtml, referenceUrl) {
     if (!/^https?:\/\/(www\.)?ufret\.jp\//i.test(href)) continue;
     if (!/(動画プラス|movie|mv)/i.test(anchorText + ' ' + href)) continue;
     if (/初心者|beginner/i.test(anchorText + ' ' + href)) continue;
-    if (results.indexOf(href) >= 0) continue;
-    results.push(href);
+    if (results.some(function(item) { return item.url === href; })) continue;
+    var score = 0;
+    if (/動画プラス|movie|mv/i.test(anchorText + ' ' + href)) score += 50;
+    if (/通常|normal/i.test(anchorText + ' ' + href)) score += 10;
+    if (normalizeCompareText_(anchorText).indexOf(normalizeCompareText_(expectedTitle || '')) >= 0) score += 10;
+    if (normalizeCompareText_(anchorText).indexOf(normalizeCompareText_(expectedArtist || '')) >= 0) score += 10;
+    results.push({ url: href, score: score });
   }
-  return results;
+  return results.sort(function(a, b) { return b.score - a.score; });
 }
 
 function findUfretVideoPlusLinksBySearch_(artist, title) {
@@ -1338,10 +1376,12 @@ function findUfretVideoPlusLinksBySearch_(artist, title) {
       var checkText = [item.title || '', item.snippet || '', item.url || ''].join(' ');
       if (!/(動画プラス|movie|mv)/i.test(checkText)) return;
       if (/初心者|beginner/i.test(checkText)) return;
-      if (links.indexOf(item.url) >= 0) return;
-      links.push(item.url);
+      if (links.some(function(existing) { return existing.url === item.url; })) return;
+      var score = 50;
+      if (/通常|normal/i.test(checkText)) score += 10;
+      links.push({ url: item.url, score: score });
     });
-    return links.slice(0, 10);
+    return links.sort(function(a, b) { return b.score - a.score; }).slice(0, 10);
   } catch (_error) {
     return [];
   }
