@@ -270,9 +270,9 @@ function handleUfretFetch_(){
   const referenceUrl = $('referenceUrlInput').value.trim();
   if(!referenceUrl){ log_('参照URL（U-FRET曲ページ）を入力してください。'); return; }
   setBusy_(true,false);
-  log_(`fetchUfretRawPreview(${state.baseId}) を呼び出します。OpenAI は使用しません。`);
-  runServer_('fetchUfretRawPreview', { baseId: state.baseId, referenceUrl })
-    .then((response)=>applyUfretRawResponse_(response))
+  log_('U-FRET生データ取得を Chrome拡張へ依頼します。OpenAI は使用しません。');
+  requestUfretPreviewFromExtension_(referenceUrl)
+    .then((payload)=>applyUfretRawPayloadToState_(payload, referenceUrl))
     .catch((error)=>handleClientError_(error,'ufret'))
     .finally(()=>setBusy_(false,false));
 }
@@ -397,6 +397,54 @@ function applyUfretRawResponse_(response){
   renderAll_(false);
   log_(`[ufret] ${response.message || 'OK'} / lines:${(currentMeta.ufretRawLines || []).length}`);
   (response.logs || []).forEach((line)=>log_(line));
+}
+
+function requestUfretPreviewFromExtension_(referenceUrl){
+  return new Promise((resolve, reject)=>{
+    const reqId = `ufret_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    const timeout = setTimeout(()=>{
+      window.removeEventListener('message', onMessage);
+      reject(new Error('Chrome拡張から応答がありません。拡張を有効化し、対象タブで連携を許可してください。'));
+    }, 12000);
+    const onMessage = (event)=>{
+      if(event.source !== window) return;
+      const data = event.data || {};
+      if(data.source !== 'ufret-extension-bridge') return;
+      if(data.requestId !== reqId) return;
+      clearTimeout(timeout);
+      window.removeEventListener('message', onMessage);
+      if(data.ok && data.payload){ resolve(data.payload); return; }
+      reject(new Error(data.error || '拡張取得に失敗しました。'));
+    };
+    window.addEventListener('message', onMessage);
+    window.postMessage({
+      source:'grockcamp-db-tool',
+      action:'extractUfretPreviewFromReferenceUrl',
+      requestId:reqId,
+      referenceUrl
+    }, '*');
+  });
+}
+
+function applyUfretRawPayloadToState_(payload, referenceUrl){
+  const ok = !!(payload && payload.ok);
+  const meta = state.song.metadata || {};
+  const lines = Array.isArray(payload && payload.ufretRawLines) ? payload.ufretRawLines.map((line)=>String(line || '').trim()).filter(Boolean) : [];
+  const previewText = String((payload && payload.previewText) || '').trim();
+  const previewLines = previewText ? previewText.split(/\r?\n/) : lines;
+  meta.referenceUrl = referenceUrl;
+  meta.ufretRawLines = lines;
+  meta.ufretRawText = previewText || lines.join('\n');
+  meta.ufretStatus = ok ? 'ready' : 'failed';
+  meta.ufretSourceUrl = (payload && payload.songUrl) || referenceUrl;
+  meta.draftNotes = ok
+    ? previewLines.slice(0, 120)
+    : ['U-FRET 生データ取得失敗', String((payload && payload.message) || 'unknown error')];
+  state.song.metadata = meta;
+  syncDraftInputsFromState_(false);
+  renderAll_(false);
+  log_(`[ufret] ${ok ? 'success' : 'failed'} / lineCount:${Number(payload && payload.lineCount || lines.length || 0)}`);
+  String((payload && payload.logText) || '').split(/\r?\n/).filter(Boolean).forEach((line)=>log_(line));
 }
 
 function normalizeSongResponse_(response){
