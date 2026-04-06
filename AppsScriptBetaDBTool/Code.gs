@@ -3,7 +3,7 @@ const SHEET_NAME = 'DB';
 const PART_ORDER = ['intro', 'A', 'B', 'サビ'];
 const SAVE_MODE = 'EMPTY_ONLY'; // 'EMPTY_ONLY' | 'FORCE'
 const BAR_COUNT = 8;
-const APP_VERSION = '1.1.6';
+const APP_VERSION = '1.2.0';
 const OPENAI_MODEL = 'gpt-5-mini';
 const ENABLE_RULE_BASED_FALLBACK = false;
 const AI_JSON_RETRY_MAX = 2;
@@ -88,32 +88,55 @@ function suggestOriginalChords(baseId) {
     });
     response.metadata = response.metadata || {};
     response.metadata.referenceUrl = request.referenceUrl || '';
-    var aiConfig = getOpenAiConfig_(true);
     var research = researchYouTubeOnly_(bundle);
     applyResearchMetadataToResponse_(response, research);
     response.logs = (response.logs || []).concat((research.logs || []).map(function(line){ return '[ai][youtube] ' + line; }));
 
-    response.logs = (response.logs || []).concat([
-      'AI precheck: OPENAI_API_KEY ' + (aiConfig.configured ? 'configured' : 'missing'),
-      '[ai][ufret] reference url input: ' + (request.referenceUrl || '(none)')
-    ]);
+    response.logs = (response.logs || []).concat(['[ai][ufret] reference url input: ' + (request.referenceUrl || '(none)')]);
+    var ufretRaw = normalizeUfretRawPayload_(request.ufretRawLines, request.ufretRawText);
+    if (!ufretRaw.text) {
+      response.logs.push('[ai][ufret] no cached raw data; fallback fetch start');
+      var rawResult = fetchUfretRawFromReferenceCore_(request.referenceUrl);
+      response.logs = response.logs.concat(rawResult.logs || []);
+      if (rawResult.ok) ufretRaw = normalizeUfretRawPayload_(rawResult.lines, rawResult.text);
+    } else {
+      response.logs.push('[ai][ufret] using cached raw data from step-3');
+    }
 
-    var chordResult = fetchUfretChordsFromReferenceUrl_(bundle, request.referenceUrl);
-    response.logs = (response.logs || []).concat(chordResult.logs || []);
-    if (!chordResult.ok) {
+    if (!ufretRaw.text) {
       response.stage = 'metadata_only';
-      response.metadata.draftNotes = (response.metadata.draftNotes || []).concat(chordResult.notes || []);
+      response.metadata.draftNotes = (response.metadata.draftNotes || []);
       if (response.metadata.draftNotes.indexOf('U-FRET内で有効なコードソースを取得できませんでした。') < 0) {
         response.metadata.draftNotes.push('U-FRET内で有効なコードソースを取得できませんでした。');
       }
+      response.metadata.ufretRawLines = [];
+      response.metadata.ufretRawText = '';
+      response.metadata.ufretStatus = 'failed';
+      response.metadata.ufretSourceUrl = sanitizeUrlInput_(request.referenceUrl);
       response.logs.push('[ai][ufret] skip openai: no chord source');
       response.message = 'U-FRET 参照URLから original_Chord を取得できませんでした。URLを確認してください。';
       return response;
     }
 
-    var draft = buildDraftFromReferenceChords_(bundle, chordResult, response.metadata.draftYoutubeUrl || '');
+    response.metadata.ufretRawLines = ufretRaw.lines.slice(0);
+    response.metadata.ufretRawText = ufretRaw.text;
+    response.metadata.ufretStatus = 'ready';
+    response.metadata.ufretSourceUrl = sanitizeUrlInput_(request.referenceUrl);
+    response.metadata.draftNotes = ufretRaw.previewLines.slice(0, 120);
+
+    var aiConfig = getOpenAiConfig_(true);
+    response.logs.push('AI precheck: OPENAI_API_KEY ' + (aiConfig.configured ? 'configured' : 'missing'));
+    if (!aiConfig.configured) {
+      response.stage = 'metadata_only';
+      response.logs.push('[ai][ufret] skip openai: OPENAI_API_KEY missing');
+      response.message = 'U-FRET 生データは取得済みです。OPENAI_API_KEY 設定後に「AIでoriginal_Chord取得」を実行してください。';
+      return response;
+    }
+    response.logs.push('[ai][ufret] openai call start');
+    var draft = requestAiOriginalChordDraftFromUfretRaw_(bundle, aiConfig, ufretRaw.text);
+    response.logs = response.logs.concat(draft.logs || []);
     applyAiDraftToResponse_(response, draft);
-    response.metadata.draftNotes = (response.metadata.draftNotes || []).concat(chordResult.notes || []);
+    response.metadata.draftNotes = (response.metadata.draftNotes || []).concat(draft.notes || []);
     var appliedCount = countAppliedAiDraftCellsInResponse_(response.parts);
     if (appliedCount <= 0) {
       response.stage = 'metadata_only';
@@ -133,13 +156,129 @@ function normalizeSuggestRequest_(input) {
   if (typeof input === 'object' && input) {
     return {
       baseId: input.baseId,
-      referenceUrl: sanitizeUrlInput_(input.referenceUrl)
+      referenceUrl: sanitizeUrlInput_(input.referenceUrl),
+      ufretRawLines: Array.isArray(input.ufretRawLines) ? input.ufretRawLines : [],
+      ufretRawText: String(input.ufretRawText || '')
     };
   }
   return {
     baseId: input,
-    referenceUrl: ''
+    referenceUrl: '',
+    ufretRawLines: [],
+    ufretRawText: ''
   };
+}
+
+function fetchUfretRawPreview(baseId) {
+  try {
+    var request = normalizeSuggestRequest_(baseId);
+    var normalizedBaseId = normalizeBaseId_(request.baseId);
+    var bundle = fetchSongBundle_(normalizedBaseId);
+    var response = buildSongResponse_(bundle, {
+      ok: true,
+      action: 'fetchUfretRawPreview',
+      stage: 'ufret_raw_preview'
+    });
+    response.metadata.referenceUrl = request.referenceUrl || '';
+    response.logs = (response.logs || []).concat(['[ai][ufret] reference url: ' + (request.referenceUrl || '(none)')]);
+    var result = fetchUfretRawFromReferenceCore_(request.referenceUrl);
+    response.logs = response.logs.concat(result.logs || []);
+    response.metadata.ufretSourceUrl = result.sourceUrl || sanitizeUrlInput_(request.referenceUrl);
+    response.metadata.ufretRawLines = result.lines || [];
+    response.metadata.ufretRawText = result.text || '';
+    response.metadata.ufretStatus = result.ok ? 'ready' : 'failed';
+    if (result.ok) {
+      response.metadata.draftNotes = (result.previewLines || []).slice(0, 120);
+      response.message = 'U-FRET 生データ取得成功: ' + result.lines.length + '行';
+    } else {
+      response.metadata.draftNotes = ['U-FRET 生データ取得失敗', result.error || 'unknown error'];
+      response.message = 'U-FRET 生データ取得に失敗しました。';
+    }
+    return response;
+  } catch (error) {
+    return buildErrorResponse_(error, { action: 'fetchUfretRawPreview', baseId: baseId });
+  }
+}
+
+function normalizeUfretRawPayload_(lines, text) {
+  var normalizedLines = Array.isArray(lines) ? lines.map(function(line) { return String(line || '').trim(); }).filter(Boolean) : [];
+  var rawText = String(text || '').trim();
+  if (!rawText && normalizedLines.length) rawText = normalizedLines.join('\n');
+  if (!normalizedLines.length && rawText) normalizedLines = rawText.split(/\r?\n/).map(function(line) { return String(line || '').trim(); }).filter(Boolean);
+  return {
+    lines: normalizedLines,
+    text: rawText,
+    previewLines: normalizedLines.slice(0, 120)
+  };
+}
+
+function fetchUfretRawFromReferenceCore_(referenceUrl) {
+  var logs = [];
+  var url = sanitizeUrlInput_(referenceUrl);
+  logs.push('[ai][ufret] fetch start');
+  logs.push('[ai][ufret] reference url: ' + (url || '(none)'));
+  if (!url) return { ok: false, error: '参照URL未入力です。', logs: logs, lines: [], text: '', sourceUrl: '' };
+  if (!/^https?:\/\/(www\.)?ufret\.jp\/song\.php\?/i.test(url)) {
+    return { ok: false, error: '参照URLは U-FRET の song.php を指定してください。', logs: logs, lines: [], text: '', sourceUrl: url };
+  }
+  var songId = extractUfretSongIdFromUrl_(url);
+  logs.push('[ai][ufret] song_id: ' + (songId || '(none)'));
+  if (!songId) return { ok: false, error: 'song_id(data) を参照URLから取得できませんでした。', logs: logs, lines: [], text: '', sourceUrl: url };
+  try {
+    var canonicalUrl = 'https://www.ufret.jp/song.php?data=' + encodeURIComponent(songId);
+    var html = fetchHtmlText_(canonicalUrl);
+    var lines = extractUfretRawChordLyricLines_(html);
+    if (!lines.length) {
+      logs.push('[ai][ufret] fetch failed: no chord+lyrics lines');
+      return { ok: false, error: 'U-FRET由来の chord+歌詞 生データを抽出できませんでした。', logs: logs, lines: [], text: '', sourceUrl: canonicalUrl };
+    }
+    var numbered = lines.map(function(line, index) { return String(index) + ': ' + line; });
+    var text = numbered.join('\n');
+    logs.push('[ai][ufret] fetch success');
+    logs.push('[ai][ufret] lineCount: ' + lines.length);
+    logs.push('[ai][ufret] preview: ' + summarizeRawText_(text, 240));
+    return { ok: true, logs: logs, lines: numbered, text: text, previewLines: numbered.slice(0, 120), sourceUrl: canonicalUrl };
+  } catch (error) {
+    logs.push('[ai][ufret] fetch failed: ' + error.message);
+    return { ok: false, error: 'U-FRET取得エラー: ' + error.message, logs: logs, lines: [], text: '', sourceUrl: url };
+  }
+}
+
+function extractUfretSongIdFromUrl_(url) {
+  var text = String(url || '');
+  var match = text.match(/[?&]data=([0-9]+)/i);
+  return match ? match[1] : '';
+}
+
+function extractUfretRawChordLyricLines_(html) {
+  var text = decodeHtmlEntities_(String(html || ''));
+  text = text
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<(br|\/p|\/div|\/li|\/tr|\/h\d)\b[^>]*>/gi, '\n');
+  text = stripTags_(text).replace(/[ 　\t]+/g, ' ').replace(/\r/g, '');
+  var lines = text.split('\n').map(function(line) { return String(line || '').trim(); }).filter(Boolean);
+  var filtered = [];
+  lines.forEach(function(line) {
+    if (!/\[[^\]]+\]/.test(line)) return;
+    if (line.length < 4) return;
+    if (/copyright|利用規約|プライバシー|お問い合わせ/i.test(line)) return;
+    filtered.push(line);
+  });
+  if (filtered.length) return collapseAdjacentDuplicateLines_(filtered).slice(0, 260);
+  var inline = decodeHtmlEntities_(String(html || ''));
+  var matches = inline.match(/\[[^\]]+\][^\n<>]{0,180}/g) || [];
+  return collapseAdjacentDuplicateLines_(matches.map(function(line) { return stripTags_(line).trim(); }).filter(Boolean)).slice(0, 260);
+}
+
+function collapseAdjacentDuplicateLines_(lines) {
+  var out = [];
+  lines.forEach(function(line) {
+    if (!line) return;
+    if (out.length && out[out.length - 1] === line) return;
+    out.push(line);
+  });
+  return out;
 }
 
 function saveSong(payload) {
@@ -301,6 +440,10 @@ function buildSongResponse_(bundle, extra) {
       draftYoutubeUrl: draftMetadata.youtubeUrl,
       draftYoutubeEmbedUrl: draftMetadata.youtubeEmbedUrl,
       youtubeSearchUrl: draftMetadata.youtubeSearchUrl,
+      ufretRawLines: [],
+      ufretRawText: '',
+      ufretStatus: 'idle',
+      ufretSourceUrl: '',
       draftStatus: draftMetadata.status,
       draftNotes: draftMetadata.notes,
       aiStatus: aiStatus
@@ -899,6 +1042,52 @@ function requestAiOriginalChordDraft_(bundle, config) {
   throw wrapped;
 }
 
+function requestAiOriginalChordDraftFromUfretRaw_(bundle, config, ufretRawText) {
+  config = config && config.configured ? config : getOpenAiConfig_();
+  var rawText = String(ufretRawText || '').trim();
+  if (!rawText) throw new Error('U-FRET 生データが空です。');
+  var logs = [
+    'OpenAI 実行開始（U-FRET生データ優先）',
+    'AI draft model: ' + config.model + ' (' + (config.modelSource || 'default') + ')',
+    'U-FRET raw length: ' + rawText.length
+  ];
+  var lastError = null;
+  var rawTextForRetry = '';
+  var retryHint = '';
+  for (var attempt = 1; attempt <= AI_JSON_RETRY_MAX; attempt += 1) {
+    try {
+      logs.push('AI JSON生成 attempt ' + attempt + '/' + AI_JSON_RETRY_MAX);
+      var aiJson = runAiDraftAttemptFromUfretRaw_(bundle, config, rawText, attempt, rawTextForRetry, retryHint);
+      rawTextForRetry = extractResponseText_(aiJson);
+      var parsed = extractStructuredDraftObject_(aiJson, logs);
+      validateAiDraftSchema_(parsed);
+      var draft = normalizeAiDraftResponse_(parsed, bundle);
+      var keyCheck = checkDraftBarsKeyAgainstOriginal_(draft, bundle);
+      if (keyCheck.retry) throw new Error('AI bars appear transposed to Quiz_key');
+      var draftCount = countNonEmptyDraftCells_(draft.partMap);
+      if (draftCount <= 0) throw new Error('AI returned empty bars');
+      logs.push('AI下書き受領');
+      logs.push('JSON検証OK');
+      logs.push('non-empty draft count: ' + draftCount);
+      draft.logs = logs;
+      return draft;
+    } catch (error) {
+      lastError = error;
+      var errorType = classifyAiDraftError_(error);
+      logs.push(errorType + ' attempt ' + attempt + ': ' + error.message);
+      logs.push('AI raw snippet: ' + summarizeRawText_(rawTextForRetry, 800));
+      retryHint = /empty bars/i.test(String(error && error.message || ''))
+        ? '前回はbarsが空でした。U-FRET生データからintro/A/B/サビを最低1小節以上埋めてください。'
+        : '前回はJSON整形に失敗しました。JSON以外を一切含めないでください。';
+      if (attempt >= AI_JSON_RETRY_MAX) break;
+      logs.push('JSON再試行を実行します。');
+    }
+  }
+  var wrapped = new Error('AI JSON整形失敗: ' + (lastError ? lastError.message : 'unknown'));
+  wrapped.draftLogs = logs;
+  throw wrapped;
+}
+
 function getOpenAiConfig_(allowMissing) {
   var props = PropertiesService.getScriptProperties();
   var apiKey = String(props.getProperty('OPENAI_API_KEY') || '').trim();
@@ -978,6 +1167,36 @@ function buildChordResearchPrompt_(bundle, previousRawText) {
   ].join('\n');
 }
 
+function buildUfretStructuringPrompt_(bundle, ufretRawText, previousRawText, retryHint) {
+  var first = bundle.rows[0];
+  var retrySection = previousRawText ? [
+    '前回出力がJSONスキーマ不一致でした。JSON以外を一切含めず、schema準拠オブジェクトのみ返してください。',
+    '--- previous output start ---',
+    String(previousRawText || '').slice(0, 4000),
+    '--- previous output end ---',
+    String(retryHint || '')
+  ].join('\n') : String(retryHint || '');
+  return [
+    '以下は U-FRET 由来の [コード]歌詞 生データです。これのみを根拠に original_Chord 下書きを構造化してください。',
+    '外部web検索は禁止。推測で埋めすぎない。',
+    'Artist: ' + first.artist,
+    'Title: ' + first.title,
+    'Current DB original_key: ' + (first.originalKey || ''),
+    '出力制約:',
+    '- part は intro / A / B / サビ',
+    '- bars は各 part 8件',
+    '- bars は original_key（原曲キー）で返す',
+    '- secondHalf only 禁止',
+    '- 1小節2コード時だけ firstHalf/secondHalf を使用',
+    '- 各partに最低1小節以上は firstHalf を埋めること（全part空欄は不可）',
+    '- 不明な箇所は空文字',
+    '--- ufret_raw start ---',
+    String(ufretRawText || '').slice(0, 24000),
+    '--- ufret_raw end ---',
+    retrySection
+  ].join('\n');
+}
+
 function buildAiResponseSchema_() {
   return {
     name: 'go_rock_camp_chord_draft',
@@ -1023,6 +1242,21 @@ function runAiDraftAttempt_(bundle, config, attempt, previousRawText, retryHint)
     model: config.model,
     tools: [{ type: 'web_search' }],
     input: buildChordResearchPrompt_(bundle, attempt > 1 ? previousRawText : '', attempt > 1 ? retryHint : ''),
+    text: {
+      format: {
+        type: 'json_schema',
+        name: buildAiResponseSchema_().name,
+        schema: buildAiResponseSchema_().schema,
+        strict: true
+      }
+    }
+  });
+}
+
+function runAiDraftAttemptFromUfretRaw_(bundle, config, ufretRawText, attempt, previousRawText, retryHint) {
+  return callOpenAiResponsesApiRaw_(config.apiKey, {
+    model: config.model,
+    input: buildUfretStructuringPrompt_(bundle, ufretRawText, attempt > 1 ? previousRawText : '', attempt > 1 ? retryHint : ''),
     text: {
       format: {
         type: 'json_schema',

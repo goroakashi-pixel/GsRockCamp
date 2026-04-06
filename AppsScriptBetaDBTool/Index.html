@@ -72,6 +72,7 @@
   </div>
   <div class="row" style="margin-top:8px;">
     <button class="btn primary" id="loadButton">読み込み</button>
+    <button class="btn" id="ufretFetchButton">Uフレットからコード取得</button>
     <button class="btn" id="aiChordButton">AIでoriginal_Chord取得</button>
     <button class="btn" id="reloadButton">再読込</button>
     <button class="btn primary" id="saveButton">確定保存</button>
@@ -191,7 +192,7 @@ function createEmptySong_(){
     ok:false,
     appVersion:APP_VERSION,
     connection:{connected:false},
-    metadata:{data:'',artist:'',title:'',rank:'',era:'',youtubeUrl:'',youtubeEmbedUrl:'',youtubeSearchUrl:'',originalKey:'',quizKey:'',draftOriginalKey:'',draftQuizKey:'',draftYoutubeUrl:'',referenceUrl:'',draftNotes:[],draftStatus:{},aiStatus:{configured:false,model:'gpt-5'}},
+    metadata:{data:'',artist:'',title:'',rank:'',era:'',youtubeUrl:'',youtubeEmbedUrl:'',youtubeSearchUrl:'',originalKey:'',quizKey:'',draftOriginalKey:'',draftQuizKey:'',draftYoutubeUrl:'',referenceUrl:'',ufretRawLines:[],ufretRawText:'',ufretStatus:'idle',ufretSourceUrl:'',draftNotes:[],draftStatus:{},aiStatus:{configured:false,model:'gpt-5'}},
     parts:PART_ORDER.map(createEmptyPart_),
     logs:[]
   };
@@ -212,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function bindEvents_(){
   $('loadButton').addEventListener('click', handleLoad_);
+  $('ufretFetchButton').addEventListener('click', handleUfretFetch_);
   $('aiChordButton').addEventListener('click', handleAiChord_);
   $('reloadButton').addEventListener('click', () => state.baseId ? handleLoad_() : log_('再読込前に先頭IDを読み込んでください。'));
   $('saveButton').addEventListener('click', handleSave_);
@@ -250,11 +252,29 @@ function handleAiChord_(){
   if(!state.baseId){ log_('AI取得前に先頭IDを読み込んでください。'); return; }
   setBusy_(true,false);
   startAiProgressNote_();
-  log_(`suggestOriginalChords(${state.baseId}) を呼び出します。公開Web調査 → OPENAI_API_KEY があれば AI original_Chord 下書き、無ければ metadata 候補まで取得します。`);
-  runServer_('suggestOriginalChords', { baseId: state.baseId, referenceUrl: $('referenceUrlInput').value.trim() })
+  log_(`suggestOriginalChords(${state.baseId}) を呼び出します。③で取得したU-FRET生データを優先して AI original_Chord 下書きを作成します。`);
+  runServer_('suggestOriginalChords', {
+    baseId: state.baseId,
+    referenceUrl: $('referenceUrlInput').value.trim(),
+    ufretRawLines: state.song.metadata.ufretRawLines || [],
+    ufretRawText: state.song.metadata.ufretRawText || ''
+  })
     .then((response)=>applyAiDraftResponse_(response))
     .catch((error)=>handleClientError_(error,'ai'))
     .finally(()=>{ stopAiProgressNote_(); setBusy_(false,false); });
+}
+
+function handleUfretFetch_(){
+  if(state.loading || state.saving) return;
+  if(!state.baseId){ log_('U-FRET取得前に先頭IDを読み込んでください。'); return; }
+  const referenceUrl = $('referenceUrlInput').value.trim();
+  if(!referenceUrl){ log_('参照URL（U-FRET曲ページ）を入力してください。'); return; }
+  setBusy_(true,false);
+  log_(`fetchUfretRawPreview(${state.baseId}) を呼び出します。OpenAI は使用しません。`);
+  runServer_('fetchUfretRawPreview', { baseId: state.baseId, referenceUrl })
+    .then((response)=>applyUfretRawResponse_(response))
+    .catch((error)=>handleClientError_(error,'ufret'))
+    .finally(()=>setBusy_(false,false));
 }
 
 function handleSave_(){
@@ -328,6 +348,10 @@ function applyAiDraftResponse_(response){
   if(!$('draftQuizKeyInput').value.trim()) currentMeta.draftQuizKey = incoming.metadata.draftQuizKey || currentMeta.draftQuizKey;
   if(!$('draftYoutubeInput').value.trim()) currentMeta.draftYoutubeUrl = incoming.metadata.draftYoutubeUrl || currentMeta.draftYoutubeUrl;
   if(!$('referenceUrlInput').value.trim()) currentMeta.referenceUrl = incoming.metadata.referenceUrl || currentMeta.referenceUrl;
+  currentMeta.ufretRawLines = incoming.metadata.ufretRawLines || currentMeta.ufretRawLines;
+  currentMeta.ufretRawText = incoming.metadata.ufretRawText || currentMeta.ufretRawText;
+  currentMeta.ufretStatus = incoming.metadata.ufretStatus || currentMeta.ufretStatus;
+  currentMeta.ufretSourceUrl = incoming.metadata.ufretSourceUrl || currentMeta.ufretSourceUrl;
   currentMeta.youtubeSearchUrl = incoming.metadata.youtubeSearchUrl || currentMeta.youtubeSearchUrl;
   currentMeta.draftNotes = incoming.metadata.draftNotes || currentMeta.draftNotes;
   currentMeta.draftStatus = incoming.metadata.draftStatus || currentMeta.draftStatus;
@@ -355,6 +379,23 @@ function applyAiDraftResponse_(response){
     log_('[ai] AI返答は受信しましたが、コード下書きは空のため失敗');
     log_('UI apply failure: 非空AI下書きが state / 表示対象にありません');
   }
+  (response.logs || []).forEach((line)=>log_(line));
+}
+
+function applyUfretRawResponse_(response){
+  if(!response || !response.ok){ throw new Error(response && response.error ? response.error : 'ufret failed'); }
+  const incoming = normalizeSongResponse_(response);
+  const currentMeta = state.song.metadata || {};
+  currentMeta.referenceUrl = incoming.metadata.referenceUrl || currentMeta.referenceUrl;
+  currentMeta.ufretRawLines = incoming.metadata.ufretRawLines || [];
+  currentMeta.ufretRawText = incoming.metadata.ufretRawText || '';
+  currentMeta.ufretStatus = incoming.metadata.ufretStatus || 'idle';
+  currentMeta.ufretSourceUrl = incoming.metadata.ufretSourceUrl || '';
+  currentMeta.draftNotes = incoming.metadata.draftNotes || currentMeta.draftNotes;
+  state.song.metadata = currentMeta;
+  syncDraftInputsFromState_(false);
+  renderAll_(false);
+  log_(`[ufret] ${response.message || 'OK'} / lines:${(currentMeta.ufretRawLines || []).length}`);
   (response.logs || []).forEach((line)=>log_(line));
 }
 
@@ -603,7 +644,7 @@ function validateBarClient_(bar, part, barNumber){
 
 function setBusy_(loading, saving){
   state.loading = !!loading; state.saving = !!saving;
-  ['loadButton','aiChordButton','reloadButton','saveButton','checkAuthButton','applyQuizKeyButton','clearYoutubeButton'].forEach((id)=>{ const el=$(id); if(el) el.disabled = state.loading || state.saving; });
+  ['loadButton','ufretFetchButton','aiChordButton','reloadButton','saveButton','checkAuthButton','applyQuizKeyButton','clearYoutubeButton'].forEach((id)=>{ const el=$(id); if(el) el.disabled = state.loading || state.saving; });
 }
 
 function handleClientError_(error, phase){
@@ -632,9 +673,9 @@ function startAiProgressNote_(){
     $('draftNotes').textContent = [
       `AI下書き作業中${dots}`,
       `利用API: OpenAI Responses API (${model})`,
-      'chord取得: U-FRET参照URL→動画プラス→U-FRET検索スニペットの順に解析',
+      `U-FRET生データ: ${(state.song.metadata.ufretStatus || 'idle') === 'ready' ? '取得済み（③）' : '未取得（fallback実行の可能性あり）'}`,
       'YouTube探索: 公開Web検索',
-      '実行内容: original_key・YouTube候補・part別original_Chord下書きを作成中',
+      '実行内容: U-FRET生データをもとにoriginal_key・YouTube候補・part別original_Chord下書きを作成中',
       `経過: ${state.aiProgressTick}秒`
     ].join('\n');
   };
