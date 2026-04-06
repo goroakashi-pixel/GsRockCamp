@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "GoRockCamp U-FRET Bridge",
+  "version": "1.0.0",
+  "description": "Bridge between GoRockCamp DB tool UI and U-FRET chord API extraction.",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content_bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "host_permissions": [
+    "https://www.ufret.jp/*"
+  ]
+}
