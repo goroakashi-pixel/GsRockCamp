@@ -184,31 +184,3 @@ function saveSong(payload) {
     return buildErrorResponse_(error, { action: 'saveSong', baseId: payload && payload.baseId });
   }
 }
-
-function fetchUfretRawPreview(baseId) {
-  try {
-    var request = normalizeSuggestRequest_(baseId);
-    var normalizedBaseId = normalizeBaseId_(request.baseId);
-    var bundle = fetchSongBundle_(normalizedBaseId);
-    var response = buildSongResponse_(bundle, {
-      ok: true,
-      action: 'fetchUfretRawPreview',
-      stage: 'ufret_raw_preview'
-    });
-    response.metadata.referenceUrl = request.referenceUrl || '';
-    response.logs = (response.logs || []).concat([
-      '[ai][ufret] fetchUfretRawPreview called',
-      '[ai][ufret] this action is UI bridge-only (Chrome extension)',
-      '[ai][ufret] reference url: ' + (request.referenceUrl || '(none)')
-    ]);
-    response.metadata.ufretSourceUrl = sanitizeUrlInput_(request.referenceUrl);
-    response.metadata.ufretRawLines = [];
-    response.metadata.ufretRawText = '';
-    response.metadata.ufretStatus = 'idle';
-    response.metadata.draftNotes = ['U-FRET取得はChrome拡張から実行してください。'];
-    response.message = 'U-FRET取得はChrome拡張連携に移行しました。';
-    return response;
-  } catch (error) {
-    return buildErrorResponse_(error, { action: 'fetchUfretRawPreview', baseId: baseId });
-  }
-}
