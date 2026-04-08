@@ -407,7 +407,6 @@ function requestUfretPreviewFromExtension_(referenceUrl){
       reject(new Error('Chrome拡張から応答がありません。拡張を有効化し、対象タブで連携を許可してください。'));
     }, 12000);
     const onMessage = (event)=>{
-      if(event.source !== window) return;
       const data = event.data || {};
       if(data.source !== 'ufret-extension-bridge') return;
       if(data.requestId !== reqId) return;
