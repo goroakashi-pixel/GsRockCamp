@@ -13,3 +13,5 @@ Chrome拡張として読み込む手順:
 ## v1.0.2 変更点
 - Apps Script の iframe / about:blank / sandbox 構成でも content script が届きやすいよう、`all_frames` に加えて `match_about_blank` / `match_origin_as_fallback` を有効化。
 - `content_bridge.js` に `bridge-ready` / `bridge-received` の最小限イベントを追加（タイムアウト切り分け用）。
+- `bridge-ping` を受けると `bridge-ready` を返すヘルスチェックを追加。
+- `requestId` を持つ応答は success / failure の最終1回のみ。

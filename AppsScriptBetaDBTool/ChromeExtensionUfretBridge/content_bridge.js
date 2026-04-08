@@ -7,10 +7,14 @@
   window.addEventListener('message', (event) => {
     const message = event.data || {};
     if (message.source !== 'grockcamp-db-tool') return;
+    if (message.action === 'bridge-ping') {
+      postBridgeMessage_({ action: 'bridge-ready', detail: 'bridge-ping ack' });
+      return;
+    }
     if (message.action !== 'extractUfretPreviewFromReferenceUrl') return;
 
     const requestId = String(message.requestId || '');
-    postBridgeMessage_({ requestId, action: 'bridge-received', detail: 'request accepted in content script' });
+    postBridgeMessage_({ action: 'bridge-received', detail: 'request accepted in content script' });
     chrome.runtime.sendMessage({
       action: 'extractUfretPreviewFromReferenceUrl',
       referenceUrl: message.referenceUrl || ''

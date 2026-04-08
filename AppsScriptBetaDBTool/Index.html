@@ -184,6 +184,7 @@ const state = {
   aiProgressTick:0,
   youtubeSrcApplied:'',
   auth:{authorized:false, checked:false, authorizationUrl:'', authorizationStatus:'UNKNOWN'},
+  bridge:{ready:false, lastReadyAt:0},
   song:createEmptySong_()
 };
 
@@ -204,12 +205,31 @@ function createEmptyPart_(part){
 
 document.addEventListener('DOMContentLoaded', () => {
   document.title = `GoRockCamp DB投入支援ツール β v${APP_VERSION}`;
+  bindExtensionBridgeEvents_();
   bindEvents_();
   renderPads_();
   renderTabs_();
   renderAll_();
   log_(`DOM ready / version ${APP_VERSION}`);
+  pingExtensionBridge_();
 });
+
+function bindExtensionBridgeEvents_(){
+  window.addEventListener('message', (event)=>{
+    const data = event && event.data ? event.data : {};
+    if(data.source !== 'ufret-extension-bridge') return;
+    if(data.action === 'bridge-ready'){
+      state.bridge.ready = true;
+      state.bridge.lastReadyAt = Date.now();
+      renderHeader_();
+      log_('[ufret] bridge-ready を受信しました（拡張接続: OK）');
+    }
+  });
+}
+
+function pingExtensionBridge_(){
+  window.postMessage({ source:'grockcamp-db-tool', action:'bridge-ping' }, '*');
+}
 
 function bindEvents_(){
   $('loadButton').addEventListener('click', handleLoad_);
@@ -269,7 +289,13 @@ function handleUfretFetch_(){
   if(!state.baseId){ log_('U-FRET取得前に先頭IDを読み込んでください。'); return; }
   const referenceUrl = $('referenceUrlInput').value.trim();
   if(!referenceUrl){ log_('参照URL（U-FRET曲ページ）を入力してください。'); return; }
+  if(!state.bridge.ready){
+    log_('[ufret] 拡張未接続です。拡張を有効化後、ページ再読み込みまたは数秒待って再試行してください。');
+    $('draftNotes').textContent = '拡張接続: 未接続\nChrome拡張がこの画面へ注入されていません。拡張ON/サイトアクセスを確認してください。';
+    return;
+  }
   setBusy_(true,false);
+  log_('[ufret] bridge-ready 済み / request送信します');
   log_('U-FRET生データ取得を Chrome拡張へ依頼します。OpenAI は使用しません。');
   requestUfretPreviewFromExtension_(referenceUrl)
     .then((payload)=>applyUfretRawPayloadToState_(payload, referenceUrl))
@@ -402,6 +428,7 @@ function applyUfretRawResponse_(response){
 function requestUfretPreviewFromExtension_(referenceUrl){
   return new Promise((resolve, reject)=>{
     const reqId = `ufret_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    log_(`[ufret] requestId=${reqId} 送信`);
     const timeout = setTimeout(()=>{
       window.removeEventListener('message', onMessage);
       reject(new Error('Chrome拡張から応答がありません。拡張を有効化し、対象タブで連携を許可してください。'));
@@ -502,7 +529,8 @@ function renderAll_(forceYoutube){
 
 function renderHeader_(){
   const conn = state.song.connection && state.song.connection.connected;
-  $('connectionStatus').textContent = conn ? `接続OK / ${state.song.connection.sheetName} / ${state.song.connection.spreadsheetId} / v${state.song.appVersion || APP_VERSION}` : '未接続';
+  const bridge = state.bridge && state.bridge.ready ? '拡張接続: OK' : '拡張接続: 未接続';
+  $('connectionStatus').textContent = conn ? `接続OK / ${state.song.connection.sheetName} / ${state.song.connection.spreadsheetId} / ${bridge} / v${state.song.appVersion || APP_VERSION}` : `未接続 / ${bridge}`;
   $('dataWarning').classList.toggle('show', String(state.song.metadata.data || '').toUpperCase() === 'TRUE');
 }
 
