@@ -110,8 +110,16 @@
     </div>
   </div>
   <div class="row" style="margin-top:8px;">
+    <div style="flex:1; min-width:260px;">
+      <label>U-FRET生データ（コピペ）</label>
+      <textarea id="ufretRawInput" rows="6" style="width:100%;font-size:14px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;box-sizing:border-box;background:#fff;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;" placeholder="Chrome拡張ポップアップで取得したテキストをここへ貼り付けます。空行は消さず、そのまま貼ってください。"></textarea>
+      <div class="muted" style="margin-top:6px;">Chrome拡張ポップアップで取得したテキストをここへ貼り付けます（空行はそのまま）。</div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px;">
     <button class="btn small" id="applyQuizKeyButton">Quiz_key を再計算</button>
     <button class="btn small warn" id="clearYoutubeButton">YouTube 下書きクリア</button>
+    <button class="btn small warn" id="clearUfretRawButton">U-FRET貼り付けクリア</button>
   </div>
   <div class="youtubeWrap" id="youtubeWrap"><div class="youtubeEmpty">YouTube URL が入るとここに埋め込み表示します。</div></div>
   <div class="youtubeLinks" id="youtubeLinks"></div>
@@ -184,7 +192,6 @@ const state = {
   aiProgressTick:0,
   youtubeSrcApplied:'',
   auth:{authorized:false, checked:false, authorizationUrl:'', authorizationStatus:'UNKNOWN'},
-  bridge:{ready:false, lastReadyAt:0},
   song:createEmptySong_()
 };
 
@@ -205,31 +212,12 @@ function createEmptyPart_(part){
 
 document.addEventListener('DOMContentLoaded', () => {
   document.title = `GoRockCamp DB投入支援ツール β v${APP_VERSION}`;
-  bindExtensionBridgeEvents_();
   bindEvents_();
   renderPads_();
   renderTabs_();
   renderAll_();
   log_(`DOM ready / version ${APP_VERSION}`);
-  pingExtensionBridge_();
 });
-
-function bindExtensionBridgeEvents_(){
-  window.addEventListener('message', (event)=>{
-    const data = event && event.data ? event.data : {};
-    if(data.source !== 'ufret-extension-bridge') return;
-    if(data.action === 'bridge-ready'){
-      state.bridge.ready = true;
-      state.bridge.lastReadyAt = Date.now();
-      renderHeader_();
-      log_('[ufret] bridge-ready を受信しました（拡張接続: OK）');
-    }
-  });
-}
-
-function pingExtensionBridge_(){
-  window.postMessage({ source:'grockcamp-db-tool', action:'bridge-ping' }, '*');
-}
 
 function bindEvents_(){
   $('loadButton').addEventListener('click', handleLoad_);
@@ -240,10 +228,12 @@ function bindEvents_(){
   $('checkAuthButton').addEventListener('click', handleAuthCheck_);
   $('applyQuizKeyButton').addEventListener('click', handleQuizKeyAutoFill_);
   $('clearYoutubeButton').addEventListener('click', () => { $('draftYoutubeInput').value=''; syncDraftInputsToState_(); renderYoutube_(true); });
+  $('clearUfretRawButton').addEventListener('click', () => { $('ufretRawInput').value=''; syncDraftInputsToState_(); renderMetaOnly_(); log_('[ufret] 貼り付けテキストをクリアしました。'); });
   $('draftOriginalKeyInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
   $('draftQuizKeyInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
   $('draftYoutubeInput').addEventListener('input', () => { syncDraftInputsToState_(); renderYoutube_(true); renderMetaOnly_(); });
   $('referenceUrlInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
+  $('ufretRawInput').addEventListener('input', () => { syncDraftInputsToState_(); renderMetaOnly_(); });
   $('baseIdInput').addEventListener('keydown', (event)=>{ if(event.key==='Enter'){ event.preventDefault(); handleLoad_(); } });
   $('btn4barRep').onclick = fourBarRepeat_;
   $('btnClearBar').onclick = clearSelected_;
@@ -289,18 +279,15 @@ function handleUfretFetch_(){
   if(!state.baseId){ log_('U-FRET取得前に先頭IDを読み込んでください。'); return; }
   const referenceUrl = $('referenceUrlInput').value.trim();
   if(!referenceUrl){ log_('参照URL（U-FRET曲ページ）を入力してください。'); return; }
-  if(!state.bridge.ready){
-    log_('[ufret] 拡張未接続です。拡張を有効化後、ページ再読み込みまたは数秒待って再試行してください。');
-    $('draftNotes').textContent = '拡張接続: 未接続\nChrome拡張がこの画面へ注入されていません。拡張ON/サイトアクセスを確認してください。';
-    return;
-  }
-  setBusy_(true,false);
-  log_('[ufret] bridge-ready 済み / request送信します');
-  log_('U-FRET生データ取得を Chrome拡張へ依頼します。OpenAI は使用しません。');
-  requestUfretPreviewFromExtension_(referenceUrl)
-    .then((payload)=>applyUfretRawPayloadToState_(payload, referenceUrl))
-    .catch((error)=>handleClientError_(error,'ufret'))
-    .finally(()=>setBusy_(false,false));
+  const pasted = $('ufretRawInput').value || '';
+  const lineCount = pasted.split(/\r?\n/).length;
+  log_('[ufret] direct bridge は無効化されています。Chrome拡張ポップアップを手動実行してください。');
+  log_(`[ufret] 参照URL: ${referenceUrl}`);
+  log_(`[ufret] 貼り付け行数: ${lineCount} (${pasted.trim() ? '貼り付け済み' : '未貼り付け'})`);
+  $('draftNotes').textContent = pasted.trim()
+    ? pasted
+    : 'Chrome拡張ポップアップで U-FRET 生データを取得し、この画面の「U-FRET生データ（コピペ）」欄へ貼り付けてください。';
+  syncDraftInputsToState_();
 }
 
 function handleSave_(){
@@ -425,54 +412,6 @@ function applyUfretRawResponse_(response){
   (response.logs || []).forEach((line)=>log_(line));
 }
 
-function requestUfretPreviewFromExtension_(referenceUrl){
-  return new Promise((resolve, reject)=>{
-    const reqId = `ufret_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-    log_(`[ufret] requestId=${reqId} 送信`);
-    const timeout = setTimeout(()=>{
-      window.removeEventListener('message', onMessage);
-      reject(new Error('Chrome拡張から応答がありません。拡張を有効化し、対象タブで連携を許可してください。'));
-    }, 12000);
-    const onMessage = (event)=>{
-      const data = event.data || {};
-      if(data.source !== 'ufret-extension-bridge') return;
-      if(data.requestId !== reqId) return;
-      clearTimeout(timeout);
-      window.removeEventListener('message', onMessage);
-      if(data.ok && data.payload){ resolve(data.payload); return; }
-      reject(new Error(data.error || '拡張取得に失敗しました。'));
-    };
-    window.addEventListener('message', onMessage);
-    window.postMessage({
-      source:'grockcamp-db-tool',
-      action:'extractUfretPreviewFromReferenceUrl',
-      requestId:reqId,
-      referenceUrl
-    }, '*');
-  });
-}
-
-function applyUfretRawPayloadToState_(payload, referenceUrl){
-  const ok = !!(payload && payload.ok);
-  const meta = state.song.metadata || {};
-  const lines = Array.isArray(payload && payload.ufretRawLines) ? payload.ufretRawLines.map((line)=>String(line || '').trim()).filter(Boolean) : [];
-  const previewText = String((payload && payload.previewText) || '').trim();
-  const previewLines = previewText ? previewText.split(/\r?\n/) : lines;
-  meta.referenceUrl = referenceUrl;
-  meta.ufretRawLines = lines;
-  meta.ufretRawText = previewText || lines.join('\n');
-  meta.ufretStatus = ok ? 'ready' : 'failed';
-  meta.ufretSourceUrl = (payload && payload.songUrl) || referenceUrl;
-  meta.draftNotes = ok
-    ? previewLines.slice(0, 120)
-    : ['U-FRET 生データ取得失敗', String((payload && payload.message) || 'unknown error')];
-  state.song.metadata = meta;
-  syncDraftInputsFromState_(false);
-  renderAll_(false);
-  log_(`[ufret] ${ok ? 'success' : 'failed'} / lineCount:${Number(payload && payload.lineCount || lines.length || 0)}`);
-  String((payload && payload.logText) || '').split(/\r?\n/).filter(Boolean).forEach((line)=>log_(line));
-}
-
 function normalizeSongResponse_(response){
   return {
     ...response,
@@ -508,6 +447,7 @@ function syncDraftInputsFromState_(overwrite){
   if(overwrite || !$('draftQuizKeyInput').value.trim()) $('draftQuizKeyInput').value = meta.draftQuizKey || '';
   if(overwrite || !$('draftYoutubeInput').value.trim()) $('draftYoutubeInput').value = meta.draftYoutubeUrl || '';
   if(overwrite || !$('referenceUrlInput').value.trim()) $('referenceUrlInput').value = meta.referenceUrl || '';
+  if(overwrite || !$('ufretRawInput').value.trim()) $('ufretRawInput').value = meta.ufretRawText || '';
   syncDraftInputsToState_();
 }
 
@@ -516,6 +456,9 @@ function syncDraftInputsToState_(){
   state.song.metadata.draftQuizKey = sanitizeQuizKey_($('draftQuizKeyInput').value);
   state.song.metadata.draftYoutubeUrl = $('draftYoutubeInput').value.trim();
   state.song.metadata.referenceUrl = $('referenceUrlInput').value.trim();
+  state.song.metadata.ufretRawText = $('ufretRawInput').value;
+  state.song.metadata.ufretRawLines = $('ufretRawInput').value.split(/\r?\n/);
+  state.song.metadata.ufretStatus = $('ufretRawInput').value.trim() ? 'ready' : 'idle';
 }
 
 function renderAll_(forceYoutube){
@@ -529,8 +472,7 @@ function renderAll_(forceYoutube){
 
 function renderHeader_(){
   const conn = state.song.connection && state.song.connection.connected;
-  const bridge = state.bridge && state.bridge.ready ? '拡張接続: OK' : '拡張接続: 未接続';
-  $('connectionStatus').textContent = conn ? `接続OK / ${state.song.connection.sheetName} / ${state.song.connection.spreadsheetId} / ${bridge} / v${state.song.appVersion || APP_VERSION}` : `未接続 / ${bridge}`;
+  $('connectionStatus').textContent = conn ? `接続OK / ${state.song.connection.sheetName} / ${state.song.connection.spreadsheetId} / v${state.song.appVersion || APP_VERSION}` : '未接続';
   $('dataWarning').classList.toggle('show', String(state.song.metadata.data || '').toUpperCase() === 'TRUE');
 }
 
@@ -719,7 +661,7 @@ function validateBarClient_(bar, part, barNumber){
 
 function setBusy_(loading, saving){
   state.loading = !!loading; state.saving = !!saving;
-  ['loadButton','ufretFetchButton','aiChordButton','reloadButton','saveButton','checkAuthButton','applyQuizKeyButton','clearYoutubeButton'].forEach((id)=>{ const el=$(id); if(el) el.disabled = state.loading || state.saving; });
+  ['loadButton','ufretFetchButton','aiChordButton','reloadButton','saveButton','checkAuthButton','applyQuizKeyButton','clearYoutubeButton','clearUfretRawButton'].forEach((id)=>{ const el=$(id); if(el) el.disabled = state.loading || state.saving; });
 }
 
 function handleClientError_(error, phase){
